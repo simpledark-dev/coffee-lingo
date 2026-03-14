@@ -8,56 +8,67 @@ const expressions = expressionsData as Expression[]
 const templates = templatesData as DialogueTemplate[]
 
 describe('resolveTemplate', () => {
-  it('resolves {quantity} and {item} variables to idea tags', () => {
-    const orderTemplate = templates.find((t) => t.id === 'ordering_01')!
+  it('resolves {quantity} and {item} variables in requiredIdeas', () => {
+    const orderTemplate = templates.find((t) => t.id === 'order_04')!
     const result = resolveTemplate(orderTemplate, expressions)
 
-    // requiredIdeas should NOT contain "{quantity}" or "{item}"
     expect(result.requiredIdeas).not.toContain('{quantity}')
     expect(result.requiredIdeas).not.toContain('{item}')
-
-    // Should contain the resolved tags
     expect(result.requiredIdeas).toContain('confirmation')
-    expect(result.requiredIdeas).toContain('quantity')
-    expect(result.requiredIdeas).toContain('item')
+    expect(result.requiredIdeas.some((r) => r === 'quantity' || r === 'item')).toBe(true)
   })
 
   it('keeps plain string requiredIdeas unchanged', () => {
-    const greetingTemplate = templates.find((t) => t.id === 'greeting_01')!
+    const greetingTemplate = templates.find((t) => t.id === 'greet_01')!
     const result = resolveTemplate(greetingTemplate, expressions)
 
     expect(result.requiredIdeas).toContain('greeting')
   })
 
   it('fills variables into customer line text', () => {
-    const orderTemplate = templates.find((t) => t.id === 'ordering_01')!
+    const orderTemplate = templates.find((t) => t.id === 'order_01')!
     const result = resolveTemplate(orderTemplate, expressions)
 
-    // Customer line should not contain {quantity} or {item}
-    expect(result.customerLine).not.toContain('{quantity}')
     expect(result.customerLine).not.toContain('{item}')
-
-    // Should contain one of the actual values
-    const hasQuantity = ['un', 'deux', 'trois'].some((q) =>
-      result.customerLine.includes(q)
-    )
     const hasItem = ['café', 'thé'].some((i) => result.customerLine.includes(i))
-    expect(hasQuantity).toBe(true)
     expect(hasItem).toBe(true)
   })
 
+  it('fills variables into choice display text', () => {
+    const orderTemplate = templates.find((t) => t.id === 'order_01')!
+    const result = resolveTemplate(orderTemplate, expressions)
+
+    for (const choice of result.choices) {
+      expect(choice.displayText).not.toContain('{item}')
+    }
+    // At least one choice should mention the item
+    const anyMentionsItem = result.choices.some((c) =>
+      ['café', 'thé'].some((i) => c.displayText.includes(i))
+    )
+    expect(anyMentionsItem).toBe(true)
+  })
+
+  it('generates 4 shuffled choices per exchange', () => {
+    const template = templates.find((t) => t.id === 'greet_01')!
+    const result = resolveTemplate(template, expressions)
+
+    expect(result.choices).toHaveLength(4)
+    // At least one PERFECT or GOOD
+    const hasGood = result.choices.some((c) => c.score === 'PERFECT' || c.score === 'GOOD')
+    expect(hasGood).toBe(true)
+  })
+
   it('generates hint idea and hint translation', () => {
-    const orderTemplate = templates.find((t) => t.id === 'ordering_01')!
+    const orderTemplate = templates.find((t) => t.id === 'order_04')!
     const result = resolveTemplate(orderTemplate, expressions)
 
     expect(result.hintIdea).toBe('Confirm the order')
     expect(result.hintTranslation).toBeTruthy()
-    // Hint translation should not contain {variable} references
     expect(result.hintTranslation).not.toContain('{')
   })
 
   it('templates without variables have unchanged requiredIdeas', () => {
-    const template = templates.find((t) => t.id === 'politeness_01')!
+    const template = templates.find((t) => t.id === 'thanks_01')!
     const result = resolveTemplate(template, expressions)
 
     expect(result.requiredIdeas).toEqual(['politeness'])

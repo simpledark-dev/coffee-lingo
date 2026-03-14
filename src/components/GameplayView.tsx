@@ -1,37 +1,36 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Expression, ResolvedExchange, Score, EvaluationResult, DaySummary, PlayerState } from '../lib/types'
-import { evaluate } from '../lib/game'
+import { AnswerChoice, CustomerConversation, ResolvedExchange, Score, EvaluationResult, DaySummary, PlayerState } from '../lib/types'
+import { evaluateChoice } from '../lib/game'
 import { updateMastery } from '../lib/state'
 import HUD from './HUD'
-import CafeScene from './CafeScene'
-import Customer from './Customer'
+import CafeCanvas from './CafeCanvas'
 
 interface GameplayViewProps {
-  exchanges: ResolvedExchange[]
+  conversations: CustomerConversation[]
   playerState: PlayerState
   onDayEnd: (summary: DaySummary, updatedState: PlayerState) => void
 }
 
 const PATIENCE_DURATION = 20_000
 
-type CustomerPhase = 'entering' | 'present' | 'score' | 'exiting'
+type CustomerPhase = 'entering' | 'present' | 'score' | 'exiting' | 'idle'
 
 export default function GameplayView({
-  exchanges,
+  conversations,
   playerState,
   onDayEnd,
 }: GameplayViewProps) {
   const [customerIndex, setCustomerIndex] = useState(0)
-  const [selectedWords, setSelectedWords] = useState<Expression[]>([])
-  const [responding, setResponding] = useState(true)
+  const [turnIndex, setTurnIndex] = useState(0)
+  const [responding, setResponding] = useState(false)
   const [customerPhase, setCustomerPhase] = useState<CustomerPhase>('entering')
   const [lastResult, setLastResult] = useState<EvaluationResult | null>(null)
+  const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null)
   const [hintLevel, setHintLevel] = useState(0)
   const [patiencePercent, setPatiencePercent] = useState(100)
 
-  // Refs for accumulators (avoid stale closures)
   const accRef = useRef({
     coinsEarned: 0,
     reputationChange: 0,
@@ -45,19 +44,32 @@ export default function GameplayView({
   const [displayRep, setDisplayRep] = useState(playerState.reputation)
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const respondingRef = useRef(true)
+  const respondingRef = useRef(false)
   const processingRef = useRef(false)
 
-  const exchange = exchanges[customerIndex]
+  const conversation = conversations[customerIndex]
+  const exchange = conversation?.exchanges[turnIndex]
+  const exchangeRef = useRef(exchange)
+  exchangeRef.current = exchange
+  const hintLevelRef = useRef(hintLevel)
+  hintLevelRef.current = hintLevel
+  const turnIndexRef = useRef(turnIndex)
+  turnIndexRef.current = turnIndex
+  const customerIndexRef = useRef(customerIndex)
+  customerIndexRef.current = customerIndex
 
-  // Customer entrance on mount and index change
+  // Customer entrance
   useEffect(() => {
     setCustomerPhase('entering')
+    setTurnIndex(0)
+    processingRef.current = false
+
     const timer = setTimeout(() => {
       setCustomerPhase('present')
       setResponding(true)
       respondingRef.current = true
-    }, 450)
+    }, 1200)
+
     return () => clearTimeout(timer)
   }, [customerIndex])
 
@@ -76,39 +88,31 @@ export default function GameplayView({
       const remaining = Math.max(0, 100 - (elapsed / PATIENCE_DURATION) * 100)
       setPatiencePercent(remaining)
 
-      if (remaining <= 0) {
-        if (timerRef.current) clearInterval(timerRef.current)
+      if (remaining <= 0 && timerRef.current) {
+        clearInterval(timerRef.current)
       }
     }, 100)
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [customerIndex, customerPhase, responding])
-
-  // Timeout detection
-  const exchangeRef = useRef(exchange)
-  exchangeRef.current = exchange
-  const hintLevelRef = useRef(hintLevel)
-  hintLevelRef.current = hintLevel
+  }, [customerIndex, turnIndex, customerPhase, responding])
 
   const processResult = useCallback(
-    (words: Expression[], currentExchange: ResolvedExchange, currentHintLevel: number) => {
+    (choice: AnswerChoice | null, currentExchange: ResolvedExchange, currentHintLevel: number) => {
       if (processingRef.current) return
       processingRef.current = true
       respondingRef.current = false
       setResponding(false)
 
-      const result = evaluate(
-        words,
-        currentExchange.requiredIdeas,
-        currentExchange.bonusIdeas,
-        currentHintLevel
-      )
+      // If no choice (timeout), treat as MISSED
+      const result: EvaluationResult = choice
+        ? evaluateChoice(choice, currentHintLevel)
+        : { score: 'MISSED' as Score, coveredRequired: [], coveredBonus: [], tipAmount: 0 }
 
       setLastResult(result)
 
-      // Update accumulators
+      const words = choice?.expressions ?? []
       const acc = accRef.current
       acc.coinsEarned += result.tipAmount
 
@@ -118,14 +122,11 @@ export default function GameplayView({
       acc.reputationChange += repChange
       acc.scores[result.score] += 1
 
-      for (const w of words) {
-        acc.wordsPracticed.add(w.id)
-      }
+      for (const w of words) acc.wordsPracticed.add(w.id)
 
       const prevState = acc.state
       const newState = updateMastery(
-        prevState,
-        words,
+        prevState, words,
         currentExchange.requiredIdeas,
         currentExchange.bonusIdeas,
         prevState.currentDay
@@ -134,79 +135,79 @@ export default function GameplayView({
       for (const w of words) {
         const prevLevel = prevState.vocabulary[w.id]?.masteryLevel ?? 0
         const newLevel = newState.vocabulary[w.id]?.masteryLevel ?? 0
-        if (newLevel > prevLevel) {
-          acc.wordsLeveledUp.push(w.id)
-        }
+        if (newLevel > prevLevel) acc.wordsLeveledUp.push(w.id)
       }
       acc.state = newState
 
       setDisplayCoins(newState.coins + acc.coinsEarned)
       setDisplayRep(newState.reputation + acc.reputationChange)
 
-      // Show score phase
       setCustomerPhase('score')
 
-      // After 1.2s, exit customer
       setTimeout(() => {
-        setCustomerPhase('exiting')
-
-        // After exit animation, advance
-        setTimeout(() => {
-          advanceCustomer()
-          processingRef.current = false
-        }, 400)
-      }, 1200)
+        advanceTurn()
+      }, 1000)
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [conversations]
   )
 
+  // Timeout detection
   useEffect(() => {
     if (patiencePercent <= 0 && respondingRef.current && !processingRef.current) {
-      processResult([], exchangeRef.current, hintLevelRef.current)
+      processResult(null, exchangeRef.current, hintLevelRef.current)
     }
   }, [patiencePercent, processResult])
 
-  function advanceCustomer() {
-    const acc = accRef.current
-    const totalServed = acc.scores.PERFECT + acc.scores.GOOD + acc.scores.UNDERSTOOD + acc.scores.MISSED
+  function advanceTurn() {
+    const currentConvo = conversations[customerIndexRef.current]
+    const nextTurn = turnIndexRef.current + 1
 
-    if (totalServed >= exchanges.length) {
-      const dayRepBonus = 2
-      const summary: DaySummary = {
-        customersServed: exchanges.length,
-        totalCustomers: exchanges.length,
-        scores: { ...acc.scores },
-        coinsEarned: acc.coinsEarned,
-        reputationChange: acc.reputationChange + dayRepBonus,
-        wordsPracticed: acc.wordsPracticed.size,
-        wordsLeveledUp: [...acc.wordsLeveledUp],
-      }
-      onDayEnd(summary, acc.state)
-      return
+    if (nextTurn < currentConvo.exchanges.length) {
+      setTurnIndex(nextTurn)
+      setLastResult(null)
+      setSelectedChoiceId(null)
+      setHintLevel(0)
+      setPatiencePercent(100)
+      processingRef.current = false
+      setCustomerPhase('present')
+      setResponding(true)
+      respondingRef.current = true
+    } else {
+      setCustomerPhase('exiting')
+      setTimeout(() => {
+        const nextCustomer = customerIndexRef.current + 1
+        if (nextCustomer >= conversations.length) {
+          endDay()
+        } else {
+          setCustomerIndex(nextCustomer)
+          setLastResult(null)
+          setSelectedChoiceId(null)
+          setHintLevel(0)
+          setPatiencePercent(100)
+        }
+      }, 800)
     }
-
-    setCustomerIndex(totalServed)
-    setSelectedWords([])
-    setLastResult(null)
-    setHintLevel(0)
-    setPatiencePercent(100)
   }
 
-  function handleWordTap(word: Expression) {
-    if (!responding || customerPhase !== 'present') return
-    if (selectedWords.find((w) => w.id === word.id)) return
-    setSelectedWords((prev) => [...prev, word])
+  function endDay() {
+    const acc = accRef.current
+    const summary: DaySummary = {
+      customersServed: conversations.length,
+      totalCustomers: conversations.length,
+      scores: { ...acc.scores },
+      coinsEarned: acc.coinsEarned,
+      reputationChange: acc.reputationChange + 2,
+      wordsPracticed: acc.wordsPracticed.size,
+      wordsLeveledUp: [...acc.wordsLeveledUp],
+    }
+    onDayEnd(summary, acc.state)
   }
 
-  function handleChipTap(word: Expression) {
+  function handleChoiceTap(choice: AnswerChoice) {
     if (!responding || customerPhase !== 'present') return
-    setSelectedWords((prev) => prev.filter((w) => w.id !== word.id))
-  }
-
-  function handleSend() {
-    if (!responding || customerPhase !== 'present') return
-    processResult(selectedWords, exchange, hintLevel)
+    setSelectedChoiceId(choice.id)
+    processResult(choice, exchange, hintLevel)
   }
 
   function handleHint() {
@@ -214,7 +215,9 @@ export default function GameplayView({
     setHintLevel((prev) => Math.min(prev + 1, 2))
   }
 
-  const usedWordIds = new Set(selectedWords.map((w) => w.id))
+  if (!exchange) return null
+
+  const totalTurns = conversation.exchanges.length
 
   return (
     <>
@@ -222,56 +225,50 @@ export default function GameplayView({
         day={accRef.current.state.currentDay}
         coins={displayCoins}
         reputation={displayRep}
-        customersRemaining={exchanges.length - customerIndex}
-        totalCustomers={exchanges.length}
+        customersRemaining={conversations.length - customerIndex}
+        totalCustomers={conversations.length}
       />
 
-      <CafeScene>
-        <Customer
-          customerLine={exchange.customerLine}
-          patiencePercent={patiencePercent}
-          hintLevel={hintLevel}
-          hintIdea={exchange.hintIdea}
-          hintTranslation={exchange.hintTranslation}
-          onHint={handleHint}
-          phase={customerPhase}
-          scoreResult={lastResult}
-          customerKey={customerIndex}
-        />
-      </CafeScene>
+      <CafeCanvas
+        customerIndex={customerIndex}
+        customerPhase={customerPhase}
+        customerLine={exchange.customerLine}
+        scoreResult={lastResult}
+        patiencePercent={patiencePercent}
+        hintLevel={hintLevel}
+        hintIdea={exchange.hintIdea}
+        hintTranslation={exchange.hintTranslation}
+        onHint={handleHint}
+      />
 
       <div className="response-area">
-        <div className="response-bar">
-          {selectedWords.length === 0 ? (
-            <span className="response-placeholder">Tap words to respond...</span>
-          ) : (
-            selectedWords.map((word) => (
+        {totalTurns > 1 && (
+          <div className="turn-indicator">Turn {turnIndex + 1} of {totalTurns}</div>
+        )}
+        <div className="choices-grid">
+          {exchange.choices.map((choice) => {
+            const isSelected = selectedChoiceId === choice.id
+            const showResult = selectedChoiceId !== null
+            let resultClass = ''
+            if (showResult && isSelected) {
+              resultClass = choice.score === 'PERFECT' || choice.score === 'GOOD'
+                ? 'choice-correct' : 'choice-wrong'
+            }
+            // After selection, highlight the best answer
+            const isBest = showResult && !isSelected &&
+              (choice.score === 'PERFECT' || choice.score === 'GOOD')
+            return (
               <button
-                key={word.id}
-                className="response-chip"
-                onClick={() => handleChipTap(word)}
+                key={choice.id}
+                className={`choice-button ${isSelected ? 'selected' : ''} ${resultClass} ${isBest ? 'choice-hint' : ''} ${showResult && !isSelected && !isBest ? 'faded' : ''}`}
+                onClick={() => handleChoiceTap(choice)}
+                disabled={showResult}
               >
-                {word.text}
+                {choice.displayText}
               </button>
-            ))
-          )}
+            )
+          })}
         </div>
-
-        <div className="word-bank">
-          {exchange.wordBank.map((word) => (
-            <button
-              key={word.id}
-              className={`word-tile ${usedWordIds.has(word.id) ? 'used' : ''}`}
-              onClick={() => handleWordTap(word)}
-            >
-              {word.text}
-            </button>
-          ))}
-        </div>
-
-        <button className="send-button" onClick={handleSend}>
-          Send
-        </button>
       </div>
     </>
   )

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateDay } from '../src/lib/game'
+import { generateDay, generateConversations } from '../src/lib/game'
 import expressionsData from '../data/expressions.json'
 import templatesData from '../data/templates.json'
 import { Expression, DialogueTemplate, VocabularyEntry } from '../src/lib/types'
@@ -20,51 +20,75 @@ function createVocabulary(): Record<string, VocabularyEntry> {
   return vocab
 }
 
-describe('generateDay', () => {
-  it('generates exactly 8 exchanges', () => {
-    const exchanges = generateDay(templates, expressions, createVocabulary(), [])
-    expect(exchanges).toHaveLength(8)
+describe('generateConversations', () => {
+  it('generates exactly 4 customers', () => {
+    const convos = generateConversations(templates, expressions, createVocabulary(), [])
+    expect(convos).toHaveLength(4)
   })
 
-  it('every exchange is solvable (word bank covers all required ideas)', () => {
-    const exchanges = generateDay(templates, expressions, createVocabulary(), [])
-
-    for (const exchange of exchanges) {
-      const bankTags = new Set(exchange.wordBank.flatMap((e) => e.ideaTags))
-      for (const idea of exchange.requiredIdeas) {
-        expect(bankTags.has(idea)).toBe(true)
+  it('each customer has 2-3 exchanges (multi-turn)', () => {
+    for (let i = 0; i < 5; i++) {
+      const convos = generateConversations(templates, expressions, createVocabulary(), [])
+      for (const convo of convos) {
+        expect(convo.exchanges.length).toBeGreaterThanOrEqual(2)
+        expect(convo.exchanges.length).toBeLessThanOrEqual(3)
       }
     }
   })
 
-  it('works with full content set (all 20 templates, all 15 expressions)', () => {
-    expect(templates).toHaveLength(20)
+  it('every exchange has 4 answer choices', () => {
+    const convos = generateConversations(templates, expressions, createVocabulary(), [])
+
+    for (const convo of convos) {
+      for (const exchange of convo.exchanges) {
+        expect(exchange.choices).toHaveLength(4)
+        const hasCorrect = exchange.choices.some(
+          (c) => c.score === 'PERFECT' || c.score === 'GOOD'
+        )
+        expect(hasCorrect).toBe(true)
+      }
+    }
+  })
+
+  it('works with full content set (14 templates, 15 expressions)', () => {
+    expect(templates).toHaveLength(14)
     expect(expressions).toHaveLength(15)
 
-    // Run multiple times to check stability
     for (let i = 0; i < 5; i++) {
-      const exchanges = generateDay(templates, expressions, createVocabulary(), [])
-      expect(exchanges).toHaveLength(8)
+      const convos = generateConversations(templates, expressions, createVocabulary(), [])
+      expect(convos).toHaveLength(4)
+      const totalExchanges = convos.reduce((sum, c) => sum + c.exchanges.length, 0)
+      expect(totalExchanges).toBeGreaterThanOrEqual(8)
+      expect(totalExchanges).toBeLessThanOrEqual(12)
     }
   })
 
   it('deprioritizes recent templates', () => {
-    // Run 20 times with recency buffer and track how often recent templates appear
-    const recentIds = ['greeting_01', 'greeting_02', 'greeting_03']
+    const recentIds = ['greet_01', 'greet_02', 'greet_03']
     let recentAppearances = 0
     const runs = 20
 
     for (let i = 0; i < runs; i++) {
-      const exchanges = generateDay(templates, expressions, createVocabulary(), recentIds)
-      for (const ex of exchanges) {
-        if (recentIds.includes(ex.templateId)) recentAppearances++
+      const convos = generateConversations(templates, expressions, createVocabulary(), recentIds)
+      for (const convo of convos) {
+        for (const ex of convo.exchanges) {
+          if (recentIds.includes(ex.templateId)) recentAppearances++
+        }
       }
     }
 
-    // Recent templates should appear less often than if there were no filter
-    // With 20 templates and 8 picks, expected ~2.4 per run without filter for 3 templates
-    // With deprioritization, should be lower on average
     const avgPerRun = recentAppearances / runs
     expect(avgPerRun).toBeLessThan(3)
+  })
+})
+
+describe('generateDay (backward compat)', () => {
+  it('returns a flat array of exchanges', () => {
+    const exchanges = generateDay(templates, expressions, createVocabulary(), [])
+    expect(exchanges.length).toBeGreaterThanOrEqual(8)
+    for (const exchange of exchanges) {
+      expect(exchange.customerLine).toBeDefined()
+      expect(exchange.choices.length).toBe(4)
+    }
   })
 })

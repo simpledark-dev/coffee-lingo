@@ -91,89 +91,70 @@ html, body {
   border-top: 2px solid var(--brown-dark);
 }
 
-.response-bar {
-  min-height: 48px;
+/* Turn indicator */
+.turn-indicator {
+  text-align: center;
+  font-size: 12px;
+  color: var(--brown-medium);
+  font-weight: 600;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+/* Multiple choice grid */
+.choices-grid {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px;
-  background: var(--cream);
-  border-radius: 12px;
-  border: 2px solid var(--brown-light);
-  margin-bottom: 8px;
-  align-items: center;
-}
-
-.response-chip {
-  background: var(--brown-medium);
-  color: var(--white);
-  padding: 8px 14px;
-  border-radius: 20px;
-  font-size: 15px;
-  cursor: pointer;
-  border: none;
-  font-weight: 500;
-  min-height: 36px;
-}
-
-.response-placeholder {
-  color: var(--gray);
-  font-size: 14px;
-  padding: 4px;
-}
-
-/* Word bank */
-.word-bank {
-  display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
-  justify-content: center;
-  padding: 4px 0;
 }
 
-.word-tile {
-  background: var(--brown-dark);
-  color: var(--white);
-  padding: 10px 16px;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  min-height: 44px;
-  min-width: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.15s, transform 0.1s;
-}
-
-.word-tile:active {
-  transform: scale(0.95);
-}
-
-.word-tile.used {
-  opacity: 0.3;
-  pointer-events: none;
-}
-
-/* Send button */
-.send-button {
+.choice-button {
   width: 100%;
-  padding: 14px;
-  background: var(--brown-dark);
-  color: var(--cream);
-  border: none;
+  padding: 14px 16px;
+  background: var(--cream);
+  color: var(--text-dark);
+  border: 2px solid var(--brown-light);
   border-radius: 12px;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 600;
   cursor: pointer;
-  margin-top: 8px;
   min-height: 48px;
+  text-align: center;
+  transition: transform 0.1s, opacity 0.2s, border-color 0.2s, background 0.2s;
 }
 
-.send-button:active {
-  background: var(--brown-medium);
+.choice-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.choice-button.selected {
+  border-color: var(--brown-dark);
+  background: var(--bg-warm);
+}
+
+.choice-button.choice-correct {
+  border-color: var(--green);
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.choice-button.choice-wrong {
+  border-color: var(--red);
+  background: #ffebee;
+  color: #c62828;
+}
+
+.choice-button.choice-hint {
+  border-color: var(--green);
+  opacity: 0.7;
+}
+
+.choice-button.faded {
+  opacity: 0.3;
+}
+
+.choice-button:disabled {
+  cursor: default;
 }
 
 /* Day Start View */

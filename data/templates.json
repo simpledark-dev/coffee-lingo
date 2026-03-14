@@ -1,6 +1,6 @@
 [
   {
-    "id": "greeting_01",
+    "id": "greet_01",
     "ideaCategory": "greeting",
     "difficulty": 1,
     "customerLines": [
@@ -10,205 +10,185 @@
     ],
     "requiredIdeas": ["greeting"],
     "bonusIdeas": ["politeness"],
+    "responses": [
+      { "text": "Bonjour ! Merci d'être venu.", "score": "PERFECT", "expressionIds": ["bonjour", "merci"] },
+      { "text": "Bonjour !", "score": "GOOD", "expressionIds": ["bonjour"] },
+      { "text": "Oui.", "score": "MISSED", "expressionIds": ["oui"] },
+      { "text": "Au revoir !", "score": "MISSED", "expressionIds": ["au_revoir"] }
+    ],
     "followUpIds": []
   },
   {
-    "id": "greeting_02",
+    "id": "greet_02",
     "ideaCategory": "greeting",
     "difficulty": 1,
     "customerLines": [
       { "text": "Bonsoir !", "variables": {} },
-      { "text": "Bonsoir, \u00e7a va ?", "variables": {} },
-      { "text": "Bonsoir, je suis content d'\u00eatre ici.", "variables": {} }
+      { "text": "Bonsoir, ça va ?", "variables": {} },
+      { "text": "Bonsoir, je suis content d'être ici.", "variables": {} }
     ],
     "requiredIdeas": ["greeting"],
     "bonusIdeas": ["politeness"],
+    "responses": [
+      { "text": "Bonsoir ! Merci.", "score": "PERFECT", "expressionIds": ["bonsoir", "merci"] },
+      { "text": "Bonsoir !", "score": "GOOD", "expressionIds": ["bonsoir"] },
+      { "text": "Bonjour !", "score": "UNDERSTOOD", "expressionIds": ["bonjour"] },
+      { "text": "Non.", "score": "MISSED", "expressionIds": ["non"] }
+    ],
     "followUpIds": []
   },
   {
-    "id": "greeting_03",
+    "id": "greet_03",
     "ideaCategory": "greeting",
     "difficulty": 1,
     "customerLines": [
       { "text": "Bonjour ! C'est un beau jour.", "variables": {} },
-      { "text": "Bonjour ! Il fait beau aujourd'hui.", "variables": {} },
-      { "text": "Bonjour ! Quel beau temps !", "variables": {} }
+      { "text": "Bonjour ! Il fait beau aujourd'hui.", "variables": {} }
     ],
-    "requiredIdeas": ["greeting", "agreement"],
-    "bonusIdeas": ["quality"],
+    "requiredIdeas": ["greeting"],
+    "bonusIdeas": ["agreement"],
+    "responses": [
+      { "text": "Bonjour ! Oui, d'accord !", "score": "PERFECT", "expressionIds": ["bonjour", "oui", "d_accord"] },
+      { "text": "Bonjour !", "score": "GOOD", "expressionIds": ["bonjour"] },
+      { "text": "Merci.", "score": "MISSED", "expressionIds": ["merci"] },
+      { "text": "Au revoir !", "score": "MISSED", "expressionIds": ["au_revoir"] }
+    ],
     "followUpIds": []
   },
   {
-    "id": "greeting_04",
-    "ideaCategory": "greeting",
-    "difficulty": 1,
-    "customerLines": [
-      { "text": "Bonjour, je cherche un bon caf\u00e9.", "variables": {} },
-      { "text": "Bonjour ! On m'a dit que votre caf\u00e9 est bon.", "variables": {} },
-      { "text": "Bonjour, j'ai entendu parler de ce caf\u00e9.", "variables": {} }
-    ],
-    "requiredIdeas": ["greeting", "confirmation"],
-    "bonusIdeas": ["politeness"],
-    "followUpIds": []
-  },
-  {
-    "id": "confirmation_01",
+    "id": "confirm_01",
     "ideaCategory": "confirmation",
     "difficulty": 1,
     "customerLines": [
-      { "text": "C'est bien ici le caf\u00e9 ?", "variables": {} },
-      { "text": "Vous \u00eates ouvert ?", "variables": {} },
+      { "text": "C'est bien ici le café ?", "variables": {} },
+      { "text": "Vous êtes ouvert ?", "variables": {} },
       { "text": "Je peux entrer ?", "variables": {} }
     ],
     "requiredIdeas": ["confirmation"],
     "bonusIdeas": ["greeting"],
-    "followUpIds": []
-  },
-  {
-    "id": "confirmation_02",
-    "ideaCategory": "confirmation",
-    "difficulty": 1,
-    "customerLines": [
-      { "text": "Ma commande est pr\u00eate ?", "variables": {} },
-      { "text": "C'est pour moi ?", "variables": {} },
-      { "text": "C'est bon ?", "variables": {} }
+    "responses": [
+      { "text": "Oui, bonjour !", "score": "PERFECT", "expressionIds": ["oui", "bonjour"] },
+      { "text": "Oui !", "score": "GOOD", "expressionIds": ["oui"] },
+      { "text": "Merci.", "score": "MISSED", "expressionIds": ["merci"] },
+      { "text": "Au revoir.", "score": "MISSED", "expressionIds": ["au_revoir"] }
     ],
-    "requiredIdeas": ["confirmation"],
-    "bonusIdeas": ["politeness"],
     "followUpIds": []
   },
   {
-    "id": "confirmation_03",
+    "id": "confirm_02",
     "ideaCategory": "confirmation",
     "difficulty": 1,
     "customerLines": [
-      { "text": "Vous avez du caf\u00e9 ?", "variables": {} },
-      { "text": "Il reste du th\u00e9 ?", "variables": {} },
+      { "text": "Vous avez du café ?", "variables": {} },
+      { "text": "Il reste du thé ?", "variables": {} },
       { "text": "Vous servez encore ?", "variables": {} }
     ],
     "requiredIdeas": ["confirmation"],
-    "bonusIdeas": ["greeting", "politeness"],
+    "bonusIdeas": ["politeness"],
+    "responses": [
+      { "text": "Oui, bien sûr ! S'il vous plaît.", "score": "PERFECT", "expressionIds": ["oui", "s_il_vous_plait"] },
+      { "text": "Oui !", "score": "GOOD", "expressionIds": ["oui"] },
+      { "text": "D'accord.", "score": "GOOD", "expressionIds": ["d_accord"] },
+      { "text": "Non.", "score": "MISSED", "expressionIds": ["non"] }
+    ],
     "followUpIds": []
   },
   {
-    "id": "ordering_01",
+    "id": "order_01",
     "ideaCategory": "ordering",
     "difficulty": 1,
     "customerLines": [
-      { "text": "Je voudrais {quantity} {item}, s'il vous pla\u00eet.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["caf\u00e9", "th\u00e9"] } },
-      { "text": "{quantity} {item}, s'il vous pla\u00eet.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["caf\u00e9", "th\u00e9"] } },
-      { "text": "Je prends {quantity} {item}.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["caf\u00e9", "th\u00e9"] } }
+      { "text": "Un {item}, s'il vous plaît.", "variables": { "item": ["café", "thé"] } },
+      { "text": "Je voudrais un {item}.", "variables": { "item": ["café", "thé"] } },
+      { "text": "Un {item} pour moi.", "variables": { "item": ["café", "thé"] } }
+    ],
+    "requiredIdeas": ["confirmation", "{item}"],
+    "bonusIdeas": ["politeness"],
+    "responses": [
+      { "text": "Oui, un {item} ! Merci.", "score": "PERFECT", "expressionIds": ["oui", "un", "{item}", "merci"] },
+      { "text": "D'accord, un {item} !", "score": "GOOD", "expressionIds": ["d_accord", "un", "{item}"] },
+      { "text": "Oui !", "score": "UNDERSTOOD", "expressionIds": ["oui"] },
+      { "text": "Non.", "score": "MISSED", "expressionIds": ["non"] }
+    ],
+    "followUpIds": []
+  },
+  {
+    "id": "order_02",
+    "ideaCategory": "ordering",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Deux {item}, s'il vous plaît.", "variables": { "item": ["café", "thé"] } },
+      { "text": "Je voudrais deux {item}.", "variables": { "item": ["café", "thé"] } },
+      { "text": "Donnez-moi deux {item}.", "variables": { "item": ["café", "thé"] } }
+    ],
+    "requiredIdeas": ["confirmation", "{item}"],
+    "bonusIdeas": ["politeness"],
+    "responses": [
+      { "text": "Oui, deux {item} ! Merci.", "score": "PERFECT", "expressionIds": ["oui", "deux", "{item}", "merci"] },
+      { "text": "D'accord, deux {item} !", "score": "GOOD", "expressionIds": ["d_accord", "deux", "{item}"] },
+      { "text": "Oui !", "score": "UNDERSTOOD", "expressionIds": ["oui"] },
+      { "text": "Bonjour.", "score": "MISSED", "expressionIds": ["bonjour"] }
+    ],
+    "followUpIds": []
+  },
+  {
+    "id": "order_03",
+    "ideaCategory": "ordering",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Trois {item}, s'il vous plaît.", "variables": { "item": ["café", "thé"] } },
+      { "text": "Je voudrais trois {item}.", "variables": { "item": ["café", "thé"] } },
+      { "text": "Trois {item} pour la table.", "variables": { "item": ["café", "thé"] } }
+    ],
+    "requiredIdeas": ["confirmation", "{item}"],
+    "bonusIdeas": ["politeness"],
+    "responses": [
+      { "text": "Oui, trois {item} ! Merci.", "score": "PERFECT", "expressionIds": ["oui", "trois", "{item}", "merci"] },
+      { "text": "D'accord, trois {item} !", "score": "GOOD", "expressionIds": ["d_accord", "trois", "{item}"] },
+      { "text": "D'accord.", "score": "UNDERSTOOD", "expressionIds": ["d_accord"] },
+      { "text": "Non, merci.", "score": "MISSED", "expressionIds": ["non", "merci"] }
+    ],
+    "followUpIds": []
+  },
+  {
+    "id": "order_04",
+    "ideaCategory": "ordering",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Je voudrais {quantity} {item}, s'il vous plaît.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["café", "thé"] } },
+      { "text": "{quantity} {item}, s'il vous plaît.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["café", "thé"] } }
     ],
     "requiredIdeas": ["confirmation", "{quantity}", "{item}"],
     "bonusIdeas": ["politeness"],
+    "responses": [
+      { "text": "Oui, {quantity} {item} ! S'il vous plaît.", "score": "PERFECT", "expressionIds": ["oui", "{quantity}", "{item}", "s_il_vous_plait"] },
+      { "text": "D'accord, {quantity} {item} !", "score": "GOOD", "expressionIds": ["d_accord", "{quantity}", "{item}"] },
+      { "text": "Oui !", "score": "UNDERSTOOD", "expressionIds": ["oui"] },
+      { "text": "Au revoir.", "score": "MISSED", "expressionIds": ["au_revoir"] }
+    ],
     "followUpIds": []
   },
   {
-    "id": "ordering_02",
+    "id": "order_05",
     "ideaCategory": "ordering",
     "difficulty": 1,
     "customerLines": [
-      { "text": "Un {item}, s'il vous pla\u00eet.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
-      { "text": "Je voudrais un {item}.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
-      { "text": "Un {item} pour moi.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } }
+      { "text": "Un bon {item}, s'il vous plaît.", "variables": { "item": ["café", "thé"] } },
+      { "text": "Je voudrais un bon {item}.", "variables": { "item": ["café", "thé"] } },
+      { "text": "Vous avez un bon {item} ?", "variables": { "item": ["café", "thé"] } }
     ],
     "requiredIdeas": ["confirmation", "{item}"],
-    "bonusIdeas": ["politeness"],
-    "followUpIds": []
-  },
-  {
-    "id": "ordering_03",
-    "ideaCategory": "ordering",
-    "difficulty": 1,
-    "customerLines": [
-      { "text": "Deux {item}, s'il vous pla\u00eet.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
-      { "text": "Je voudrais deux {item}.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
-      { "text": "Donnez-moi deux {item}.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } }
+    "bonusIdeas": ["quality"],
+    "responses": [
+      { "text": "Oui, un bon {item} !", "score": "PERFECT", "expressionIds": ["oui", "un", "bon", "{item}"] },
+      { "text": "Oui, un {item} !", "score": "GOOD", "expressionIds": ["oui", "un", "{item}"] },
+      { "text": "D'accord.", "score": "UNDERSTOOD", "expressionIds": ["d_accord"] },
+      { "text": "Non.", "score": "MISSED", "expressionIds": ["non"] }
     ],
-    "requiredIdeas": ["confirmation", "{item}"],
-    "bonusIdeas": ["politeness", "greeting"],
     "followUpIds": []
   },
   {
-    "id": "ordering_04",
-    "ideaCategory": "ordering",
-    "difficulty": 1,
-    "customerLines": [
-      { "text": "Bonjour, {quantity} {item} s'il vous pla\u00eet.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["caf\u00e9", "th\u00e9"] } },
-      { "text": "Bonjour ! Je prends {quantity} {item}.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["caf\u00e9", "th\u00e9"] } },
-      { "text": "Bonjour, je voudrais {quantity} {item}.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["caf\u00e9", "th\u00e9"] } }
-    ],
-    "requiredIdeas": ["confirmation", "{quantity}", "{item}"],
-    "bonusIdeas": ["politeness", "greeting"],
-    "followUpIds": []
-  },
-  {
-    "id": "ordering_05",
-    "ideaCategory": "ordering",
-    "difficulty": 1,
-    "customerLines": [
-      { "text": "Trois {item}, s'il vous pla\u00eet.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
-      { "text": "Je voudrais trois {item}.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
-      { "text": "Trois {item} pour la table.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } }
-    ],
-    "requiredIdeas": ["confirmation", "{item}"],
-    "bonusIdeas": ["politeness"],
-    "followUpIds": []
-  },
-  {
-    "id": "ordering_06",
-    "ideaCategory": "ordering",
-    "difficulty": 1,
-    "customerLines": [
-      { "text": "Un bon {item}, s'il vous pla\u00eet.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
-      { "text": "Je voudrais un bon {item}.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
-      { "text": "Vous avez un bon {item} ?", "variables": { "item": ["caf\u00e9", "th\u00e9"] } }
-    ],
-    "requiredIdeas": ["confirmation", "{item}", "quality"],
-    "bonusIdeas": ["politeness"],
-    "followUpIds": []
-  },
-  {
-    "id": "quantity_01",
-    "ideaCategory": "quantity",
-    "difficulty": 1,
-    "customerLines": [
-      { "text": "Combien de caf\u00e9s il me reste ?", "variables": {} },
-      { "text": "J'en ai command\u00e9 combien ?", "variables": {} },
-      { "text": "C'\u00e9tait combien d\u00e9j\u00e0 ?", "variables": {} }
-    ],
-    "requiredIdeas": ["quantity"],
-    "bonusIdeas": ["confirmation"],
-    "followUpIds": []
-  },
-  {
-    "id": "quantity_02",
-    "ideaCategory": "quantity",
-    "difficulty": 1,
-    "customerLines": [
-      { "text": "J'en veux {quantity}.", "variables": { "quantity": ["un", "deux", "trois"] } },
-      { "text": "{quantity}, s'il vous pla\u00eet.", "variables": { "quantity": ["un", "deux", "trois"] } },
-      { "text": "Mettez-en {quantity}.", "variables": { "quantity": ["un", "deux", "trois"] } }
-    ],
-    "requiredIdeas": ["confirmation", "{quantity}"],
-    "bonusIdeas": ["politeness"],
-    "followUpIds": []
-  },
-  {
-    "id": "quantity_03",
-    "ideaCategory": "quantity",
-    "difficulty": 1,
-    "customerLines": [
-      { "text": "Un de plus, s'il vous pla\u00eet.", "variables": {} },
-      { "text": "Encore un.", "variables": {} },
-      { "text": "Rajoutez-en un.", "variables": {} }
-    ],
-    "requiredIdeas": ["confirmation", "quantity"],
-    "bonusIdeas": ["politeness"],
-    "followUpIds": []
-  },
-  {
-    "id": "politeness_01",
+    "id": "thanks_01",
     "ideaCategory": "politeness",
     "difficulty": 1,
     "customerLines": [
@@ -218,45 +198,68 @@
     ],
     "requiredIdeas": ["politeness"],
     "bonusIdeas": ["farewell"],
+    "responses": [
+      { "text": "De rien ! Au revoir !", "score": "PERFECT", "expressionIds": ["de_rien", "au_revoir"] },
+      { "text": "De rien !", "score": "GOOD", "expressionIds": ["de_rien"] },
+      { "text": "Merci !", "score": "GOOD", "expressionIds": ["merci"] },
+      { "text": "Oui.", "score": "MISSED", "expressionIds": ["oui"] }
+    ],
     "followUpIds": []
   },
   {
-    "id": "politeness_02",
+    "id": "thanks_02",
     "ideaCategory": "politeness",
     "difficulty": 1,
     "customerLines": [
-      { "text": "C'\u00e9tait tr\u00e8s bon, merci.", "variables": {} },
+      { "text": "C'était très bon, merci.", "variables": {} },
       { "text": "Excellent, merci beaucoup.", "variables": {} },
-      { "text": "Tr\u00e8s bon, merci !", "variables": {} }
+      { "text": "Très bon, merci !", "variables": {} }
     ],
     "requiredIdeas": ["politeness"],
-    "bonusIdeas": ["farewell", "quality"],
+    "bonusIdeas": ["farewell"],
+    "responses": [
+      { "text": "Merci ! Au revoir !", "score": "PERFECT", "expressionIds": ["merci", "au_revoir"] },
+      { "text": "Merci !", "score": "GOOD", "expressionIds": ["merci"] },
+      { "text": "De rien !", "score": "GOOD", "expressionIds": ["de_rien"] },
+      { "text": "Bonjour.", "score": "MISSED", "expressionIds": ["bonjour"] }
+    ],
     "followUpIds": []
   },
   {
-    "id": "politeness_03",
+    "id": "farewell_01",
     "ideaCategory": "politeness",
     "difficulty": 1,
     "customerLines": [
       { "text": "Au revoir et merci !", "variables": {} },
       { "text": "Merci, au revoir !", "variables": {} },
-      { "text": "Bonne journ\u00e9e et merci !", "variables": {} }
+      { "text": "Bonne journée et merci !", "variables": {} }
     ],
-    "requiredIdeas": ["politeness", "farewell"],
-    "bonusIdeas": ["greeting"],
+    "requiredIdeas": ["farewell"],
+    "bonusIdeas": ["politeness"],
+    "responses": [
+      { "text": "Au revoir ! Merci !", "score": "PERFECT", "expressionIds": ["au_revoir", "merci"] },
+      { "text": "Au revoir !", "score": "GOOD", "expressionIds": ["au_revoir"] },
+      { "text": "Merci !", "score": "UNDERSTOOD", "expressionIds": ["merci"] },
+      { "text": "Oui.", "score": "MISSED", "expressionIds": ["oui"] }
+    ],
     "followUpIds": []
   },
   {
-    "id": "politeness_04",
+    "id": "farewell_02",
     "ideaCategory": "politeness",
     "difficulty": 1,
     "customerLines": [
-      { "text": "S'il vous pla\u00eet, faites vite.", "variables": {} },
-      { "text": "Vite, s'il vous pla\u00eet !", "variables": {} },
-      { "text": "D\u00e9p\u00eachez-vous, s'il vous pla\u00eet.", "variables": {} }
+      { "text": "Bonsoir, merci pour tout !", "variables": {} },
+      { "text": "Merci et bonne soirée !", "variables": {} }
     ],
-    "requiredIdeas": ["confirmation"],
+    "requiredIdeas": ["farewell"],
     "bonusIdeas": ["politeness"],
+    "responses": [
+      { "text": "Bonsoir ! De rien !", "score": "PERFECT", "expressionIds": ["bonsoir", "de_rien"] },
+      { "text": "Au revoir !", "score": "GOOD", "expressionIds": ["au_revoir"] },
+      { "text": "Bonjour.", "score": "MISSED", "expressionIds": ["bonjour"] },
+      { "text": "Non.", "score": "MISSED", "expressionIds": ["non"] }
+    ],
     "followUpIds": []
   }
 ]

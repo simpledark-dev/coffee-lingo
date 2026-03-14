@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PlayerState, ResolvedExchange, DaySummary, Expression, DialogueTemplate } from '../src/lib/types'
-import { generateDay } from '../src/lib/game'
+import { PlayerState, CustomerConversation, DaySummary, Expression, DialogueTemplate } from '../src/lib/types'
+import { generateConversations } from '../src/lib/game'
 import { createInitialState, loadState, saveState } from '../src/lib/state'
 import DayStartView from '../src/components/DayStartView'
 import GameplayView from '../src/components/GameplayView'
@@ -18,7 +18,7 @@ type GamePhase = 'dayStart' | 'gameplay' | 'summary'
 export default function Home() {
   const [phase, setPhase] = useState<GamePhase>('dayStart')
   const [playerState, setPlayerState] = useState<PlayerState | null>(null)
-  const [dayPlan, setDayPlan] = useState<ResolvedExchange[]>([])
+  const [dayConversations, setDayConversations] = useState<CustomerConversation[]>([])
   const [daySummary, setDaySummary] = useState<DaySummary | null>(null)
 
   // Load state on mount
@@ -39,19 +39,19 @@ export default function Home() {
 
   function handleOpenShop() {
     if (!playerState) return
-    const plan = generateDay(
+    const convos = generateConversations(
       templates,
       expressions,
       playerState.vocabulary,
       playerState.recencyBuffer
     )
-    setDayPlan(plan)
+    setDayConversations(convos)
     setPhase('gameplay')
   }
 
   function handleDayEnd(summary: DaySummary, updatedState: PlayerState) {
     // Update recency buffer with template IDs from this day
-    const usedTemplateIds = dayPlan.map((e) => e.templateId)
+    const usedTemplateIds = dayConversations.flatMap((c) => c.exchanges.map((e) => e.templateId))
     const newRecencyBuffer = [...usedTemplateIds.slice(-3)]
 
     // Apply day-end bonuses
@@ -82,7 +82,7 @@ export default function Home() {
       )}
       {phase === 'gameplay' && (
         <GameplayView
-          exchanges={dayPlan}
+          conversations={dayConversations}
           playerState={playerState}
           onDayEnd={handleDayEnd}
         />

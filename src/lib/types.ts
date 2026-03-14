@@ -6,6 +6,12 @@ export interface Expression {
   stage: number
 }
 
+export interface ResponseOption {
+  text: string
+  score: Score
+  expressionIds: string[]
+}
+
 export interface DialogueTemplate {
   id: string
   ideaCategory: string
@@ -16,17 +22,29 @@ export interface DialogueTemplate {
   }[]
   requiredIdeas: string[]
   bonusIdeas: string[]
+  responses: ResponseOption[]
   followUpIds: string[]
+}
+
+export interface AnswerChoice {
+  id: string
+  expressions: Expression[]
+  displayText: string
+  score: Score
 }
 
 export interface ResolvedExchange {
   customerLine: string
   requiredIdeas: string[]
   bonusIdeas: string[]
-  wordBank: Expression[]
+  choices: AnswerChoice[]
   templateId: string
   hintIdea: string
   hintTranslation: string
+}
+
+export interface CustomerConversation {
+  exchanges: ResolvedExchange[]
 }
 
 export type Score = 'PERFECT' | 'GOOD' | 'UNDERSTOOD' | 'MISSED'
