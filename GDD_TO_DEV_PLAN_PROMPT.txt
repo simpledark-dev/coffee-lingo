@@ -1,0 +1,137 @@
+You are acting as my lead game engineer, technical architect, and implementation planner.
+
+We are building the MVP of a mobile-first web game called Coffee Lingo.
+
+Your job is NOT to redesign the product.
+Your job is to turn the Game Design Document below into the most efficient, low-risk development plan possible.
+
+Your priorities, in order, are:
+
+1. Build the smallest possible playable prototype that validates the core loop
+2. Keep architecture simple, modular, and data-driven
+3. Avoid overengineering
+4. Maximize development speed
+5. Make it easy to iterate after playtesting
+
+⸻
+
+TECH STACK (already decided — do not evaluate alternatives)
+
+- Next.js (React), entirely client-side — no backend, no API calls during gameplay
+- All game data (vocabulary, templates, customer types) shipped as static JSON
+- Player state persisted in browser localStorage
+- Fixed mobile viewport: 390 × 844px, portrait only
+- Desktop: centered mobile frame on dark background, no desktop-specific layout
+- Touch-first input — no keyboard interaction during gameplay (except Recall Mode text input)
+
+⸻
+
+IMPORTANT DEVELOPMENT PHILOSOPHY
+
+- We are building an MVP, not a full product
+- If a feature is not necessary to validate the core loop, cut or defer it
+- Prefer deterministic logic over AI-dependent runtime systems
+- Prefer hardcoded/simple implementations for prototype-only parts when appropriate
+- Prefer data-driven design for content systems that will expand later
+- Identify what should be built now vs later
+- If something is ambiguous, choose the simplest option that best supports the game vision
+
+⸻
+
+DEFINITION OF "PLAYABLE"
+
+The prototype is playable when:
+- A player can start a day, serve at least 5 customers using the constructive word bank, see evaluation scores (PERFECT/GOOD/UNDERSTOOD/MISSED), and reach a day-end summary screen.
+- The core loop — customer speaks → player responds via word bank → idea-tag evaluation → customer reacts → next customer — functions end to end.
+- It does NOT need to be pretty, polished, or content-complete.
+
+⸻
+
+CONTEXT
+
+The game is a top-down pixel-style cafe language-learning game.
+The player stays behind the counter.
+Customers arrive and speak in the target language.
+The player responds using a constructive word bank.
+Evaluation is based on idea-tag matching, not grammar parsing.
+The core philosophy is:
+IDEA → EXPRESSION → REPETITION
+
+⸻
+
+YOUR TASK
+
+Using the GDD below, produce a development plan optimized for speed, clarity, and low risk.
+
+I want the following sections:
+
+1. MVP Slice Definition
+- Define the absolute smallest playable version we should build first (see "Definition of Playable" above).
+- Explicitly list what to include.
+- Explicitly list what to cut/defer even if it exists in the GDD.
+
+2. Technical Architecture
+- Define the minimum set of modules/systems needed.
+- Explain responsibilities of each module.
+- Keep it lean and practical — prefer the fewest modules possible while staying clean.
+- Confirm or simplify the GDD's data model (Section 15.2) — do not reinvent it. Strip fields that aren't needed for prototype, keep fields that the content system needs.
+
+3. Hardcoded vs. Data-Driven Boundary
+- Explicitly list what should be data-driven from day one (content that will scale: expressions, templates, idea tags).
+- Explicitly list what should be hardcoded for prototype (tuning values that can be extracted later: patience timers, tip amounts, mastery thresholds, scoring rules, stage boundaries).
+- Justify each decision.
+
+4. Milestones with Task Breakdown
+- Break development into milestones.
+- Each milestone should produce something testable.
+- Milestone 1 should create a very rough but playable prototype as fast as possible.
+- Within each milestone, list concrete, buildable tasks in build order. Each task should be small enough to complete in a few hours.
+- Group tasks into: Core Prototype / MVP Expansion / Post-MVP.
+
+5. UI Screens / Views
+- List the minimum screens/views needed.
+- For each one, specify what must exist now vs what can wait.
+- Reference the GDD's viewport constraints (390 × 844px fixed layout).
+
+6. Content Plan
+- 150+ dialogue templates and 45 expressions need to exist as JSON data.
+- Define the format/schema for content files (reference GDD Section 15.2).
+- Specify when content needs to be ready relative to development milestones.
+- For the prototype milestone, define the minimum content set (how many templates, which expressions, which idea categories).
+- Recommend how to author the remaining content efficiently (manual? AI-assisted generation from templates?).
+
+7. Simplifications for MVP
+- Identify every place where the GDD can be simplified for version 1.
+- Explain why the simplification is safe.
+
+8. Risks and Mitigations
+- Identify the top technical and design risks.
+- Suggest the simplest mitigation for each.
+
+9. Testing Plan
+- Explain how to test the prototype quickly.
+- What should we validate first from a gameplay perspective?
+- What should we ignore until later?
+
+10. Final Recommendation
+- Tell me what I should build in week 1 — be specific about the exact features and the order.
+- Tell me what I should absolutely not build yet, and why.
+- Give me your honest recommended path as if you were personally building this in the fastest smart way. What is the exact smallest thing you would build first before everything else?
+
+⸻
+
+IMPORTANT OUTPUT RULES
+
+- Be concrete, not high level
+- Make decisions instead of listing too many options
+- Prefer ruthless simplification over completeness
+- Do not restate the whole GDD
+- Think like a startup CTO trying to get to first playable as fast as possible
+- Assume one developer or a very small team
+- When in doubt, reduce scope
+
+⸻
+
+GDD:
+
+[PASTE GDD HERE]

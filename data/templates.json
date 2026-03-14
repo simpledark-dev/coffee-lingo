@@ -1,0 +1,262 @@
+[
+  {
+    "id": "greeting_01",
+    "ideaCategory": "greeting",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Bonjour !", "variables": {} },
+      { "text": "Bonjour, comment allez-vous ?", "variables": {} },
+      { "text": "Salut !", "variables": {} }
+    ],
+    "requiredIdeas": ["greeting"],
+    "bonusIdeas": ["politeness"],
+    "followUpIds": []
+  },
+  {
+    "id": "greeting_02",
+    "ideaCategory": "greeting",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Bonsoir !", "variables": {} },
+      { "text": "Bonsoir, \u00e7a va ?", "variables": {} },
+      { "text": "Bonsoir, je suis content d'\u00eatre ici.", "variables": {} }
+    ],
+    "requiredIdeas": ["greeting"],
+    "bonusIdeas": ["politeness"],
+    "followUpIds": []
+  },
+  {
+    "id": "greeting_03",
+    "ideaCategory": "greeting",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Bonjour ! C'est un beau jour.", "variables": {} },
+      { "text": "Bonjour ! Il fait beau aujourd'hui.", "variables": {} },
+      { "text": "Bonjour ! Quel beau temps !", "variables": {} }
+    ],
+    "requiredIdeas": ["greeting", "agreement"],
+    "bonusIdeas": ["quality"],
+    "followUpIds": []
+  },
+  {
+    "id": "greeting_04",
+    "ideaCategory": "greeting",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Bonjour, je cherche un bon caf\u00e9.", "variables": {} },
+      { "text": "Bonjour ! On m'a dit que votre caf\u00e9 est bon.", "variables": {} },
+      { "text": "Bonjour, j'ai entendu parler de ce caf\u00e9.", "variables": {} }
+    ],
+    "requiredIdeas": ["greeting", "confirmation"],
+    "bonusIdeas": ["politeness"],
+    "followUpIds": []
+  },
+  {
+    "id": "confirmation_01",
+    "ideaCategory": "confirmation",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "C'est bien ici le caf\u00e9 ?", "variables": {} },
+      { "text": "Vous \u00eates ouvert ?", "variables": {} },
+      { "text": "Je peux entrer ?", "variables": {} }
+    ],
+    "requiredIdeas": ["confirmation"],
+    "bonusIdeas": ["greeting"],
+    "followUpIds": []
+  },
+  {
+    "id": "confirmation_02",
+    "ideaCategory": "confirmation",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Ma commande est pr\u00eate ?", "variables": {} },
+      { "text": "C'est pour moi ?", "variables": {} },
+      { "text": "C'est bon ?", "variables": {} }
+    ],
+    "requiredIdeas": ["confirmation"],
+    "bonusIdeas": ["politeness"],
+    "followUpIds": []
+  },
+  {
+    "id": "confirmation_03",
+    "ideaCategory": "confirmation",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Vous avez du caf\u00e9 ?", "variables": {} },
+      { "text": "Il reste du th\u00e9 ?", "variables": {} },
+      { "text": "Vous servez encore ?", "variables": {} }
+    ],
+    "requiredIdeas": ["confirmation"],
+    "bonusIdeas": ["greeting", "politeness"],
+    "followUpIds": []
+  },
+  {
+    "id": "ordering_01",
+    "ideaCategory": "ordering",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Je voudrais {quantity} {item}, s'il vous pla\u00eet.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["caf\u00e9", "th\u00e9"] } },
+      { "text": "{quantity} {item}, s'il vous pla\u00eet.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["caf\u00e9", "th\u00e9"] } },
+      { "text": "Je prends {quantity} {item}.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["caf\u00e9", "th\u00e9"] } }
+    ],
+    "requiredIdeas": ["confirmation", "{quantity}", "{item}"],
+    "bonusIdeas": ["politeness"],
+    "followUpIds": []
+  },
+  {
+    "id": "ordering_02",
+    "ideaCategory": "ordering",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Un {item}, s'il vous pla\u00eet.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
+      { "text": "Je voudrais un {item}.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
+      { "text": "Un {item} pour moi.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } }
+    ],
+    "requiredIdeas": ["confirmation", "{item}"],
+    "bonusIdeas": ["politeness"],
+    "followUpIds": []
+  },
+  {
+    "id": "ordering_03",
+    "ideaCategory": "ordering",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Deux {item}, s'il vous pla\u00eet.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
+      { "text": "Je voudrais deux {item}.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
+      { "text": "Donnez-moi deux {item}.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } }
+    ],
+    "requiredIdeas": ["confirmation", "{item}"],
+    "bonusIdeas": ["politeness", "greeting"],
+    "followUpIds": []
+  },
+  {
+    "id": "ordering_04",
+    "ideaCategory": "ordering",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Bonjour, {quantity} {item} s'il vous pla\u00eet.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["caf\u00e9", "th\u00e9"] } },
+      { "text": "Bonjour ! Je prends {quantity} {item}.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["caf\u00e9", "th\u00e9"] } },
+      { "text": "Bonjour, je voudrais {quantity} {item}.", "variables": { "quantity": ["un", "deux", "trois"], "item": ["caf\u00e9", "th\u00e9"] } }
+    ],
+    "requiredIdeas": ["confirmation", "{quantity}", "{item}"],
+    "bonusIdeas": ["politeness", "greeting"],
+    "followUpIds": []
+  },
+  {
+    "id": "ordering_05",
+    "ideaCategory": "ordering",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Trois {item}, s'il vous pla\u00eet.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
+      { "text": "Je voudrais trois {item}.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
+      { "text": "Trois {item} pour la table.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } }
+    ],
+    "requiredIdeas": ["confirmation", "{item}"],
+    "bonusIdeas": ["politeness"],
+    "followUpIds": []
+  },
+  {
+    "id": "ordering_06",
+    "ideaCategory": "ordering",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Un bon {item}, s'il vous pla\u00eet.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
+      { "text": "Je voudrais un bon {item}.", "variables": { "item": ["caf\u00e9", "th\u00e9"] } },
+      { "text": "Vous avez un bon {item} ?", "variables": { "item": ["caf\u00e9", "th\u00e9"] } }
+    ],
+    "requiredIdeas": ["confirmation", "{item}", "quality"],
+    "bonusIdeas": ["politeness"],
+    "followUpIds": []
+  },
+  {
+    "id": "quantity_01",
+    "ideaCategory": "quantity",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Combien de caf\u00e9s il me reste ?", "variables": {} },
+      { "text": "J'en ai command\u00e9 combien ?", "variables": {} },
+      { "text": "C'\u00e9tait combien d\u00e9j\u00e0 ?", "variables": {} }
+    ],
+    "requiredIdeas": ["quantity"],
+    "bonusIdeas": ["confirmation"],
+    "followUpIds": []
+  },
+  {
+    "id": "quantity_02",
+    "ideaCategory": "quantity",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "J'en veux {quantity}.", "variables": { "quantity": ["un", "deux", "trois"] } },
+      { "text": "{quantity}, s'il vous pla\u00eet.", "variables": { "quantity": ["un", "deux", "trois"] } },
+      { "text": "Mettez-en {quantity}.", "variables": { "quantity": ["un", "deux", "trois"] } }
+    ],
+    "requiredIdeas": ["confirmation", "{quantity}"],
+    "bonusIdeas": ["politeness"],
+    "followUpIds": []
+  },
+  {
+    "id": "quantity_03",
+    "ideaCategory": "quantity",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Un de plus, s'il vous pla\u00eet.", "variables": {} },
+      { "text": "Encore un.", "variables": {} },
+      { "text": "Rajoutez-en un.", "variables": {} }
+    ],
+    "requiredIdeas": ["confirmation", "quantity"],
+    "bonusIdeas": ["politeness"],
+    "followUpIds": []
+  },
+  {
+    "id": "politeness_01",
+    "ideaCategory": "politeness",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Merci beaucoup !", "variables": {} },
+      { "text": "Merci, c'est gentil.", "variables": {} },
+      { "text": "Oh, merci !", "variables": {} }
+    ],
+    "requiredIdeas": ["politeness"],
+    "bonusIdeas": ["farewell"],
+    "followUpIds": []
+  },
+  {
+    "id": "politeness_02",
+    "ideaCategory": "politeness",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "C'\u00e9tait tr\u00e8s bon, merci.", "variables": {} },
+      { "text": "Excellent, merci beaucoup.", "variables": {} },
+      { "text": "Tr\u00e8s bon, merci !", "variables": {} }
+    ],
+    "requiredIdeas": ["politeness"],
+    "bonusIdeas": ["farewell", "quality"],
+    "followUpIds": []
+  },
+  {
+    "id": "politeness_03",
+    "ideaCategory": "politeness",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "Au revoir et merci !", "variables": {} },
+      { "text": "Merci, au revoir !", "variables": {} },
+      { "text": "Bonne journ\u00e9e et merci !", "variables": {} }
+    ],
+    "requiredIdeas": ["politeness", "farewell"],
+    "bonusIdeas": ["greeting"],
+    "followUpIds": []
+  },
+  {
+    "id": "politeness_04",
+    "ideaCategory": "politeness",
+    "difficulty": 1,
+    "customerLines": [
+      { "text": "S'il vous pla\u00eet, faites vite.", "variables": {} },
+      { "text": "Vite, s'il vous pla\u00eet !", "variables": {} },
+      { "text": "D\u00e9p\u00eachez-vous, s'il vous pla\u00eet.", "variables": {} }
+    ],
+    "requiredIdeas": ["confirmation"],
+    "bonusIdeas": ["politeness"],
+    "followUpIds": []
+  }
+]

@@ -1,0 +1,17 @@
+[
+  { "id": "bonjour", "text": "bonjour", "nativeText": "hello", "ideaTags": ["greeting"], "stage": 1 },
+  { "id": "bonsoir", "text": "bonsoir", "nativeText": "good evening", "ideaTags": ["greeting"], "stage": 1 },
+  { "id": "au_revoir", "text": "au revoir", "nativeText": "goodbye", "ideaTags": ["farewell"], "stage": 1 },
+  { "id": "oui", "text": "oui", "nativeText": "yes", "ideaTags": ["confirmation", "agreement"], "stage": 1 },
+  { "id": "non", "text": "non", "nativeText": "no", "ideaTags": ["negation"], "stage": 1 },
+  { "id": "d_accord", "text": "d'accord", "nativeText": "okay", "ideaTags": ["confirmation", "agreement"], "stage": 1 },
+  { "id": "s_il_vous_plait", "text": "s'il vous pla\u00eet", "nativeText": "please", "ideaTags": ["politeness"], "stage": 1 },
+  { "id": "merci", "text": "merci", "nativeText": "thank you", "ideaTags": ["politeness"], "stage": 1 },
+  { "id": "de_rien", "text": "de rien", "nativeText": "you're welcome", "ideaTags": ["politeness"], "stage": 1 },
+  { "id": "un", "text": "un", "nativeText": "one", "ideaTags": ["quantity"], "stage": 1 },
+  { "id": "deux", "text": "deux", "nativeText": "two", "ideaTags": ["quantity"], "stage": 1 },
+  { "id": "trois", "text": "trois", "nativeText": "three", "ideaTags": ["quantity"], "stage": 1 },
+  { "id": "cafe", "text": "caf\u00e9", "nativeText": "coffee", "ideaTags": ["item"], "stage": 2 },
+  { "id": "the", "text": "th\u00e9", "nativeText": "tea", "ideaTags": ["item"], "stage": 2 },
+  { "id": "bon", "text": "bon", "nativeText": "good", "ideaTags": ["quality"], "stage": 2 }
+]
