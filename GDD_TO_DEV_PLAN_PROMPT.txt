@@ -57,7 +57,7 @@ Evaluation is based on idea-tag matching, not grammar parsing.
 The core philosophy is:
 IDEA → EXPRESSION → REPETITION
 
-⸻
+⸻-
 
 YOUR TASK
 
