@@ -1,0 +1,9 @@
+{
+  "name": "Coffee Lingo",
+  "short_name": "Coffee Lingo",
+  "description": "Learn French by running a cafe",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5e6d3",
+  "theme_color": "#5c3d2e"
+}

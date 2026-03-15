@@ -4,6 +4,12 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Coffee Lingo',
   description: 'Learn French by running a cafe',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Coffee Lingo',
+  },
 }
 
 export const viewport: Viewport = {
