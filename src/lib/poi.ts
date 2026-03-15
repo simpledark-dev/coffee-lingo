@@ -14,8 +14,8 @@ function buildPOIs(): PointOfInterest[] {
         // Counter: the floor tile in front of counter (row 15, the row above counter row 16)
         // We check row 15 specifically for counter slots
         case T.FLOOR: {
-          // Counter slots: row 15, cols 7/8/9
-          if (row === 15 && col >= 7 && col <= 9) {
+          // Counter slots: row 18 (floor in front of counter at row 19), cols 3/5/7
+          if (row === 18 && (col === 3 || col === 5 || col === 7)) {
             pois.push({
               id: `counter_${id++}`,
               type: 'counter',
@@ -120,10 +120,9 @@ function buildPOIs(): PointOfInterest[] {
 
   // Add a few open floor spots for variety (hand-picked central areas)
   const floorSpots = [
-    { row: 6, col: 8 },   // upper room center
-    { row: 6, col: 10 },  // upper room center-right
-    { row: 15, col: 4 },  // main cafe left of counter
-    { row: 15, col: 13 }, // main cafe right of counter
+    { row: 6, col: 5 },   // upper room center
+    { row: 9, col: 5 },   // below divider shelf
+    { row: 16, col: 4 },  // main cafe lower area
   ]
   for (const pos of floorSpots) {
     if (isWalkable(pos.row, pos.col)) {
@@ -144,15 +143,19 @@ export const POINTS_OF_INTEREST = buildPOIs()
 
 /**
  * Pick a random unoccupied/under-capacity POI, avoiding the current one.
+ * Also avoids POIs whose grid position is already occupied by another customer.
  */
 export function pickNextPOI(
   currentPOI: string | null,
   occupancy: Map<string, number[]>,
+  occupiedPositions?: Set<string>,
 ): PointOfInterest | null {
   const available = POINTS_OF_INTEREST.filter(poi => {
     if (poi.id === currentPOI) return false
     const occupants = occupancy.get(poi.id) ?? []
-    return occupants.length < poi.maxOccupants
+    if (occupants.length >= poi.maxOccupants) return false
+    if (occupiedPositions && occupiedPositions.has(`${poi.pos.row},${poi.pos.col}`)) return false
+    return true
   })
 
   if (available.length === 0) return null

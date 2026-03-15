@@ -111,7 +111,8 @@ function spawnCustomer(state: CafeState): void {
   }
 
   // Find first destination
-  const poi = pickNextPOI(null, state.poiOccupancy)
+  const occupied = getBlockedPositions(state, customer.id)
+  const poi = pickNextPOI(null, state.poiOccupancy, occupied)
   if (poi) {
     const blocked = getBlockedPositions(state, customer.id)
     customer.path = findPath(DOOR_ENTRY, poi.pos, blocked)
@@ -158,16 +159,16 @@ function advanceAlongPath(customer: CustomerState, deltaMs: number): boolean {
     return customer.pathIndex >= customer.path.length
   }
 
-  // Move toward target
-  const nx = dx / dist
-  const ny = dy / dist
-  customer.worldPos.x += nx * speed
-  customer.worldPos.y += ny * speed
-
-  // Update facing direction
+  // Move one axis at a time (no diagonal movement)
   if (Math.abs(dx) > Math.abs(dy)) {
+    // Move horizontally first
+    const step = Math.min(speed, Math.abs(dx))
+    customer.worldPos.x += Math.sign(dx) * step
     customer.facingDir = dx < 0 ? 'left' : 'right'
   } else {
+    // Move vertically first
+    const step = Math.min(speed, Math.abs(dy))
+    customer.worldPos.y += Math.sign(dy) * step
     customer.facingDir = dy < 0 ? 'up' : 'down'
   }
 
@@ -264,14 +265,14 @@ function moveToNextPOI(customer: CustomerState, state: CafeState): void {
     return
   }
 
-  const poi = pickNextPOI(customer.currentPOI, state.poiOccupancy)
+  const blocked = getBlockedPositions(state, customer.id)
+  const poi = pickNextPOI(customer.currentPOI, state.poiOccupancy, blocked)
   if (!poi) {
     startExiting(customer, state)
     return
   }
 
   const currentGrid = worldToGrid(customer.worldPos)
-  const blocked = getBlockedPositions(state, customer.id)
   const path = findPath(currentGrid, poi.pos, blocked)
 
   if (path.length === 0) {
@@ -292,8 +293,16 @@ function startExiting(customer: CustomerState, state: CafeState): void {
   customer.currentPOI = null
 
   const currentGrid = worldToGrid(customer.worldPos)
-  const path = findPath(currentGrid, DOOR_ENTRY)
-  customer.path = path.length > 0 ? path : [DOOR_ENTRY]
+  const blocked = getBlockedPositions(state, customer.id)
+  const path = findPath(currentGrid, DOOR_ENTRY, blocked)
+  if (path.length === 0) {
+    // Shouldn't happen, but stay idle briefly and retry next cycle
+    customer.phase = 'idle'
+    customer.idleTimer = 1000
+    customer.stopsRemaining = 0 // will retry exit after idle
+    return
+  }
+  customer.path = path
   customer.pathIndex = 0
   customer.phase = 'exiting'
   customer.facingDir = 'right'

@@ -8,9 +8,9 @@
 export const TILE_SIZE = 16
 export const SCALE = 3 // 3x → each tile is 48px
 
-// Grid: 18 columns × 20 rows
-export const GRID_COLS = 18
-export const GRID_ROWS = 20
+// Grid: 10 columns × 22 rows (fits ~390px mobile viewport at 48px/tile)
+export const GRID_COLS = 10
+export const GRID_ROWS = 22
 
 // Tile IDs
 export const T = {
@@ -32,49 +32,45 @@ export const T = {
   WINDOW: 'N',
 } as const
 
-// Expanded cafe layout — two rooms connected by archway
-// 18 wide × 20 tall
+// Cafe layout — two rooms connected by corridor + archway
+// 10 wide × 22 tall
 export const CAFE_LAYOUT: string[][] = [
-  // === UPPER SEATING ROOM (rows 0-7) ===
-  // Row 0: Top wall with windows
-  ['W','W','N','N','W','W','W','W','W','W','W','W','W','W','N','N','W','W'],
-  // 4 tables: top-left(2), top-right(2), center-left(3), center-right(2)
-  ['W','F','F','d','F','P','F','F','L','F','F','F','P','F','d','F','F','W'],
-  ['W','F','F','T','F','F','F','F','F','F','F','F','F','F','T','F','F','W'],
-  ['W','F','F','F','u','F','d','F','F','F','F','F','d','u','F','F','F','W'],
-  ['W','F','F','F','F','F','T','F','F','F','F','F','T','F','F','F','F','W'],
-  ['W','F','F','F','F','u','F','u','F','F','F','u','F','F','F','F','F','W'],
-  ['W','F','P','F','F','F','F','F','F','F','F','F','F','F','F','P','F','W'],
-  // Row 7: Divider wall with archway (cols 7-9 open)
-  ['W','W','W','W','W','W','W','F','F','F','W','W','W','W','W','W','W','W'],
+  // === UPPER SEATING ROOM (rows 0-8) ===
+  ['W','N','N','W','W','W','W','N','N','W'],  // row 0: top wall, windows
+  ['W','F','F','F','P','F','F','F','F','W'],  // row 1: lamp, open
+  ['W','F','d','F','F','F','F','d','F','W'],  // row 2: chairs facing down
+  ['W','F','T','F','F','F','F','T','F','W'],  // row 3: tables
+  ['W','F','F','u','F','F','u','F','F','W'],  // row 4: chairs facing up (diagonal)
+  ['W','P','F','F','F','F','F','F','P','W'],  // row 5: plants
+  ['W','F','F','F','F','F','F','F','F','W'],  // row 6: open floor
+  ['W','F','F','F','F','F','F','F','F','W'],  // row 7: open floor
 
-  // === MAIN CAFE (rows 8-19) ===
-  // Row 8-9: Back wall with windows, shelves, menu — archway opening at cols 7-9
-  ['W','W','N','N','W','S','W','F','F','F','M','M','W','L','W','S','N','W'],
-  ['W','W','N','N','W','S','W','F','F','F','M','M','W','W','W','S','N','W'],
-  // 4 tables: top-left(2), top-right(3), bottom-left(2), bottom-right(2)
-  ['F','P','F','d','F','F','F','F','F','F','F','d','F','F','F','F','F','F'],
-  ['F','F','F','T','F','F','F','F','F','F','F','T','F','d','F','P','F','F'],
-  ['F','F','u','F','F','d','F','F','F','F','u','F','F','F','F','F','F','F'],
-  ['F','F','F','F','F','T','F','F','F','F','F','F','T','F','F','F','F','D'],
-  ['F','F','F','F','u','u','F','F','F','F','F','u','F','F','F','P','F','D'],
-  // Row 15: Customer stands here (in front of counter)
-  ['F','F','F','F','F','F','F','F','F','F','F','F','F','F','F','F','F','F'],
-  // Row 16: Counter
-  ['c','C','C','C','C','C','C','C','C','C','C','C','C','C','C','C','C','C'],
-  // Row 17-19: Behind counter (barista workspace)
-  ['F','F','X','F','Q','F','F','X','F','Q','F','F','F','Q','F','F','X','F'],
-  ['F','F','F','F','F','F','F','F','F','F','F','F','F','F','F','F','F','F'],
-  ['W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W'],
+  // === DIVIDER: wall with doorway + shelves/menus (rows 8-9) ===
+  ['W','W','W','W','F','F','W','W','W','W'],  // row 8: wall with opening at cols 4-5
+  ['W','W','S','S','F','F','M','M','W','W'],  // row 9: shelves left, menus right, opening cols 4-5
+
+  // === MAIN CAFE (rows 10-21) ===
+  ['W','F','F','F','F','F','F','F','F','W'],  // row 10: open floor
+  ['W','F','F','F','L','F','F','F','F','W'],  // row 11: lamp
+  ['W','F','d','F','F','F','F','F','F','W'],  // row 12: chair
+  ['W','F','T','F','F','F','d','F','P','W'],  // row 13: table, chair, plant
+  ['W','F','F','u','F','F','T','F','F','W'],  // row 14: chair (diagonal), table
+  ['W','F','F','F','F','u','F','F','F','W'],  // row 15: chair
+  ['W','F','F','F','F','F','F','F','F','W'],  // row 16: open floor
+  ['W','F','F','F','F','F','F','F','F','D'],  // row 17: door at right edge
+  ['W','F','F','F','F','F','F','F','F','W'],  // row 18: in front of counter
+  ['c','C','C','C','C','C','C','C','C','C'],  // row 19: counter
+  ['W','F','X','Q','F','F','X','Q','F','W'],  // row 20: behind counter workspace
+  ['W','W','W','W','W','W','W','W','W','W'],  // row 21: back wall
 ]
 
 // Legacy single-customer positions (kept for backward compat)
-export const CUSTOMER_POS = { row: 15, col: 8 }
-export const DOOR_POS = { row: 14, col: 18 }
+export const CUSTOMER_POS = { row: 18, col: 5 }
+export const DOOR_POS = { row: 17, col: 9 }
 
 // Multi-customer entry/exit points
-export const DOOR_ENTRY = { row: 14, col: 17 } // first walkable tile inside door
-export const DOOR_EXIT = { row: 14, col: 17 }  // walk here to leave
+export const DOOR_ENTRY = { row: 17, col: 9 } // door tile — customers walk in/out here
+export const DOOR_EXIT = { row: 17, col: 9 }
 
 // Walkable tile check
 const WALKABLE_TILES: Set<string> = new Set([T.FLOOR, T.DOOR, T.CHAIR_U, T.CHAIR_D])

@@ -151,8 +151,8 @@ export default function CafeCanvas({
 
   // Set default camera Y
   useEffect(() => {
-    // Default to showing counter area (row 15)
-    const counterY = 15 * TILE_PX
+    // Default to showing counter area (row 19)
+    const counterY = 19 * TILE_PX
     cameraYRef.current = Math.max(0, counterY - viewHRef.current * 0.4)
   }, [])
 
