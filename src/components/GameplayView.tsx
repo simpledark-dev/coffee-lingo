@@ -19,6 +19,45 @@ interface GameplayViewProps {
 
 const PATIENCE_DURATION = 20_000
 
+// Cache French male voice
+let cachedVoice: SpeechSynthesisVoice | null = null
+let voicesLoaded = false
+
+function loadVoices() {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return
+  const voices = window.speechSynthesis.getVoices()
+  if (voices.length === 0) return
+  voicesLoaded = true
+  // Prefer male French voices (Thomas on macOS, Google français on Chrome)
+  const frenchVoices = voices.filter(v => v.lang.startsWith('fr'))
+  cachedVoice =
+    frenchVoices.find(v => /thomas|male|homme/i.test(v.name)) ??
+    frenchVoices.find(v => !/female|femme|amélie|audrey|marie/i.test(v.name)) ??
+    frenchVoices[0] ??
+    null
+}
+
+// Load voices eagerly — some browsers fire this event, others have them ready immediately
+if (typeof window !== 'undefined' && window.speechSynthesis) {
+  loadVoices()
+  window.speechSynthesis.onvoiceschanged = loadVoices
+}
+
+function speakFrench(text: string): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) { resolve(); return }
+    if (!voicesLoaded) loadVoices()
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = 'fr-FR'
+    utterance.rate = 0.85
+    if (cachedVoice) utterance.voice = cachedVoice
+    utterance.onend = () => resolve()
+    utterance.onerror = () => resolve()
+    window.speechSynthesis.speak(utterance)
+  })
+}
+
 export default function GameplayView({
   conversations,
   playerState,
@@ -137,6 +176,7 @@ export default function GameplayView({
     respondingRef.current = true
     processingRef.current = false
     setPatiencePercent(100)
+    speakFrench(exchange.customerLine)
   }, [])
 
   const processResult = useCallback((choice: AnswerChoice | null) => {
@@ -204,6 +244,7 @@ export default function GameplayView({
         respondingRef.current = true
         processingRef.current = false
         setPatiencePercent(100)
+        speakFrench(nextExchange.customerLine)
       } else {
         // No more exchanges — end conversation
         endConversation(state)
@@ -233,9 +274,16 @@ export default function GameplayView({
   }
 
   function handleChoiceTap(choice: AnswerChoice) {
-    if (!responding) return
+    if (!responding || processingRef.current) return
     setSelectedChoiceId(choice.id)
-    processResult(choice)
+    setResponding(false)
+    respondingRef.current = false
+    processingRef.current = true
+    // Speak the answer, then process result after TTS finishes
+    speakFrench(choice.displayText).then(() => {
+      processingRef.current = false // allow processResult to proceed
+      processResult(choice)
+    })
   }
 
   function handleHint() {

@@ -13,5 +13,18 @@
   { "id": "trois", "text": "trois", "nativeText": "three", "ideaTags": ["quantity"], "stage": 1 },
   { "id": "cafe", "text": "caf\u00e9", "nativeText": "coffee", "ideaTags": ["item"], "stage": 2 },
   { "id": "the", "text": "th\u00e9", "nativeText": "tea", "ideaTags": ["item"], "stage": 2 },
-  { "id": "bon", "text": "bon", "nativeText": "good", "ideaTags": ["quality"], "stage": 2 }
+  { "id": "bon", "text": "bon", "nativeText": "good", "ideaTags": ["quality"], "stage": 2 },
+  { "id": "bien_sur", "text": "bien s\u00fbr", "nativeText": "of course", "ideaTags": ["agreement", "confirmation"], "stage": 1 },
+  { "id": "voila", "text": "voil\u00e0", "nativeText": "here you go", "ideaTags": ["confirmation"], "stage": 1 },
+  { "id": "bonne_journee", "text": "bonne journ\u00e9e", "nativeText": "have a nice day", "ideaTags": ["farewell", "politeness"], "stage": 1 },
+  { "id": "la_bas", "text": "l\u00e0-bas", "nativeText": "over there", "ideaTags": ["direction", "location"], "stage": 1 },
+  { "id": "a_droite", "text": "\u00e0 droite", "nativeText": "on the right", "ideaTags": ["direction", "location"], "stage": 2 },
+  { "id": "joli", "text": "joli", "nativeText": "pretty", "ideaTags": ["compliment"], "stage": 2 },
+  { "id": "beau", "text": "beau", "nativeText": "nice/beautiful", "ideaTags": ["weather", "compliment"], "stage": 2 },
+  { "id": "froid", "text": "froid", "nativeText": "cold", "ideaTags": ["weather"], "stage": 2 },
+  { "id": "chaud", "text": "chaud", "nativeText": "hot/warm", "ideaTags": ["weather"], "stage": 2 },
+  { "id": "toilettes", "text": "les toilettes", "nativeText": "the restroom", "ideaTags": ["location"], "stage": 2 },
+  { "id": "wifi", "text": "le Wi-Fi", "nativeText": "the Wi-Fi", "ideaTags": ["wifi"], "stage": 2 },
+  { "id": "avec_plaisir", "text": "avec plaisir", "nativeText": "with pleasure", "ideaTags": ["politeness", "agreement"], "stage": 1 },
+  { "id": "tres_bien", "text": "tr\u00e8s bien", "nativeText": "very good", "ideaTags": ["quality", "agreement"], "stage": 1 }
 ]

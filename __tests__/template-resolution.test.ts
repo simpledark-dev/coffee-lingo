@@ -9,7 +9,7 @@ const templates = templatesData as DialogueTemplate[]
 
 describe('resolveTemplate', () => {
   it('resolves {quantity} and {item} variables in requiredIdeas', () => {
-    const orderTemplate = templates.find((t) => t.id === 'order_04')!
+    const orderTemplate = templates.find((t) => t.id === 'order_03')!
     const result = resolveTemplate(orderTemplate, expressions)
 
     expect(result.requiredIdeas).not.toContain('{quantity}')
@@ -59,7 +59,7 @@ describe('resolveTemplate', () => {
   })
 
   it('generates hint idea and hint translation', () => {
-    const orderTemplate = templates.find((t) => t.id === 'order_04')!
+    const orderTemplate = templates.find((t) => t.id === 'order_03')!
     const result = resolveTemplate(orderTemplate, expressions)
 
     expect(result.hintIdea).toBe('Confirm the order')

@@ -31,7 +31,7 @@ describe('generateConversations', () => {
       const convos = generateConversations(templates, expressions, createVocabulary(), [])
       for (const convo of convos) {
         expect(convo.exchanges.length).toBeGreaterThanOrEqual(1)
-        expect(convo.exchanges.length).toBeLessThanOrEqual(3)
+        expect(convo.exchanges.length).toBeLessThanOrEqual(4)
       }
     }
   })
@@ -51,8 +51,8 @@ describe('generateConversations', () => {
   })
 
   it('works with full content set (14 templates, 15 expressions)', () => {
-    expect(templates).toHaveLength(14)
-    expect(expressions).toHaveLength(15)
+    expect(templates.length).toBeGreaterThanOrEqual(20)
+    expect(expressions.length).toBeGreaterThanOrEqual(25)
 
     for (let i = 0; i < 5; i++) {
       const convos = generateConversations(templates, expressions, createVocabulary(), [])

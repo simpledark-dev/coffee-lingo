@@ -55,7 +55,7 @@ export const CAFE_LAYOUT: string[][] = [
   ['W','F','d','F','F','F','F','F','F','W'],  // row 12: chair
   ['W','F','T','F','F','F','d','F','P','W'],  // row 13: table, chair, plant
   ['W','F','F','u','F','F','T','F','F','W'],  // row 14: chair (diagonal), table
-  ['W','F','F','F','F','u','F','F','F','W'],  // row 15: chair
+  ['W','F','F','F','F','F','u','F','F','W'],  // row 15: chair
   ['W','F','F','F','F','F','F','F','F','W'],  // row 16: open floor
   ['W','F','F','F','F','F','F','F','F','D'],  // row 17: door at right edge
   ['W','F','F','F','F','F','F','F','F','W'],  // row 18: in front of counter

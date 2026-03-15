@@ -11,7 +11,7 @@ import {
 
 const IDEA_HINT_MAP: Record<string, string> = {
   greeting: 'Greet the customer',
-  confirmation: 'Confirm the order',
+  confirmation: 'Confirm or answer yes',
   ordering: 'Confirm the order',
   quantity: 'Say the quantity',
   politeness: 'Be polite',
@@ -20,6 +20,12 @@ const IDEA_HINT_MAP: Record<string, string> = {
   negation: 'Decline politely',
   quality: 'Comment on quality',
   item: 'Name the item',
+  wifi: 'Help with the Wi-Fi',
+  compliment: 'Respond to the compliment',
+  weather: 'Talk about the weather',
+  recommendation: 'Recommend something',
+  location: 'Give directions',
+  casual: 'Chat with the customer',
 }
 
 function pickRandom<T>(arr: T[]): T {
@@ -197,17 +203,35 @@ export function evaluateChoice(
   }
 }
 
-// Conversation patterns: natural customer-barista interaction flows
-// Mix of 1, 2, and 3 turn conversations for variety
+// Conversation patterns: natural multi-turn flows
+// Categories are always in a sensible order:
+//   openers (greeting, weather, compliment) → inquiries (wifi, recommendation, location, casual, confirmation)
+//   → action (ordering) → closers (politeness, farewell)
 const CONVERSATION_PATTERNS: string[][] = [
-  ['ordering'],                               // quick: just order
-  ['greeting'],                               // just a hello
-  ['politeness'],                             // just a thanks/bye
-  ['greeting', 'ordering'],                   // hi → order
-  ['ordering', 'politeness'],                 // order → thanks
-  ['greeting', 'politeness'],                 // hi → bye
-  ['greeting', 'ordering', 'politeness'],     // full: hi → order → thanks
-  ['confirmation', 'ordering', 'politeness'], // cautious: confirm → order → bye
+  // 1-turn
+  ['ordering'],
+  ['greeting'],
+  ['compliment'],
+  ['casual'],
+  // 2-turn
+  ['greeting', 'ordering'],
+  ['greeting', 'wifi'],
+  ['greeting', 'location'],
+  ['weather', 'ordering'],
+  ['compliment', 'politeness'],
+  ['ordering', 'politeness'],
+  ['greeting', 'casual'],
+  // 3-turn
+  ['greeting', 'ordering', 'politeness'],
+  ['greeting', 'recommendation', 'ordering'],
+  ['weather', 'ordering', 'politeness'],
+  ['greeting', 'wifi', 'politeness'],
+  ['compliment', 'ordering', 'politeness'],
+  ['greeting', 'location', 'politeness'],
+  // 4-turn
+  ['greeting', 'recommendation', 'ordering', 'politeness'],
+  ['greeting', 'weather', 'ordering', 'farewell'],
+  ['greeting', 'casual', 'ordering', 'politeness'],
 ]
 
 export function generateConversations(
