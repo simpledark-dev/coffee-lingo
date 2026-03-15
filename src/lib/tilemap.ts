@@ -51,7 +51,7 @@ export const CAFE_LAYOUT: string[][] = [
 
   // === MAIN CAFE (rows 10-21) ===
   ['W','F','F','F','F','F','F','F','F','W'],  // row 10: open floor
-  ['W','F','F','F','L','F','F','F','F','W'],  // row 11: lamp
+  ['W','F','F','F','F','F','F','F','F','W'],  // row 11: lamp
   ['W','F','d','F','F','F','F','F','F','W'],  // row 12: chair
   ['W','F','T','F','F','F','d','F','P','W'],  // row 13: table, chair, plant
   ['W','F','F','u','F','F','T','F','F','W'],  // row 14: chair (diagonal), table

@@ -291,6 +291,7 @@ function moveToNextPOI(customer: CustomerState, state: CafeState): void {
 function startExiting(customer: CustomerState, state: CafeState): void {
   vacatePOI(state, customer.currentPOI, customer.id)
   customer.currentPOI = null
+  state.dayAccumulator.customersServed++
 
   const currentGrid = worldToGrid(customer.worldPos)
   const blocked = getBlockedPositions(state, customer.id)
@@ -385,5 +386,4 @@ export function recordResult(state: CafeState, score: Score, tipAmount: number):
   acc.coinsEarned += tipAmount
   if (score === 'PERFECT') acc.reputationChange++
   if (score === 'MISSED') acc.reputationChange--
-  acc.customersServed++
 }

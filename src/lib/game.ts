@@ -198,11 +198,16 @@ export function evaluateChoice(
 }
 
 // Conversation patterns: natural customer-barista interaction flows
+// Mix of 1, 2, and 3 turn conversations for variety
 const CONVERSATION_PATTERNS: string[][] = [
-  ['greeting', 'ordering', 'politeness'],   // full: hi → order → thanks/bye
-  ['greeting', 'ordering'],                  // quick: hi → order
-  ['ordering', 'politeness'],                // returning customer: order → thanks
-  ['confirmation', 'ordering', 'politeness'], // cautious: "are you open?" → order → bye
+  ['ordering'],                               // quick: just order
+  ['greeting'],                               // just a hello
+  ['politeness'],                             // just a thanks/bye
+  ['greeting', 'ordering'],                   // hi → order
+  ['ordering', 'politeness'],                 // order → thanks
+  ['greeting', 'politeness'],                 // hi → bye
+  ['greeting', 'ordering', 'politeness'],     // full: hi → order → thanks
+  ['confirmation', 'ordering', 'politeness'], // cautious: confirm → order → bye
 ]
 
 export function generateConversations(

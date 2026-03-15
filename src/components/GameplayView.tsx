@@ -186,13 +186,32 @@ export default function GameplayView({
     setDisplayRep(newState.reputation + acc.reputationChange)
     setServed(acc.customersServed)
 
-    // Show score briefly, then end conversation
+    // Show score briefly, then advance to next exchange or end conversation
     setTimeout(() => {
-      endConversation(state)
-      setActiveExchange(null)
-      setLastResult(null)
-      setSelectedChoiceId(null)
-      processingRef.current = false
+      const nextIndex = state.activeConvo!.exchangeIndex + 1
+      const nextExchange = customer.conversation.exchanges[nextIndex]
+
+      if (nextExchange) {
+        // Advance to next exchange in same conversation
+        state.activeConvo!.exchangeIndex = nextIndex
+        customer.nextExchangeIndex = nextIndex
+        setActiveExchange(nextExchange)
+        setLastResult(null)
+        setSelectedChoiceId(null)
+        setHintLevel(0)
+        hintLevelRef.current = 0
+        setResponding(true)
+        respondingRef.current = true
+        processingRef.current = false
+        setPatiencePercent(100)
+      } else {
+        // No more exchanges — end conversation
+        endConversation(state)
+        setActiveExchange(null)
+        setLastResult(null)
+        setSelectedChoiceId(null)
+        processingRef.current = false
+      }
     }, 1000)
   }, [])
 

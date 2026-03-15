@@ -282,6 +282,13 @@ export default function CafeCanvas({
       ctx.imageSmoothingEnabled = false
       drawScene(ctx, camX, camY, viewW, viewH)
 
+      // Draw barista behind counter (row 20, col 8, facing up)
+      ctx.save()
+      ctx.translate(-camX, -camY)
+      const baristaSprite = CUSTOMER_SPRITES[0].up
+      drawSprite(ctx, baristaSprite, 4 * TILE_PX, 20 * TILE_PX, SCALE)
+      ctx.restore()
+
       // Draw customers sorted by Y for depth
       const state = cafeStateRef.current
       if (state) {

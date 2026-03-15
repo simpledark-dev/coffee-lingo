@@ -26,11 +26,11 @@ describe('generateConversations', () => {
     expect(convos).toHaveLength(10)
   })
 
-  it('each customer has 2-3 exchanges (multi-turn)', () => {
+  it('each customer has 1-3 exchanges', () => {
     for (let i = 0; i < 5; i++) {
       const convos = generateConversations(templates, expressions, createVocabulary(), [])
       for (const convo of convos) {
-        expect(convo.exchanges.length).toBeGreaterThanOrEqual(2)
+        expect(convo.exchanges.length).toBeGreaterThanOrEqual(1)
         expect(convo.exchanges.length).toBeLessThanOrEqual(3)
       }
     }
@@ -58,7 +58,7 @@ describe('generateConversations', () => {
       const convos = generateConversations(templates, expressions, createVocabulary(), [])
       expect(convos).toHaveLength(10)
       const totalExchanges = convos.reduce((sum, c) => sum + c.exchanges.length, 0)
-      expect(totalExchanges).toBeGreaterThanOrEqual(20)
+      expect(totalExchanges).toBeGreaterThanOrEqual(10)
       expect(totalExchanges).toBeLessThanOrEqual(30)
     }
   })
