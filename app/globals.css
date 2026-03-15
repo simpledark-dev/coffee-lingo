@@ -86,9 +86,8 @@ html, body {
 /* Response bar */
 .response-area {
   flex-shrink: 0;
-  padding: 8px 16px 12px;
+  padding: 6px 12px 10px;
   background: var(--bg-warm);
-  border-top: 2px solid var(--brown-dark);
 }
 
 /* Turn indicator */
@@ -105,20 +104,20 @@ html, body {
 .choices-grid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .choice-button {
   width: 100%;
-  padding: 14px 16px;
+  padding: 12px 14px;
   background: var(--cream);
   color: var(--text-dark);
   border: 2px solid var(--brown-light);
   border-radius: 12px;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  min-height: 48px;
+  min-height: 44px;
   text-align: center;
   transition: transform 0.1s, opacity 0.2s, border-color 0.2s, background 0.2s;
 }

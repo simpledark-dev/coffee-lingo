@@ -283,11 +283,22 @@ export const PLANT: Sprite = [
 
 // Customer sprite — facing down (toward player/counter), idle
 // Each customer variant uses different shirt color
-export function makeCustomerSprite(shirtColor: number, skinColor: number, hairColor: number): Sprite {
+export type CustomerDirection = 'down' | 'left' | 'right' | 'up'
+
+export interface CustomerSprites {
+  down: Sprite
+  left: Sprite
+  right: Sprite
+  up: Sprite
+}
+
+export function makeCustomerSprites(shirtColor: number, skinColor: number, hairColor: number): CustomerSprites {
   const S = shirtColor
-  const K = skinColor  // skin
+  const K = skinColor
   const H = hairColor
-  return [
+
+  // Facing down (front view — current default)
+  const down: Sprite = [
     [ 0, 0, 0, 0, 0, 0, H, H, H, H, 0, 0, 0, 0, 0, 0],
     [ 0, 0, 0, 0, 0, H, H, H, H, H, H, 0, 0, 0, 0, 0],
     [ 0, 0, 0, 0, 0, H, K, K, K, K, H, 0, 0, 0, 0, 0],
@@ -305,16 +316,69 @@ export function makeCustomerSprite(shirtColor: number, skinColor: number, hairCo
     [ 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0],
     [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   ]
+
+  // Facing left (side profile — round head, narrower body, one eye)
+  const left: Sprite = [
+    [ 0, 0, 0, 0, 0, H, H, H, H, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, H, H, H, H, H, H, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, H, K, K, K, K, H, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, K, K, K, K, K, H, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, K, 9, K, K, K, H, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, K, K, K, K, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 0, K, K, 0, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, S, S, S, S, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, K, S, S, S, S, S, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, K, K, S, S, S, S, S, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, K, S, S, S, S, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, S, S, S, S, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 1, S, S, 1, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ]
+
+  // Facing right (mirror of left)
+  const right: Sprite = left.map(row => [...row].reverse())
+
+  // Facing up (back view — narrower like side, all hair, no face)
+  const up: Sprite = [
+    [ 0, 0, 0, 0, 0, 0, H, H, H, H, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, H, H, H, H, H, H, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, H, H, H, H, H, H, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, H, H, H, H, H, H, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, H, H, H, H, H, H, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, K, K, H, H, K, K, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 0, K, K, K, K, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, S, S, S, S, S, S, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, K, S, S, S, S, S, S, K, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, K, S, S, S, S, S, S, K, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, S, S, S, S, S, S, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, S, S, S, S, S, S, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, S, S, 0, 0, S, S, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ]
+
+  return { down, left, right, up }
 }
 
-// Pre-made customer variants
-export const CUSTOMERS = [
-  makeCustomerSprite(18, 29, 1),   // blue shirt, light skin, dark hair
-  makeCustomerSprite(20, 4, 9),    // red shirt, tan skin, black hair
-  makeCustomerSprite(13, 29, 2),   // green shirt, light skin, brown hair
-  makeCustomerSprite(21, 4, 1),    // purple shirt, tan skin, dark hair
-  makeCustomerSprite(15, 29, 17),  // coral shirt, light skin, blonde hair
+// Backward compat: single-sprite generator (returns front-facing)
+export function makeCustomerSprite(shirtColor: number, skinColor: number, hairColor: number): Sprite {
+  return makeCustomerSprites(shirtColor, skinColor, hairColor).down
+}
+
+// Pre-made customer variants with all directions
+export const CUSTOMER_SPRITES: CustomerSprites[] = [
+  makeCustomerSprites(18, 29, 1),   // blue shirt, light skin, dark hair
+  makeCustomerSprites(20, 4, 9),    // red shirt, tan skin, black hair
+  makeCustomerSprites(13, 29, 2),   // green shirt, light skin, brown hair
+  makeCustomerSprites(21, 4, 1),    // purple shirt, tan skin, dark hair
+  makeCustomerSprites(15, 29, 17),  // coral shirt, light skin, blonde hair
 ]
+
+// Backward compat: front-facing only array
+export const CUSTOMERS = CUSTOMER_SPRITES.map(s => s.down)
 
 // Coffee cup on counter/table
 export const COFFEE_CUP: Sprite = [
@@ -337,6 +401,26 @@ export const COFFEE_CUP: Sprite = [
 ]
 
 // All sprite exports in one map for the tilemap renderer
+// Window — light blue pane with brown frame, sky outside
+export const WINDOW: Sprite = [
+  [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [ 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+  [ 1, 2,19,19,19,19,19, 2,19,19,19,19,19,19, 2, 1],
+  [ 1, 2,19,18,18,19,19, 2,19,19,19,19,19,19, 2, 1],
+  [ 1, 2,19,18,19,19,19, 2,19,19,19,18,19,19, 2, 1],
+  [ 1, 2,19,19,19,19,19, 2,19,19,19,19,19,19, 2, 1],
+  [ 1, 2,19,19,19,19,19, 2,19,19,19,19,19,19, 2, 1],
+  [ 1, 2,19,19,19,19,19, 2,19,19,19,19,19,19, 2, 1],
+  [ 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+  [ 1, 2,19,19,19,19,19, 2,19,19,19,19,19,19, 2, 1],
+  [ 1, 2,19,19,14,14,19, 2,19,19,14,14,19,19, 2, 1],
+  [ 1, 2,19,14,13,13,14, 2,19,14,13,13,14,19, 2, 1],
+  [ 1, 2,19,19,14,14,19, 2,19,19,14,14,19,19, 2, 1],
+  [ 1, 2,19,19,19,19,19, 2,19,19,19,19,19,19, 2, 1],
+  [ 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+  [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+]
+
 export const SPRITE_MAP: Record<string, Sprite> = {
   FLOOR_WOOD,
   WALL,
@@ -351,4 +435,5 @@ export const SPRITE_MAP: Record<string, Sprite> = {
   LAMP,
   PLANT,
   COFFEE_CUP,
+  WINDOW,
 }

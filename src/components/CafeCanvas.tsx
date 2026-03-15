@@ -8,8 +8,9 @@ import {
   WALL,
   COUNTER_TOP,
   COUNTER_END_L,
-  CUSTOMERS,
+  CUSTOMER_SPRITES,
 } from '../lib/sprites'
+import type { CustomerDirection } from '../lib/sprites'
 import {
   TILE_SIZE,
   SCALE,
@@ -23,24 +24,22 @@ import {
 import { Score } from '../lib/types'
 
 interface CafeCanvasProps {
-  // Customer state
   customerIndex: number
   customerPhase: 'entering' | 'present' | 'score' | 'exiting' | 'idle'
-  // Speech bubble
   customerLine: string
-  // Score
   scoreResult?: { score: Score; tipAmount: number } | null
-  // Patience
   patiencePercent: number
-  // Hint
   hintLevel: number
   hintIdea: string
   hintTranslation: string
   onHint: () => void
 }
 
-const CANVAS_W = GRID_COLS * TILE_SIZE * SCALE
-const CANVAS_H = GRID_ROWS * TILE_SIZE * SCALE
+// World size in pixels
+const WORLD_W = GRID_COLS * TILE_SIZE * SCALE
+const WORLD_H = GRID_ROWS * TILE_SIZE * SCALE
+
+const TILE_PX = TILE_SIZE * SCALE // 64px per tile
 
 const TILE_ID_TO_SPRITE: Record<string, string> = {
   [T.FLOOR]: 'FLOOR_WOOD',
@@ -57,12 +56,13 @@ const TILE_ID_TO_SPRITE: Record<string, string> = {
   [T.LAMP]: 'LAMP',
   [T.PLANT]: 'PLANT',
   [T.CUP]: 'COFFEE_CUP',
+  [T.WINDOW]: 'WINDOW',
 }
 
 // Floor tiles that go under objects
 const NEEDS_FLOOR = new Set<string>([
   T.TABLE, T.CHAIR_U, T.CHAIR_D, T.MACHINE, T.LAMP, T.PLANT, T.CUP,
-  T.SHELF, T.MENU,
+  T.SHELF, T.MENU, T.DOOR,
 ])
 
 function drawSprite(
@@ -99,22 +99,43 @@ export default function CafeCanvas({
   onHint,
 }: CafeCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const animRef = useRef<number>(0)
-  const customerXRef = useRef(DOOR_POS.col * TILE_SIZE * SCALE)
-  const targetXRef = useRef(CUSTOMER_POS.col * TILE_SIZE * SCALE)
+  const customerXRef = useRef(DOOR_POS.col * TILE_PX)
+  const targetXRef = useRef(CUSTOMER_POS.col * TILE_PX)
 
-  const customerVariant = customerIndex % CUSTOMERS.length
-  const customerSprite = CUSTOMERS[customerVariant]
+  // Camera position in world pixels (top-left of viewport)
+  const cameraXRef = useRef(0)
+  const cameraYRef = useRef(0)
+  // Touch panning state
+  const touchStartYRef = useRef(0)
+  const cameraStartYRef = useRef(0)
+  const isDraggingRef = useRef(false)
+  // Viewport size (set from container)
+  const viewWRef = useRef(390)
+  const viewHRef = useRef(500)
 
-  const drawScene = useCallback((ctx: CanvasRenderingContext2D) => {
-    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H)
+  const customerVariant = customerIndex % CUSTOMER_SPRITES.length
+  const customerSpriteSet = CUSTOMER_SPRITES[customerVariant]
+  const customerDirRef = useRef<CustomerDirection>('down')
 
-    // Draw tilemap
-    for (let row = 0; row < GRID_ROWS; row++) {
-      for (let col = 0; col < GRID_COLS; col++) {
+  const drawScene = useCallback((ctx: CanvasRenderingContext2D, camX: number, camY: number, viewW: number, viewH: number) => {
+    ctx.clearRect(0, 0, viewW, viewH)
+
+    // Frustum culling: only draw visible tiles
+    const startCol = Math.max(0, Math.floor(camX / TILE_PX))
+    const endCol = Math.min(GRID_COLS - 1, Math.floor((camX + viewW) / TILE_PX))
+    const startRow = Math.max(0, Math.floor(camY / TILE_PX))
+    const endRow = Math.min(GRID_ROWS - 1, Math.floor((camY + viewH) / TILE_PX))
+
+    ctx.save()
+    ctx.translate(-camX, -camY)
+
+    for (let row = startRow; row <= endRow; row++) {
+      for (let col = startCol; col <= endCol; col++) {
         const tileId = CAFE_LAYOUT[row]?.[col] ?? T.EMPTY
-        const px = col * TILE_SIZE * SCALE
-        const py = row * TILE_SIZE * SCALE
+        const px = col * TILE_PX
+        const py = row * TILE_PX
 
         if (tileId === T.EMPTY) continue
 
@@ -123,7 +144,7 @@ export default function CafeCanvas({
           drawSprite(ctx, FLOOR_WOOD, px, py, SCALE)
         }
 
-        // Draw the sprite for wall tiles
+        // Wall tiles rendered directly
         if (tileId === T.WALL) {
           drawSprite(ctx, WALL, px, py, SCALE)
           continue
@@ -137,12 +158,101 @@ export default function CafeCanvas({
         }
       }
     }
+
+    ctx.restore()
   }, [])
 
-  const drawCustomer = useCallback((ctx: CanvasRenderingContext2D, cx: number) => {
-    const cy = CUSTOMER_POS.row * TILE_SIZE * SCALE
-    drawSprite(ctx, customerSprite, cx, cy, SCALE)
-  }, [customerSprite])
+  const drawCustomer = useCallback((ctx: CanvasRenderingContext2D, cx: number, camX: number, camY: number, dir: CustomerDirection) => {
+    ctx.save()
+    ctx.translate(-camX, -camY)
+    const cy = CUSTOMER_POS.row * TILE_PX
+    drawSprite(ctx, customerSpriteSet[dir], cx, cy, SCALE)
+    ctx.restore()
+  }, [customerSpriteSet])
+
+  // Resize canvas to match container
+  useEffect(() => {
+    const container = containerRef.current
+    const canvas = canvasRef.current
+    if (!container || !canvas) return
+
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect
+      const dpr = 1 // keep pixel art crisp, no DPR scaling
+      canvas.width = width
+      canvas.height = height
+      viewWRef.current = width
+      viewHRef.current = height
+    })
+    ro.observe(container)
+    return () => ro.disconnect()
+  }, [])
+
+  // Set default camera Y to show counter/customer area
+  useEffect(() => {
+    const viewH = viewHRef.current
+    const counterY = CUSTOMER_POS.row * TILE_PX
+    cameraYRef.current = Math.max(0, counterY - viewH * 0.4)
+  }, [])
+
+  // Touch panning (vertical only)
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    function onTouchStart(e: TouchEvent) {
+      if (e.touches.length !== 1) return
+      isDraggingRef.current = true
+      touchStartYRef.current = e.touches[0].clientY
+      cameraStartYRef.current = cameraYRef.current
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (!isDraggingRef.current || e.touches.length !== 1) return
+      e.preventDefault() // prevent page scroll
+      const deltaY = touchStartYRef.current - e.touches[0].clientY
+      const maxY = Math.max(0, WORLD_H - viewHRef.current)
+      cameraYRef.current = Math.max(0, Math.min(maxY, cameraStartYRef.current + deltaY))
+    }
+
+    function onTouchEnd() {
+      isDraggingRef.current = false
+    }
+
+    // Mouse support for desktop testing
+    function onMouseDown(e: MouseEvent) {
+      isDraggingRef.current = true
+      touchStartYRef.current = e.clientY
+      cameraStartYRef.current = cameraYRef.current
+    }
+
+    function onMouseMove(e: MouseEvent) {
+      if (!isDraggingRef.current) return
+      const deltaY = touchStartYRef.current - e.clientY
+      const maxY = Math.max(0, WORLD_H - viewHRef.current)
+      cameraYRef.current = Math.max(0, Math.min(maxY, cameraStartYRef.current + deltaY))
+    }
+
+    function onMouseUp() {
+      isDraggingRef.current = false
+    }
+
+    container.addEventListener('touchstart', onTouchStart, { passive: true })
+    container.addEventListener('touchmove', onTouchMove, { passive: false })
+    container.addEventListener('touchend', onTouchEnd)
+    container.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+
+    return () => {
+      container.removeEventListener('touchstart', onTouchStart)
+      container.removeEventListener('touchmove', onTouchMove)
+      container.removeEventListener('touchend', onTouchEnd)
+      container.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
 
   // Animation loop
   useEffect(() => {
@@ -153,9 +263,9 @@ export default function CafeCanvas({
 
     ctx.imageSmoothingEnabled = false
 
-    const targetX = CUSTOMER_POS.col * TILE_SIZE * SCALE
-    const doorX = (DOOR_POS.col + 2) * TILE_SIZE * SCALE
-    const exitX = -2 * TILE_SIZE * SCALE
+    const targetX = CUSTOMER_POS.col * TILE_PX
+    const doorX = (DOOR_POS.col + 2) * TILE_PX
+    const exitX = -2 * TILE_PX
 
     if (customerPhase === 'entering') {
       customerXRef.current = doorX
@@ -171,20 +281,37 @@ export default function CafeCanvas({
     function frame() {
       if (!running || !ctx) return
 
-      // Animate customer position at constant speed
+      const viewW = viewWRef.current
+      const viewH = viewHRef.current
+
+      // Animate customer walk
       const diff = targetXRef.current - customerXRef.current
-      const WALK_SPEED = 3 // pixels per frame
+      const WALK_SPEED = 3
       if (Math.abs(diff) > WALK_SPEED) {
         customerXRef.current += Math.sign(diff) * WALK_SPEED
+        // Face the direction of movement
+        customerDirRef.current = diff < 0 ? 'left' : 'right'
       } else {
         customerXRef.current = targetXRef.current
+        // Once stopped, face down (toward counter/player)
+        if (customerPhase === 'present' || customerPhase === 'score') {
+          customerDirRef.current = 'down'
+        }
       }
 
-      drawScene(ctx)
+      // Camera X: always centered horizontally
+      cameraXRef.current = Math.max(0, (WORLD_W - viewW) / 2)
+      // Camera Y: user-controlled via touch drag, clamped to world bounds
+      cameraYRef.current = Math.max(0, Math.min(WORLD_H - viewH, cameraYRef.current))
 
-      // Draw customer if visible
+      const camX = Math.round(cameraXRef.current)
+      const camY = Math.round(cameraYRef.current)
+
+      ctx.imageSmoothingEnabled = false
+      drawScene(ctx, camX, camY, viewW, viewH)
+
       if (customerPhase !== 'idle') {
-        drawCustomer(ctx, customerXRef.current)
+        drawCustomer(ctx, customerXRef.current, camX, camY, customerDirRef.current)
       }
 
       animRef.current = requestAnimationFrame(frame)
@@ -199,11 +326,9 @@ export default function CafeCanvas({
   }, [customerPhase, customerIndex, drawScene, drawCustomer])
 
   return (
-    <div style={styles.container}>
+    <div ref={containerRef} style={styles.container}>
       <canvas
         ref={canvasRef}
-        width={CANVAS_W}
-        height={CANVAS_H}
         style={styles.canvas}
       />
       {/* Overlay UI elements on top of canvas */}
@@ -273,7 +398,6 @@ const styles: Record<string, React.CSSProperties> = {
   canvas: {
     width: '100%',
     height: '100%',
-    objectFit: 'contain',
     imageRendering: 'pixelated',
     display: 'block',
   },
