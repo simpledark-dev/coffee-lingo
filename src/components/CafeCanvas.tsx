@@ -239,10 +239,17 @@ export default function CafeCanvas({
       }
     }
 
+    function onWheel(e: WheelEvent) {
+      e.preventDefault()
+      const maxY = Math.max(0, WORLD_H - viewHRef.current)
+      cameraYRef.current = Math.max(0, Math.min(maxY, cameraYRef.current + e.deltaY))
+    }
+
     container.addEventListener('touchstart', onTouchStart, { passive: true })
     container.addEventListener('touchmove', onTouchMove, { passive: false })
     container.addEventListener('touchend', onTouchEnd)
     container.addEventListener('mousedown', onMouseDown)
+    container.addEventListener('wheel', onWheel, { passive: false })
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
 
@@ -251,6 +258,7 @@ export default function CafeCanvas({
       container.removeEventListener('touchmove', onTouchMove)
       container.removeEventListener('touchend', onTouchEnd)
       container.removeEventListener('mousedown', onMouseDown)
+      container.removeEventListener('wheel', onWheel)
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
