@@ -57,7 +57,7 @@ export const CAFE_LAYOUT: string[][] = [
   ['F','F','F','T','F','F','F','F','F','F','F','T','F','d','F','P','F','F'],
   ['F','F','u','F','F','d','F','F','F','F','u','F','F','F','F','F','F','F'],
   ['F','F','F','F','F','T','F','F','F','F','F','F','T','F','F','F','F','D'],
-  ['F','F','F','F','u','F','F','F','F','F','F','u','F','F','F','P','F','D'],
+  ['F','F','F','F','u','u','F','F','F','F','F','u','F','F','F','P','F','D'],
   // Row 15: Customer stands here (in front of counter)
   ['F','F','F','F','F','F','F','F','F','F','F','F','F','F','F','F','F','F'],
   // Row 16: Counter
