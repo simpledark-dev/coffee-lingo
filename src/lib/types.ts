@@ -80,3 +80,87 @@ export interface DaySummary {
   wordsPracticed: number
   wordsLeveledUp: string[]
 }
+
+// --- Multi-customer cafe simulation types ---
+
+export interface GridPos {
+  row: number
+  col: number
+}
+
+export interface WorldPos {
+  x: number
+  y: number
+}
+
+export type CustomerDirection = 'down' | 'left' | 'right' | 'up'
+
+export interface PointOfInterest {
+  id: string
+  type: 'counter' | 'chair' | 'shelf' | 'menu' | 'window' | 'plant' | 'floor'
+  pos: GridPos
+  facingDir: CustomerDirection
+  maxOccupants: number
+}
+
+export type CustPhase =
+  | 'entering'
+  | 'walking'
+  | 'idle'
+  | 'exclamation'
+  | 'conversing'
+  | 'post-convo'
+  | 'exiting'
+
+export interface CustomerState {
+  id: number
+  spriteVariant: number
+  phase: CustPhase
+  worldPos: WorldPos
+  path: GridPos[]
+  pathIndex: number
+  currentPOI: string | null
+  targetPOI: string | null
+  facingDir: CustomerDirection
+  conversation: CustomerConversation
+  nextExchangeIndex: number
+  exclamationTimer: number | null
+  idleTimer: number | null
+  stopsRemaining: number
+  hasActiveRequest: boolean
+}
+
+export interface ActiveConvo {
+  customerId: number
+  exchangeIndex: number
+  hintLevel: number
+  selectedChoiceId: string | null
+  result: EvaluationResult | null
+  showPhase: 'presenting' | 'scored'
+  patienceStart: number
+}
+
+export interface CafeState {
+  customers: CustomerState[]
+  activeConvo: ActiveConvo | null
+  poiOccupancy: Map<string, number[]>
+  nextId: number
+  spawnTimer: number
+  totalSpawned: number
+  maxToSpawn: number
+  dayAccumulator: DayAccumulator
+}
+
+export interface DayAccumulator {
+  coinsEarned: number
+  reputationChange: number
+  scores: Record<Score, number>
+  wordsPracticed: Set<string>
+  wordsLeveledUp: string[]
+  customersServed: number
+  playerState: PlayerState
+}
+
+export interface CafeTickResult {
+  dayOver: boolean
+}

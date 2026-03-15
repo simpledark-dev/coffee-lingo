@@ -211,7 +211,7 @@ export function generateConversations(
   _playerVocabulary: Record<string, VocabularyEntry>,
   recencyBuffer: string[]
 ): CustomerConversation[] {
-  const TARGET_CUSTOMERS = 4
+  const TARGET_CUSTOMERS = 10
   const conversations: CustomerConversation[] = []
   const usedTemplateIds = new Set<string>()
 

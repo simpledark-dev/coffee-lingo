@@ -1,9 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { AnswerChoice, CustomerConversation, ResolvedExchange, Score, EvaluationResult, DaySummary, PlayerState } from '../lib/types'
+import {
+  AnswerChoice, CustomerConversation, ResolvedExchange, Score,
+  EvaluationResult, DaySummary, PlayerState, CafeState,
+} from '../lib/types'
 import { evaluateChoice } from '../lib/game'
 import { updateMastery } from '../lib/state'
+import { createCafeState, tickCafe, startConversation, endConversation, recordResult } from '../lib/cafe-sim'
 import HUD from './HUD'
 import CafeCanvas from './CafeCanvas'
 
@@ -15,261 +19,417 @@ interface GameplayViewProps {
 
 const PATIENCE_DURATION = 20_000
 
-type CustomerPhase = 'entering' | 'present' | 'score' | 'exiting' | 'idle'
-
 export default function GameplayView({
   conversations,
   playerState,
   onDayEnd,
 }: GameplayViewProps) {
-  const [customerIndex, setCustomerIndex] = useState(0)
-  const [turnIndex, setTurnIndex] = useState(0)
+  // Simulation state (mutable ref, no re-renders on frame updates)
+  const cafeStateRef = useRef<CafeState | null>(null)
+  const lastFrameRef = useRef(0)
+
+  // React state for UI updates
+  const [activeExchange, setActiveExchange] = useState<ResolvedExchange | null>(null)
   const [responding, setResponding] = useState(false)
-  const [customerPhase, setCustomerPhase] = useState<CustomerPhase>('entering')
   const [lastResult, setLastResult] = useState<EvaluationResult | null>(null)
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null)
   const [hintLevel, setHintLevel] = useState(0)
   const [patiencePercent, setPatiencePercent] = useState(100)
-
-  const accRef = useRef({
-    coinsEarned: 0,
-    reputationChange: 0,
-    scores: { PERFECT: 0, GOOD: 0, UNDERSTOOD: 0, MISSED: 0 } as Record<Score, number>,
-    wordsPracticed: new Set<string>(),
-    wordsLeveledUp: [] as string[],
-    state: playerState,
-  })
-
   const [displayCoins, setDisplayCoins] = useState(playerState.coins)
   const [displayRep, setDisplayRep] = useState(playerState.reputation)
+  const [served, setServed] = useState(0)
+  const [dayOver, setDayOver] = useState(false)
 
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Refs for callback stability
   const respondingRef = useRef(false)
   const processingRef = useRef(false)
+  const hintLevelRef = useRef(0)
+  const patienceStartRef = useRef(0)
+  const patienceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const conversation = conversations[customerIndex]
-  const exchange = conversation?.exchanges[turnIndex]
-  const exchangeRef = useRef(exchange)
-  exchangeRef.current = exchange
-  const hintLevelRef = useRef(hintLevel)
-  hintLevelRef.current = hintLevel
-  const turnIndexRef = useRef(turnIndex)
-  turnIndexRef.current = turnIndex
-  const customerIndexRef = useRef(customerIndex)
-  customerIndexRef.current = customerIndex
-
-  // Customer entrance
+  // Initialize simulation
   useEffect(() => {
-    setCustomerPhase('entering')
-    setTurnIndex(0)
-    processingRef.current = false
+    const state = createCafeState(conversations, conversations.length, playerState)
+    cafeStateRef.current = state
+    lastFrameRef.current = performance.now()
+  }, [conversations, playerState])
 
-    const timer = setTimeout(() => {
-      setCustomerPhase('present')
-      setResponding(true)
-      respondingRef.current = true
-    }, 1200)
-
-    return () => clearTimeout(timer)
-  }, [customerIndex])
-
-  // Patience timer
+  // Simulation loop
   useEffect(() => {
-    if (customerPhase !== 'present' || !responding) {
-      if (timerRef.current) clearInterval(timerRef.current)
+    let running = true
+
+    function loop() {
+      if (!running) return
+      const state = cafeStateRef.current
+      if (!state) {
+        requestAnimationFrame(loop)
+        return
+      }
+
+      const now = performance.now()
+      const deltaMs = Math.min(now - lastFrameRef.current, 100) // cap at 100ms
+      lastFrameRef.current = now
+
+      const result = tickCafe(state, deltaMs)
+
+      if (result.dayOver && !dayOver) {
+        setDayOver(true)
+        finishDay()
+      }
+
+      requestAnimationFrame(loop)
+    }
+
+    requestAnimationFrame(loop)
+    return () => { running = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayOver])
+
+  // Patience timer for active conversation
+  useEffect(() => {
+    if (!activeExchange || !responding) {
+      if (patienceTimerRef.current) clearInterval(patienceTimerRef.current)
       return
     }
 
-    const start = Date.now()
+    patienceStartRef.current = Date.now()
     setPatiencePercent(100)
 
-    timerRef.current = setInterval(() => {
-      const elapsed = Date.now() - start
+    patienceTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - patienceStartRef.current
       const remaining = Math.max(0, 100 - (elapsed / PATIENCE_DURATION) * 100)
       setPatiencePercent(remaining)
 
-      if (remaining <= 0 && timerRef.current) {
-        clearInterval(timerRef.current)
+      if (remaining <= 0) {
+        if (patienceTimerRef.current) clearInterval(patienceTimerRef.current)
+        // Auto-timeout
+        if (respondingRef.current && !processingRef.current) {
+          processResult(null)
+        }
       }
     }, 100)
 
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
+      if (patienceTimerRef.current) clearInterval(patienceTimerRef.current)
     }
-  }, [customerIndex, turnIndex, customerPhase, responding])
-
-  const processResult = useCallback(
-    (choice: AnswerChoice | null, currentExchange: ResolvedExchange, currentHintLevel: number) => {
-      if (processingRef.current) return
-      processingRef.current = true
-      respondingRef.current = false
-      setResponding(false)
-
-      // If no choice (timeout), treat as MISSED
-      const result: EvaluationResult = choice
-        ? evaluateChoice(choice, currentHintLevel)
-        : { score: 'MISSED' as Score, coveredRequired: [], coveredBonus: [], tipAmount: 0 }
-
-      setLastResult(result)
-
-      const words = choice?.expressions ?? []
-      const acc = accRef.current
-      acc.coinsEarned += result.tipAmount
-
-      let repChange = 0
-      if (result.score === 'PERFECT') repChange = 1
-      else if (result.score === 'MISSED') repChange = -1
-      acc.reputationChange += repChange
-      acc.scores[result.score] += 1
-
-      for (const w of words) acc.wordsPracticed.add(w.id)
-
-      const prevState = acc.state
-      const newState = updateMastery(
-        prevState, words,
-        currentExchange.requiredIdeas,
-        currentExchange.bonusIdeas,
-        prevState.currentDay
-      )
-
-      for (const w of words) {
-        const prevLevel = prevState.vocabulary[w.id]?.masteryLevel ?? 0
-        const newLevel = newState.vocabulary[w.id]?.masteryLevel ?? 0
-        if (newLevel > prevLevel) acc.wordsLeveledUp.push(w.id)
-      }
-      acc.state = newState
-
-      setDisplayCoins(newState.coins + acc.coinsEarned)
-      setDisplayRep(newState.reputation + acc.reputationChange)
-
-      setCustomerPhase('score')
-
-      setTimeout(() => {
-        advanceTurn()
-      }, 1000)
-    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [conversations]
-  )
+  }, [activeExchange, responding])
 
-  // Timeout detection
-  useEffect(() => {
-    if (patiencePercent <= 0 && respondingRef.current && !processingRef.current) {
-      processResult(null, exchangeRef.current, hintLevelRef.current)
+  const handleCustomerTap = useCallback((customerId: number) => {
+    const state = cafeStateRef.current
+    if (!state || state.activeConvo) return
+
+    const convo = startConversation(state, customerId)
+    if (!convo) return
+
+    const customer = state.customers.find(c => c.id === customerId)
+    if (!customer) return
+
+    const exchange = customer.conversation.exchanges[convo.exchangeIndex]
+    if (!exchange) return
+
+    setActiveExchange(exchange)
+    setLastResult(null)
+    setSelectedChoiceId(null)
+    setHintLevel(0)
+    hintLevelRef.current = 0
+    setResponding(true)
+    respondingRef.current = true
+    processingRef.current = false
+    setPatiencePercent(100)
+  }, [])
+
+  const processResult = useCallback((choice: AnswerChoice | null) => {
+    if (processingRef.current) return
+    processingRef.current = true
+    respondingRef.current = false
+    setResponding(false)
+
+    const state = cafeStateRef.current
+    if (!state || !state.activeConvo) return
+
+    const customer = state.customers.find(c => c.id === state.activeConvo!.customerId)
+    if (!customer) return
+
+    const exchange = customer.conversation.exchanges[state.activeConvo.exchangeIndex]
+    if (!exchange) return
+
+    const result: EvaluationResult = choice
+      ? evaluateChoice(choice, hintLevelRef.current)
+      : { score: 'MISSED' as Score, coveredRequired: [], coveredBonus: [], tipAmount: 0 }
+
+    setLastResult(result)
+
+    // Record into accumulator
+    recordResult(state, result.score, result.tipAmount)
+
+    // Update mastery
+    const words = choice?.expressions ?? []
+    const acc = state.dayAccumulator
+    for (const w of words) acc.wordsPracticed.add(w.id)
+
+    const prevState = acc.playerState
+    const newState = updateMastery(
+      prevState, words,
+      exchange.requiredIdeas, exchange.bonusIdeas,
+      prevState.currentDay
+    )
+
+    for (const w of words) {
+      const prevLevel = prevState.vocabulary[w.id]?.masteryLevel ?? 0
+      const newLevel = newState.vocabulary[w.id]?.masteryLevel ?? 0
+      if (newLevel > prevLevel) acc.wordsLeveledUp.push(w.id)
     }
-  }, [patiencePercent, processResult])
+    acc.playerState = newState
 
-  function advanceTurn() {
-    const currentConvo = conversations[customerIndexRef.current]
-    const nextTurn = turnIndexRef.current + 1
+    setDisplayCoins(newState.coins + acc.coinsEarned)
+    setDisplayRep(newState.reputation + acc.reputationChange)
+    setServed(acc.customersServed)
 
-    if (nextTurn < currentConvo.exchanges.length) {
-      setTurnIndex(nextTurn)
+    // Show score briefly, then end conversation
+    setTimeout(() => {
+      endConversation(state)
+      setActiveExchange(null)
       setLastResult(null)
       setSelectedChoiceId(null)
-      setHintLevel(0)
-      setPatiencePercent(100)
       processingRef.current = false
-      setCustomerPhase('present')
-      setResponding(true)
-      respondingRef.current = true
-    } else {
-      setCustomerPhase('exiting')
-      setTimeout(() => {
-        const nextCustomer = customerIndexRef.current + 1
-        if (nextCustomer >= conversations.length) {
-          endDay()
-        } else {
-          setCustomerIndex(nextCustomer)
-          setLastResult(null)
-          setSelectedChoiceId(null)
-          setHintLevel(0)
-          setPatiencePercent(100)
-        }
-      }, 800)
-    }
-  }
+    }, 1000)
+  }, [])
 
-  function endDay() {
-    const acc = accRef.current
+  function finishDay() {
+    const state = cafeStateRef.current
+    if (!state) return
+
+    const acc = state.dayAccumulator
     const summary: DaySummary = {
-      customersServed: conversations.length,
-      totalCustomers: conversations.length,
+      customersServed: acc.customersServed,
+      totalCustomers: state.maxToSpawn,
       scores: { ...acc.scores },
       coinsEarned: acc.coinsEarned,
       reputationChange: acc.reputationChange + 2,
       wordsPracticed: acc.wordsPracticed.size,
       wordsLeveledUp: [...acc.wordsLeveledUp],
     }
-    onDayEnd(summary, acc.state)
+    onDayEnd(summary, acc.playerState)
   }
 
   function handleChoiceTap(choice: AnswerChoice) {
-    if (!responding || customerPhase !== 'present') return
+    if (!responding) return
     setSelectedChoiceId(choice.id)
-    processResult(choice, exchange, hintLevel)
+    processResult(choice)
   }
 
   function handleHint() {
-    if (!responding || customerPhase !== 'present') return
-    setHintLevel((prev) => Math.min(prev + 1, 2))
+    if (!responding) return
+    setHintLevel(prev => {
+      const next = Math.min(prev + 1, 2)
+      hintLevelRef.current = next
+      return next
+    })
   }
 
-  if (!exchange) return null
-
-  const totalTurns = conversation.exchanges.length
+  // Get active customer's screen position for speech bubble
+  const getActiveCustomerScreenPos = () => {
+    const state = cafeStateRef.current
+    if (!state?.activeConvo) return null
+    const customer = state.customers.find(c => c.id === state.activeConvo!.customerId)
+    if (!customer) return null
+    return customer.worldPos
+  }
 
   return (
     <>
       <HUD
-        day={accRef.current.state.currentDay}
+        day={playerState.currentDay}
         coins={displayCoins}
         reputation={displayRep}
-        customersRemaining={conversations.length - customerIndex}
+        customersRemaining={conversations.length - served}
         totalCustomers={conversations.length}
       />
 
       <CafeCanvas
-        customerIndex={customerIndex}
-        customerPhase={customerPhase}
-        customerLine={exchange.customerLine}
-        scoreResult={lastResult}
-        patiencePercent={patiencePercent}
-        hintLevel={hintLevel}
-        hintIdea={exchange.hintIdea}
-        hintTranslation={exchange.hintTranslation}
-        onHint={handleHint}
+        cafeStateRef={cafeStateRef}
+        onCustomerTap={handleCustomerTap}
       />
 
-      <div className="response-area">
-        {totalTurns > 1 && (
-          <div className="turn-indicator">Turn {turnIndex + 1} of {totalTurns}</div>
-        )}
-        <div className="choices-grid">
-          {exchange.choices.map((choice) => {
-            const isSelected = selectedChoiceId === choice.id
-            const showResult = selectedChoiceId !== null
-            let resultClass = ''
-            if (showResult && isSelected) {
-              resultClass = choice.score === 'PERFECT' || choice.score === 'GOOD'
-                ? 'choice-correct' : 'choice-wrong'
-            }
-            // After selection, highlight the best answer
-            const isBest = showResult && !isSelected &&
-              (choice.score === 'PERFECT' || choice.score === 'GOOD')
-            return (
-              <button
-                key={choice.id}
-                className={`choice-button ${isSelected ? 'selected' : ''} ${resultClass} ${isBest ? 'choice-hint' : ''} ${showResult && !isSelected && !isBest ? 'faded' : ''}`}
-                onClick={() => handleChoiceTap(choice)}
-                disabled={showResult}
-              >
-                {choice.displayText}
-              </button>
-            )
-          })}
+      {/* Conversation overlay */}
+      {activeExchange && (
+        <>
+          {/* Speech bubble - fixed position over canvas */}
+          <div style={styles.speechOverlay}>
+            <div style={styles.speechBubble}>
+              <div style={styles.speechText}>{activeExchange.customerLine}</div>
+              {hintLevel >= 1 && <div style={styles.hintText}>{activeExchange.hintIdea}</div>}
+              {hintLevel >= 2 && <div style={styles.hintTranslation}>{activeExchange.hintTranslation}</div>}
+            </div>
+
+            {/* Patience bar */}
+            <div style={styles.patienceContainer}>
+              <div style={{
+                ...styles.patienceBar,
+                width: `${patiencePercent}%`,
+                background: patiencePercent > 40 ? '#4CAF50' : patiencePercent > 15 ? '#FF9800' : '#F44336',
+              }} />
+            </div>
+
+            {/* Hint button */}
+            <button style={styles.hintButton} onClick={handleHint}>?</button>
+
+            {/* Score display */}
+            {lastResult && (
+              <div style={styles.scoreContainer}>
+                <div style={{ ...styles.scoreText, color: SCORE_COLORS[lastResult.score] }}>
+                  {lastResult.score}
+                </div>
+                {lastResult.tipAmount > 0 && (
+                  <div style={styles.tipText}>+{lastResult.tipAmount} coins</div>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Choice buttons */}
+      {activeExchange && (
+        <div className="response-area">
+          <div className="choices-grid">
+            {activeExchange.choices.map((choice) => {
+              const isSelected = selectedChoiceId === choice.id
+              const showResult = selectedChoiceId !== null
+              let resultClass = ''
+              if (showResult && isSelected) {
+                resultClass = choice.score === 'PERFECT' || choice.score === 'GOOD'
+                  ? 'choice-correct' : 'choice-wrong'
+              }
+              const isBest = showResult && !isSelected &&
+                (choice.score === 'PERFECT' || choice.score === 'GOOD')
+              return (
+                <button
+                  key={choice.id}
+                  className={`choice-button ${isSelected ? 'selected' : ''} ${resultClass} ${isBest ? 'choice-hint' : ''} ${showResult && !isSelected && !isBest ? 'faded' : ''}`}
+                  onClick={() => handleChoiceTap(choice)}
+                  disabled={showResult}
+                >
+                  {choice.displayText}
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </>
   )
+}
+
+const SCORE_COLORS: Record<Score, string> = {
+  PERFECT: '#FFD700',
+  GOOD: '#4CAF50',
+  UNDERSTOOD: '#9E9E9E',
+  MISSED: '#F44336',
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  speechOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
+    zIndex: 10,
+  },
+  speechBubble: {
+    position: 'absolute',
+    top: '15%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: '#FFFEF7',
+    borderRadius: 12,
+    padding: '10px 16px',
+    minWidth: 160,
+    maxWidth: 280,
+    boxShadow: '0 3px 12px rgba(0,0,0,0.25)',
+    textAlign: 'center',
+    pointerEvents: 'auto',
+    border: '2px solid #5D4037',
+  },
+  speechText: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: '#2C1810',
+    lineHeight: 1.4,
+  },
+  hintText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#8B6F47',
+    fontStyle: 'italic',
+    borderTop: '1px solid rgba(139,111,71,0.2)',
+    paddingTop: 4,
+  },
+  hintTranslation: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#A0845C',
+    fontStyle: 'italic',
+  },
+  patienceContainer: {
+    position: 'absolute',
+    top: '12%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: 100,
+    height: 6,
+    background: 'rgba(0,0,0,0.4)',
+    borderRadius: 3,
+    overflow: 'hidden',
+    border: '1px solid rgba(255,255,255,0.2)',
+  },
+  patienceBar: {
+    height: '100%',
+    borderRadius: 3,
+    transition: 'width 0.5s linear, background 0.3s',
+  },
+  hintButton: {
+    position: 'absolute',
+    top: '16%',
+    right: '8%',
+    width: 32,
+    height: 32,
+    borderRadius: '50%',
+    border: '2px solid rgba(255,255,255,0.5)',
+    background: 'rgba(93,64,55,0.85)',
+    color: '#FFEFD5',
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: 'pointer',
+    pointerEvents: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+  },
+  scoreContainer: {
+    position: 'absolute',
+    top: '30%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+  },
+  scoreText: {
+    fontSize: 28,
+    fontWeight: 800,
+    textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.3)',
+    textTransform: 'uppercase',
+  },
+  tipText: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: '#FFD700',
+    textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+  },
 }

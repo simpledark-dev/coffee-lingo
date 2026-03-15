@@ -21,9 +21,9 @@ function createVocabulary(): Record<string, VocabularyEntry> {
 }
 
 describe('generateConversations', () => {
-  it('generates exactly 4 customers', () => {
+  it('generates exactly 10 customers', () => {
     const convos = generateConversations(templates, expressions, createVocabulary(), [])
-    expect(convos).toHaveLength(4)
+    expect(convos).toHaveLength(10)
   })
 
   it('each customer has 2-3 exchanges (multi-turn)', () => {
@@ -56,10 +56,10 @@ describe('generateConversations', () => {
 
     for (let i = 0; i < 5; i++) {
       const convos = generateConversations(templates, expressions, createVocabulary(), [])
-      expect(convos).toHaveLength(4)
+      expect(convos).toHaveLength(10)
       const totalExchanges = convos.reduce((sum, c) => sum + c.exchanges.length, 0)
-      expect(totalExchanges).toBeGreaterThanOrEqual(8)
-      expect(totalExchanges).toBeLessThanOrEqual(12)
+      expect(totalExchanges).toBeGreaterThanOrEqual(20)
+      expect(totalExchanges).toBeLessThanOrEqual(30)
     }
   })
 
@@ -78,7 +78,7 @@ describe('generateConversations', () => {
     }
 
     const avgPerRun = recentAppearances / runs
-    expect(avgPerRun).toBeLessThan(3)
+    expect(avgPerRun).toBeLessThan(8)
   })
 })
 

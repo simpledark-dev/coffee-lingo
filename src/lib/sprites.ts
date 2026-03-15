@@ -380,6 +380,18 @@ export const CUSTOMER_SPRITES: CustomerSprites[] = [
 // Backward compat: front-facing only array
 export const CUSTOMERS = CUSTOMER_SPRITES.map(s => s.down)
 
+// Exclamation mark indicator (8x8 — drawn at half tile scale above customer)
+export const EXCLAMATION: Sprite = [
+  [ 0, 0,17,17,17,17, 0, 0],
+  [ 0,17,17, 9, 9,17,17, 0],
+  [ 0,17, 9, 9, 9, 9,17, 0],
+  [ 0,17, 9, 9, 9, 9,17, 0],
+  [ 0,17,17, 9, 9,17,17, 0],
+  [ 0, 0,17,17,17,17, 0, 0],
+  [ 0, 0,17, 9, 9,17, 0, 0],
+  [ 0, 0, 0,17,17, 0, 0, 0],
+]
+
 // Coffee cup on counter/table
 export const COFFEE_CUP: Sprite = [
   [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],

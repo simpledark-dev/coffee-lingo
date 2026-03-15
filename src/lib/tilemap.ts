@@ -68,7 +68,19 @@ export const CAFE_LAYOUT: string[][] = [
   ['W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W'],
 ]
 
-// Customer stands at row 15, roughly center
+// Legacy single-customer positions (kept for backward compat)
 export const CUSTOMER_POS = { row: 15, col: 8 }
-// Door entrance point (right side)
 export const DOOR_POS = { row: 14, col: 18 }
+
+// Multi-customer entry/exit points
+export const DOOR_ENTRY = { row: 14, col: 17 } // first walkable tile inside door
+export const DOOR_EXIT = { row: 14, col: 17 }  // walk here to leave
+
+// Walkable tile check
+const WALKABLE_TILES: Set<string> = new Set([T.FLOOR, T.DOOR, T.CHAIR_U, T.CHAIR_D])
+
+export function isWalkable(row: number, col: number): boolean {
+  if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) return false
+  const tile = CAFE_LAYOUT[row]?.[col]
+  return tile !== undefined && WALKABLE_TILES.has(tile)
+}
