@@ -56,12 +56,22 @@ export interface EvaluationResult {
   tipAmount: number
 }
 
+export interface UpgradeLevel {
+  tier: number
+  upgrading?: {
+    toTier: number
+    startedAt: number
+    durationMs: number
+  }
+}
+
 export interface PlayerState {
   currentDay: number
   coins: number
   reputation: number
   vocabulary: Record<string, VocabularyEntry>
   recencyBuffer: string[]
+  upgrades?: Record<string, UpgradeLevel>
 }
 
 export interface VocabularyEntry {

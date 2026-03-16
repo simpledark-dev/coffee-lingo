@@ -78,10 +78,6 @@ export const FLOOR_TILE: Sprite = (() => {
   return s
 })()
 
-// All available floor styles
-export const FLOOR_STYLES = { FLOOR_WOOD, FLOOR_TILE } as const
-export type FloorStyleKey = keyof typeof FLOOR_STYLES
-
 // Wall tile with brick pattern
 export const WALL: Sprite = [
   [ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
@@ -1286,6 +1282,748 @@ export const FOUNTAIN_L: Sprite = fullFountain.map(row => row.slice(0, 32))
 export const FOUNTAIN_R: Sprite = fullFountain.map(row => row.slice(32, 64))
 export const FOUNTAIN: Sprite = FOUNTAIN_L // alias for SPRITE_MAP
 
+// Herringbone parquet floor — warm brown V/zigzag pattern
+export const FLOOR_HERRINGBONE: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(3))
+  for (let r = 0; r < 32; r++) {
+    for (let c = 0; c < 32; c++) {
+      const block = Math.floor(c / 4)
+      const phase = (block + Math.floor(r / 4)) % 2
+      if (phase === 0) {
+        // Diagonal going down-right
+        if ((r + c) % 4 === 0) s[r][c] = 2
+        else if ((r + c) % 4 === 2) s[r][c] = 4
+      } else {
+        // Diagonal going down-left
+        if ((r - c + 32) % 4 === 0) s[r][c] = 2
+        else if ((r - c + 32) % 4 === 2) s[r][c] = 4
+      }
+      // Plank boundary lines
+      if (c % 4 === 0) s[r][c] = 1
+      if (r % 8 === 0 && c % 4 < 2) s[r][c] = 2
+    }
+  }
+  // Subtle grain accents
+  s[3][7] = 4; s[7][19] = 4; s[11][3] = 4; s[15][25] = 4
+  s[19][11] = 4; s[23][15] = 4; s[27][7] = 4; s[5][27] = 4
+  return s
+})()
+
+// Checkered marble floor — alternating cream and light gray 8x8 squares
+export const FLOOR_MARBLE: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(6))
+  for (let r = 0; r < 32; r++) {
+    for (let c = 0; c < 32; c++) {
+      const tileR = Math.floor(r / 8) % 2
+      const tileC = Math.floor(c / 8) % 2
+      if ((tileR + tileC) % 2 === 0) {
+        s[r][c] = 6  // cream
+      } else {
+        s[r][c] = 12 // light gray
+      }
+    }
+  }
+  // Veining in gray squares (off-white 7)
+  s[1][9] = 7; s[2][10] = 7; s[3][11] = 7
+  s[9][1] = 7; s[10][2] = 7; s[11][3] = 7
+  s[17][25] = 7; s[18][26] = 7; s[19][27] = 7
+  s[25][17] = 7; s[26][18] = 7; s[27][19] = 7
+  s[5][26] = 7; s[6][27] = 7
+  s[21][10] = 7; s[22][11] = 7
+  // Veining in cream squares (light tan 5)
+  s[1][1] = 5; s[2][2] = 5; s[3][3] = 5
+  s[9][17] = 5; s[10][18] = 5; s[11][19] = 5
+  s[17][1] = 5; s[18][2] = 5; s[19][3] = 5
+  s[25][9] = 5; s[26][10] = 5; s[27][11] = 5
+  s[5][20] = 5; s[6][21] = 5
+  s[13][5] = 5; s[14][6] = 5
+  return s
+})()
+
+// All available floor styles
+export const FLOOR_STYLES = { FLOOR_WOOD, FLOOR_TILE, FLOOR_HERRINGBONE, FLOOR_MARBLE } as const
+export type FloorStyleKey = keyof typeof FLOOR_STYLES
+
+// Flowering plant — pink/coral blooms among leaves, terracotta pot
+export const PLANT_T1: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Stem
+  for (let r = 10; r < 17; r++) { s[r][15] = 28; s[r][16] = 13 }
+  // Leaf cluster helper
+  function leaf(cr: number, cc: number, size: number, light: number, dark: number) {
+    for (let r = 0; r < 32; r++) for (let c = 0; c < 32; c++) {
+      const dx = c - cc, dy = r - cr
+      const dist = Math.sqrt(dx * dx + dy * dy * 1.5)
+      if (dist < size) {
+        if (s[r][c] === 0 || s[r][c] === 13 || s[r][c] === 28) {
+          s[r][c] = dist < size * 0.5 ? light : dark
+        }
+      }
+    }
+  }
+  // Main leaf clusters (same as PLANT)
+  leaf(6, 16, 7, 14, 13)
+  leaf(8, 10, 5, 14, 13)
+  leaf(8, 22, 5, 14, 13)
+  leaf(4, 13, 4, 27, 14)
+  leaf(4, 20, 4, 27, 14)
+  leaf(2, 16, 3, 14, 28)
+  // Leaf vein highlights
+  s[5][15] = 27; s[5][17] = 27; s[7][11] = 27; s[7][21] = 27
+  // Pink flowers (3-pixel: pink center 41, white petals 8)
+  // Flower 1 — upper left cluster
+  s[4][12] = 8; s[3][13] = 8; s[5][13] = 8; s[4][14] = 8; s[4][13] = 41
+  // Flower 2 — right cluster
+  s[7][22] = 8; s[6][23] = 8; s[8][23] = 8; s[7][24] = 8; s[7][23] = 41
+  // Flower 3 — center top
+  s[2][17] = 8; s[1][18] = 8; s[3][18] = 8; s[2][19] = 8; s[2][18] = 41
+  // Coral accent dots
+  s[6][10] = 15; s[5][20] = 15; s[9][12] = 15; s[3][15] = 15
+  // Pot rim
+  for (let c = 10; c < 22; c++) { s[16][c] = 15; s[17][c] = 15 }
+  for (let c = 9; c < 23; c++) s[15][c] = 15
+  // Pot body (terracotta with shading)
+  for (let r = 18; r < 24; r++) {
+    const inset = Math.floor((r - 18) * 0.4)
+    for (let c = 10 + inset; c < 22 - inset; c++) s[r][c] = 15
+  }
+  // Pot inner shadow
+  for (let r = 18; r < 23; r++) {
+    const inset = Math.floor((r - 18) * 0.4)
+    for (let c = 11 + inset; c < 21 - inset; c++) s[r][c] = 4
+  }
+  // Pot highlight
+  for (let r = 18; r < 23; r++) { const i = Math.floor((r-18)*0.4); s[r][10+i] = 16 }
+  // Soil
+  for (let c = 12; c < 20; c++) { s[14][c] = 2; s[15][c] = 15 }
+  return s
+})()
+
+// Ornamental tree — larger canopy, fancier striped pot with saucer
+export const PLANT_T2: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Thicker trunk (3px wide)
+  for (let r = 14; r < 20; r++) { s[r][15] = 1; s[r][16] = 2; s[r][17] = 1 }
+  // Large canopy filling rows 1-14 with mixed greens
+  function canopy(cr: number, cc: number, size: number, col: number) {
+    for (let r = 0; r < 32; r++) for (let c = 0; c < 32; c++) {
+      const dx = c - cc, dy = r - cr
+      const dist = Math.sqrt(dx * dx + dy * dy * 1.3)
+      if (dist < size && r < 16) {
+        if (s[r][c] === 0) s[r][c] = col
+      }
+    }
+  }
+  canopy(7, 16, 9, 13)   // main center (green)
+  canopy(5, 11, 6, 14)   // left (light green)
+  canopy(5, 21, 6, 14)   // right (light green)
+  canopy(3, 16, 5, 27)   // top (mint)
+  canopy(9, 8, 5, 28)    // lower left (dark green)
+  canopy(9, 24, 5, 28)   // lower right (dark green)
+  canopy(2, 13, 3, 13)   // tip left
+  canopy(2, 19, 3, 13)   // tip right
+  canopy(1, 16, 3, 14)   // very top
+  // Leaf highlights
+  s[3][14] = 27; s[3][18] = 27; s[6][10] = 27; s[6][22] = 27
+  s[5][16] = 27; s[8][14] = 27; s[8][18] = 27
+  // Decorative pot with stripe pattern (15 and 16 alternating)
+  for (let c = 10; c < 22; c++) s[19][c] = 1  // rim top
+  for (let c = 11; c < 21; c++) s[20][c] = 1  // rim
+  for (let r = 21; r < 27; r++) {
+    const inset = Math.floor((r - 21) * 0.3)
+    for (let c = 11 + inset; c < 21 - inset; c++) {
+      s[r][c] = (r % 2 === 0) ? 15 : 16  // stripe pattern
+    }
+  }
+  // Pot highlight left edge
+  for (let r = 21; r < 27; r++) {
+    const inset = Math.floor((r - 21) * 0.3)
+    s[r][11 + inset] = 16
+  }
+  // Saucer underneath
+  for (let c = 9; c < 23; c++) s[27][c] = 4
+  for (let c = 10; c < 22; c++) s[28][c] = 5
+  for (let c = 11; c < 21; c++) s[29][c] = 4
+  return s
+})()
+
+// Art Deco lamp — geometric step shade, warmer glow
+export const LAMP_T1: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Chain/cord
+  for (let r = 0; r < 6; r++) { s[r][15] = 10; s[r][16] = 9 }
+  s[1][15] = 11; s[3][15] = 11; s[5][15] = 11
+  // Art Deco shade — geometric stepped shape (wider in discrete steps)
+  const steps = [
+    { r0: 6,  r1: 8,  hw: 4 },
+    { r0: 8,  r1: 10, hw: 6 },
+    { r0: 10, r1: 12, hw: 9 },
+    { r0: 12, r1: 14, hw: 12 },
+  ]
+  for (const step of steps) {
+    for (let r = step.r0; r < step.r1; r++) {
+      for (let c = 16 - step.hw; c < 16 + step.hw; c++) {
+        if (c === 16 - step.hw || c === 16 + step.hw - 1) s[r][c] = 1  // dark edge
+        else if (c === 16 - step.hw + 1 || c === 16 + step.hw - 2) s[r][c] = 17  // gold edge
+        else s[r][c] = 16  // warm orange fill
+      }
+    }
+    // Step edge highlights (horizontal lines at transitions)
+    for (let c = 16 - step.hw; c < 16 + step.hw; c++) s[step.r0][c] = 17
+  }
+  // Gold geometric detail lines inside shade
+  for (let c = 16 - 4; c < 16 + 4; c++) s[7][c] = 17
+  for (let c = 16 - 6; c < 16 + 6; c++) s[9][c] = 17
+  for (let c = 16 - 9; c < 16 + 9; c++) s[11][c] = 17
+  // Bottom rim
+  for (let c = 4; c < 28; c++) s[14][c] = 1
+  for (let c = 5; c < 27; c++) s[15][c] = 2
+  // Bulb
+  s[14][15] = 17; s[14][16] = 17
+  s[15][15] = 26; s[15][16] = 26
+  // Warmer, wider glow cone
+  for (let r = 16; r < 26; r++) {
+    const spread = Math.floor((r - 16) * 1.0)
+    for (let c = 12 - spread; c < 20 + spread; c++) {
+      if (c >= 0 && c < 32) s[r][c] = 26
+    }
+  }
+  // Outer glow fringe
+  for (let r = 18; r < 24; r++) {
+    const spread = Math.floor((r - 16) * 1.0)
+    if (12 - spread - 1 >= 0) s[r][12 - spread - 1] = 16
+    if (20 + spread < 32) s[r][20 + spread] = 16
+  }
+  return s
+})()
+
+// Crystal chandelier — three arms, gold frame, crystal drops
+export const LAMP_T2: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Center chain
+  for (let r = 0; r < 5; r++) { s[r][15] = 17; s[r][16] = 17 }
+  s[1][15] = 16; s[3][15] = 16
+  // Gold frame - horizontal bar
+  for (let c = 5; c < 27; c++) { s[5][c] = 17 }
+  for (let c = 6; c < 26; c++) { s[6][c] = 16 }
+  // Three hanging arms
+  // Center arm
+  for (let r = 6; r < 10; r++) { s[r][15] = 17; s[r][16] = 17 }
+  s[10][14] = 17; s[10][15] = 26; s[10][16] = 26; s[10][17] = 17  // center bulb
+  s[11][15] = 26; s[11][16] = 26
+  // Left arm - diagonal from bar down-left
+  for (let r = 6; r < 10; r++) { s[r][8] = 17; s[r][9] = 17 }
+  s[7][7] = 17; s[8][7] = 17  // arm curve
+  s[10][7] = 17; s[10][8] = 26; s[10][9] = 26; s[10][10] = 17  // left bulb
+  s[11][8] = 26; s[11][9] = 26
+  // Right arm
+  for (let r = 6; r < 10; r++) { s[r][22] = 17; s[r][23] = 17 }
+  s[7][24] = 17; s[8][24] = 17
+  s[10][21] = 17; s[10][22] = 26; s[10][23] = 26; s[10][24] = 17  // right bulb
+  s[11][22] = 26; s[11][23] = 26
+  // Crystal drops — white (8) and light blue (19) scattered below arms
+  // Below center
+  s[12][14] = 19; s[12][17] = 8; s[13][15] = 8; s[13][16] = 19
+  s[14][14] = 8; s[14][15] = 19; s[14][16] = 8; s[14][17] = 19
+  s[15][15] = 8; s[15][16] = 8
+  // Below left
+  s[12][7] = 19; s[12][10] = 8; s[13][8] = 8; s[13][9] = 19
+  s[14][7] = 8; s[14][8] = 19; s[14][9] = 8; s[14][10] = 19
+  s[15][8] = 8; s[15][9] = 8
+  // Below right
+  s[12][21] = 19; s[12][24] = 8; s[13][22] = 8; s[13][23] = 19
+  s[14][21] = 8; s[14][22] = 19; s[14][23] = 8; s[14][24] = 19
+  s[15][22] = 8; s[15][23] = 8
+  // Wide warm glow
+  for (let r = 16; r < 26; r++) {
+    const spread = Math.floor((r - 16) * 1.2)
+    for (let c = 8 - spread; c < 24 + spread; c++) {
+      if (c >= 0 && c < 32) s[r][c] = 26
+    }
+  }
+  return s
+})()
+
+// Cushioned bistro chair — wood frame with red cushion
+export const CHAIR_T1: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Backrest curve at top (dark brown)
+  for (let c = 9; c < 23; c++) s[3][c] = 1
+  for (let c = 8; c < 24; c++) s[4][c] = 1
+  // Wood frame (same shape as CHAIR)
+  for (let c = 8; c < 24; c++) { s[5][c] = 2; s[6][c] = 2 }
+  for (let c = 8; c < 24; c++) { s[7][c] = 2 }
+  for (let r = 7; r < 21; r++) { s[r][8] = 2; s[r][23] = 2 }  // side rails
+  for (let c = 8; c < 24; c++) { s[20][c] = 2; s[21][c] = 2 }  // bottom rail
+  // Red cushion on seat area (inner rectangle)
+  for (let r = 8; r < 20; r++) for (let c = 9; c < 23; c++) s[r][c] = 20
+  // Cushion shading — darker edges
+  for (let r = 8; r < 20; r++) { s[r][9] = 33; s[r][22] = 33 }
+  for (let c = 9; c < 23; c++) { s[8][c] = 33; s[19][c] = 33 }
+  // Cushion highlight center
+  for (let r = 11; r < 17; r++) for (let c = 13; c < 19; c++) s[r][c] = 15
+  // Inner highlight
+  for (let r = 12; r < 16; r++) for (let c = 14; c < 18; c++) s[r][c] = 20
+  // Chair legs
+  s[22][10] = 1; s[22][11] = 1; s[23][10] = 1; s[23][11] = 1
+  s[24][10] = 1; s[24][11] = 1; s[25][10] = 1; s[25][11] = 1
+  s[22][20] = 1; s[22][21] = 1; s[23][20] = 1; s[23][21] = 1
+  s[24][20] = 1; s[24][21] = 1; s[25][20] = 1; s[25][21] = 1
+  return s
+})()
+
+// Velvet armchair — purple upholstery, armrests, rounded back
+export const CHAIR_T2: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Rounded back (top arc)
+  for (let c = 8; c < 24; c++) s[2][c] = 35
+  for (let c = 7; c < 25; c++) s[3][c] = 21
+  for (let c = 7; c < 25; c++) s[4][c] = 21
+  for (let c = 8; c < 24; c++) s[5][c] = 21
+  // Back shading
+  for (let c = 9; c < 23; c++) s[3][c] = 21
+  s[3][8] = 35; s[3][24] = 35; s[4][7] = 35; s[4][24] = 35
+  // Armrests (wider seat extending left/right)
+  for (let r = 6; r < 18; r++) {
+    s[r][5] = 35; s[r][6] = 21; s[r][7] = 21  // left armrest
+    s[r][24] = 21; s[r][25] = 21; s[r][26] = 35  // right armrest
+  }
+  // Seat body (purple)
+  for (let r = 6; r < 18; r++) for (let c = 8; c < 24; c++) s[r][c] = 21
+  // Shadow edges on seat
+  for (let r = 6; r < 18; r++) { s[r][8] = 35; s[r][23] = 35 }
+  for (let c = 8; c < 24; c++) { s[6][c] = 35; s[17][c] = 35 }
+  // Cushion highlight (lighter center)
+  for (let r = 9; r < 15; r++) for (let c = 12; c < 20; c++) s[r][c] = 41
+  for (let r = 10; r < 14; r++) for (let c = 13; c < 19; c++) s[r][c] = 21
+  // Short dark brown legs
+  s[18][8] = 1; s[19][8] = 1; s[20][8] = 1
+  s[18][9] = 1; s[19][9] = 1; s[20][9] = 1
+  s[18][22] = 1; s[19][22] = 1; s[20][22] = 1
+  s[18][23] = 1; s[19][23] = 1; s[20][23] = 1
+  return s
+})()
+
+// Marble bistro table — white/off-white surface with gray veining
+export const TABLE_T1: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Same round shape as TABLE but marble surface
+  // Outer border (dark metal)
+  for (let r = 3; r < 26; r++) {
+    for (let c = 5; c < 27; c++) {
+      const dx = c - 16, dy = (r - 14) * 1.2
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      if (dist < 12) {
+        s[r][c] = 8  // white marble
+        if (dist > 10.5) s[r][c] = 9  // dark metal edge
+        else if (dist > 9.5) s[r][c] = 7  // off-white border
+      }
+    }
+  }
+  // Gray veining lines on marble
+  // Diagonal vein 1
+  for (let i = 0; i < 8; i++) { const r = 6+i, c = 9+i; if (s[r][c] === 8) s[r][c] = 12 }
+  for (let i = 0; i < 6; i++) { const r = 7+i, c = 9+i; if (s[r][c] === 8) s[r][c] = 12 }
+  // Diagonal vein 2
+  for (let i = 0; i < 6; i++) { const r = 12+i, c = 18+i; if (s[r][c] === 8 || s[r][c] === 7) s[r][c] = 12 }
+  // Small vein 3
+  for (let i = 0; i < 4; i++) { const r = 8+i, c = 17-i; if (s[r][c] === 8) s[r][c] = 12 }
+  // Thin metal legs (near-black 9)
+  s[22][11] = 9; s[23][11] = 9; s[24][11] = 9; s[25][11] = 9
+  s[22][20] = 9; s[23][20] = 9; s[24][20] = 9; s[25][20] = 9
+  return s
+})()
+
+// Ornate Parisian table — mosaic top, scrollwork legs
+export const TABLE_T2: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Round table with mosaic pattern
+  for (let r = 3; r < 22; r++) {
+    for (let c = 5; c < 27; c++) {
+      const dx = c - 16, dy = (r - 12) * 1.3
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      if (dist < 11) {
+        // Mosaic: alternating 2x2 squares of blue, gold, cream, white
+        const tileR = Math.floor(r / 2) % 2
+        const tileC = Math.floor(c / 2) % 2
+        const pattern = tileR * 2 + tileC
+        const colors = [18, 17, 6, 8] // blue, gold, cream, white
+        s[r][c] = colors[pattern]
+        // Dark metal border
+        if (dist > 9.5) s[r][c] = 9
+        else if (dist > 8.5) s[r][c] = 10
+      }
+    }
+  }
+  // Ornate scrollwork legs that curve outward (dark 9, 10)
+  // Left leg — curves outward to the left
+  s[20][10] = 9; s[20][11] = 9
+  s[21][9] = 10; s[21][10] = 9
+  s[22][8] = 10; s[22][9] = 9
+  s[23][7] = 10; s[23][8] = 9
+  s[24][7] = 9; s[24][8] = 10
+  s[25][8] = 9; s[25][9] = 9  // foot curl back
+  // Right leg — curves outward to the right
+  s[20][20] = 9; s[20][21] = 9
+  s[21][21] = 9; s[21][22] = 10
+  s[22][22] = 9; s[22][23] = 10
+  s[23][23] = 9; s[23][24] = 10
+  s[24][23] = 10; s[24][24] = 9
+  s[25][22] = 9; s[25][23] = 9  // foot curl back
+  // Center support
+  s[20][15] = 9; s[20][16] = 9
+  s[21][15] = 10; s[21][16] = 10
+  s[22][15] = 9; s[22][16] = 9
+  return s
+})()
+
+// Artisan shelf — more varied items (grinder, book, plants)
+export const SHELF_T1: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Shelf planks (with depth)
+  for (let c = 0; c < 32; c++) { s[10][c] = 1; s[11][c] = 3 }
+  for (let c = 0; c < 32; c++) { s[22][c] = 1; s[23][c] = 3 }
+  // Back wall tint
+  for (let r = 0; r < 10; r++) for (let c = 0; c < 32; c++) s[r][c] = 2
+  for (let r = 12; r < 22; r++) for (let c = 0; c < 32; c++) s[r][c] = 2
+
+  // Top shelf items (rows 3-9)
+  // Coffee grinder (brown, cols 3-7)
+  for (let r = 5; r < 10; r++) for (let c = 3; c < 7; c++) s[r][c] = 3
+  for (let c = 3; c < 7; c++) s[5][c] = 1  // top
+  s[4][4] = 1; s[4][5] = 1  // handle
+  s[3][5] = 1; s[3][6] = 1  // crank arm
+  s[3][7] = 10  // crank knob
+  for (let r = 6; r < 9; r++) for (let c = 4; c < 6; c++) s[r][c] = 4  // body highlight
+
+  // Small book (blue, cols 9-11)
+  for (let r = 6; r < 10; r++) for (let c = 9; c < 12; c++) s[r][c] = 18
+  for (let r = 6; r < 10; r++) s[r][9] = 32  // spine (dark blue)
+  s[7][10] = 8; s[8][10] = 8  // page edges
+
+  // Jar (green, cols 14-17)
+  for (let r = 4; r < 10; r++) for (let c = 14; c < 17; c++) s[r][c] = 13
+  for (let c = 14; c < 17; c++) s[4][c] = 28  // dark green lid
+  for (let r = 5; r < 9; r++) s[r][14] = 8  // highlight
+  s[7][15] = 7  // label
+
+  // Tall vase (coral, cols 20-22)
+  for (let r = 3; r < 10; r++) for (let c = 20; c < 23; c++) s[r][c] = 15
+  for (let c = 20; c < 23; c++) s[3][c] = 1  // rim
+  s[4][21] = 16  // inner highlight
+  for (let r = 4; r < 9; r++) s[r][20] = 16  // left highlight
+
+  // Small cup (gold, cols 26-28)
+  for (let r = 7; r < 10; r++) for (let c = 26; c < 29; c++) s[r][c] = 17
+  for (let c = 26; c < 29; c++) s[7][c] = 16
+  s[8][29] = 17  // handle
+
+  // Bottom shelf items (rows 13-21)
+  // Tall bottle (red, cols 3-5)
+  for (let r = 13; r < 22; r++) for (let c = 3; c < 6; c++) s[r][c] = 20
+  for (let c = 3; c < 6; c++) s[13][c] = 9  // cap
+  s[14][3] = 33; s[14][4] = 20; s[14][5] = 33  // neck
+  for (let r = 16; r < 20; r++) s[r][3] = 8  // highlight
+  s[18][4] = 7  // label
+
+  // Bowl (gold, cols 8-13)
+  for (let r = 18; r < 22; r++) for (let c = 8; c < 14; c++) s[r][c] = 17
+  for (let c = 8; c < 14; c++) s[18][c] = 16  // rim
+  for (let c = 9; c < 13; c++) s[19][c] = 44  // inner shadow
+  s[20][10] = 16; s[20][11] = 16  // highlight
+
+  // Small potted plant (cols 16-20)
+  // Pot (brown)
+  for (let r = 19; r < 22; r++) for (let c = 17; c < 21; c++) s[r][c] = 3
+  for (let c = 17; c < 21; c++) s[19][c] = 1  // rim
+  // Leaves
+  s[16][18] = 13; s[16][19] = 14; s[17][17] = 14; s[17][18] = 13
+  s[17][19] = 13; s[17][20] = 14; s[18][18] = 28; s[18][19] = 28
+  s[15][19] = 27  // leaf tip
+
+  // Decorative tin (cols 24-28)
+  for (let r = 16; r < 22; r++) for (let c = 24; c < 29; c++) s[r][c] = 15
+  for (let c = 24; c < 29; c++) { s[16][c] = 1; s[21][c] = 1 }  // rims
+  for (let r = 17; r < 21; r++) { s[r][24] = 16; s[r][28] = 4 }
+  s[19][26] = 7  // label
+
+  return s
+})()
+
+// Display cabinet — glass front panels, premium items
+export const SHELF_T2: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Cabinet frame
+  for (let c = 0; c < 32; c++) { s[0][c] = 1; s[31][c] = 1 }  // top/bottom frame
+  for (let r = 0; r < 32; r++) { s[r][0] = 1; s[r][31] = 1 }  // side frame
+  // Shelf planks
+  for (let c = 1; c < 31; c++) { s[14][c] = 1; s[15][c] = 3 }
+  // Back panels (dark wood)
+  for (let r = 1; r < 14; r++) for (let c = 1; c < 31; c++) s[r][c] = 2
+  for (let r = 16; r < 31; r++) for (let c = 1; c < 31; c++) s[r][c] = 2
+
+  // Glass panes (light blue vertical lines on edges)
+  for (let r = 1; r < 14; r++) { s[r][1] = 19; s[r][2] = 19; s[r][29] = 19; s[r][30] = 19 }
+  for (let r = 16; r < 31; r++) { s[r][1] = 19; s[r][2] = 19; s[r][29] = 19; s[r][30] = 19 }
+  // Glass highlight streaks
+  for (let r = 3; r < 10; r++) s[r][2] = 8
+  for (let r = 18; r < 26; r++) s[r][2] = 8
+
+  // Top shelf items
+  // Wine bottle (red/dark, cols 5-8)
+  for (let r = 3; r < 14; r++) for (let c = 5; c < 8; c++) s[r][c] = 20
+  for (let c = 5; c < 8; c++) s[3][c] = 9  // cap
+  s[4][6] = 9  // neck narrow
+  for (let r = 5; r < 13; r++) s[r][5] = 33  // dark shadow
+  for (let r = 7; r < 11; r++) s[r][6] = 8  // label
+  for (let r = 7; r < 11; r++) s[r][7] = 7  // label edge
+
+  // Trophy (gold, cols 13-19)
+  // Cup
+  for (let r = 4; r < 9; r++) for (let c = 14; c < 19; c++) s[r][c] = 17
+  for (let c = 14; c < 19; c++) s[4][c] = 16  // rim highlight
+  for (let r = 5; r < 8; r++) for (let c = 15; c < 18; c++) s[r][c] = 44  // inner
+  // Stem
+  s[9][15] = 17; s[9][16] = 17; s[9][17] = 17
+  s[10][16] = 17
+  // Base
+  for (let c = 14; c < 19; c++) { s[11][c] = 17; s[12][c] = 16 }
+  // Handles
+  s[5][13] = 17; s[6][13] = 17; s[7][13] = 17
+  s[5][19] = 17; s[6][19] = 17; s[7][19] = 17
+  // Star on trophy
+  s[6][16] = 8
+
+  // Decorative vase (cols 23-27)
+  for (let r = 5; r < 14; r++) for (let c = 23; c < 27; c++) s[r][c] = 21
+  for (let c = 23; c < 27; c++) s[5][c] = 35  // rim
+  for (let r = 6; r < 13; r++) s[r][23] = 35  // shadow
+  for (let r = 7; r < 12; r++) s[r][26] = 41  // highlight
+  s[9][24] = 8; s[9][25] = 8  // pattern
+
+  // Bottom shelf items
+  // Cake stand (white with coral accents, cols 4-12)
+  // Stand base
+  for (let c = 6; c < 11; c++) { s[28][c] = 8; s[29][c] = 12 }
+  s[27][8] = 8  // stem
+  // Plate
+  for (let c = 4; c < 13; c++) s[26][c] = 8
+  for (let c = 5; c < 12; c++) s[25][c] = 12
+  // Cake
+  for (let r = 21; r < 25; r++) for (let c = 5; c < 12; c++) s[r][c] = 15
+  for (let c = 5; c < 12; c++) s[21][c] = 8  // frosting top
+  for (let c = 6; c < 11; c++) s[22][c] = 29  // frosting drip
+  s[21][8] = 20  // cherry on top
+
+  // Decorative box (purple, cols 16-22)
+  for (let r = 22; r < 30; r++) for (let c = 16; c < 23; c++) s[r][c] = 21
+  for (let c = 16; c < 23; c++) { s[22][c] = 35; s[29][c] = 35 }  // top/bottom
+  for (let r = 22; r < 30; r++) { s[r][16] = 35; s[r][22] = 35 }  // sides
+  // Box pattern (gold clasp)
+  s[25][19] = 17; s[26][18] = 17; s[26][19] = 17; s[26][20] = 17; s[27][19] = 17
+  // Lid line
+  for (let c = 17; c < 22; c++) s[24][c] = 17
+
+  // Small statue (cols 26-28)
+  for (let r = 25; r < 30; r++) s[r][27] = 12
+  s[24][26] = 12; s[24][27] = 12; s[24][28] = 12  // head
+  s[23][27] = 12  // top
+
+  return s
+})()
+
+// Brass espresso machine — gold/warm tones replacing chrome
+export const COFFEE_MACHINE_T1: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Main body (brass — gold 17 and light orange 16)
+  for (let r = 2; r < 20; r++) for (let c = 7; c < 25; c++) s[r][c] = 17
+  for (let r = 3; r < 19; r++) for (let c = 8; c < 24; c++) s[r][c] = 16
+  // Highlight strip (left edge — warm)
+  for (let r = 3; r < 19; r++) s[r][8] = 17
+  // Top cap (dark brown)
+  for (let c = 8; c < 24; c++) { s[1][c] = 1; s[2][c] = 1 }
+  // Display screen (warm tint)
+  for (let r = 4; r < 9; r++) for (let c = 10; c < 22; c++) s[r][c] = 1
+  for (let r = 5; r < 8; r++) for (let c = 11; c < 21; c++) s[r][c] = 13
+  for (let c = 12; c < 18; c++) s[6][c] = 14  // text line
+  // Buttons (warmer colors — row 10)
+  s[10][11] = 15; s[10][12] = 15  // coral button
+  s[10][14] = 13; s[10][15] = 13  // green button
+  s[10][17] = 4; s[10][18] = 4   // tan button
+  s[10][20] = 1; s[10][21] = 1   // dark button
+  // Pressure gauge (circular, brass)
+  s[12][11] = 1; s[12][12] = 17; s[12][13] = 1
+  s[13][11] = 17; s[13][12] = 8; s[13][13] = 17
+  s[14][11] = 1; s[14][12] = 17; s[14][13] = 1
+  // Gauge needle
+  s[12][12] = 20
+  // Group head / spout (dark brown)
+  for (let r = 15; r < 19; r++) for (let c = 14; c < 18; c++) s[r][c] = 1
+  for (let r = 16; r < 18; r++) for (let c = 15; c < 17; c++) s[r][c] = 9
+  // Brass portafilter handle
+  for (let c = 18; c < 22; c++) s[17][c] = 2
+  s[16][18] = 1; s[16][19] = 1
+  // Steam wand (brass)
+  for (let r = 12; r < 19; r++) s[r][21] = 17
+  for (let r = 12; r < 19; r++) s[r][22] = 16
+  s[18][20] = 17; s[18][21] = 17
+  // Steam
+  s[19][21] = 8; s[20][20] = 8; s[20][22] = 8
+  // Drip tray (dark)
+  for (let r = 20; r < 22; r++) for (let c = 9; c < 23; c++) s[r][c] = 1
+  for (let c = 10; c < 22; c++) s[21][c] = 9
+  for (let c = 10; c < 22; c += 2) s[20][c] = 9
+  return s
+})()
+
+// Vintage La Marzocca — copper body, eagle ornament, dual group heads
+export const COFFEE_MACHINE_T2: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Main body (copper — coral 15 and light orange 16)
+  for (let r = 3; r < 20; r++) for (let c = 5; c < 27; c++) s[r][c] = 15
+  for (let r = 4; r < 19; r++) for (let c = 6; c < 26; c++) s[r][c] = 16
+  // Copper highlight strip
+  for (let r = 4; r < 19; r++) s[r][6] = 15
+  for (let r = 4; r < 19; r++) s[r][7] = 29  // warm highlight
+  // Top cap (dark)
+  for (let c = 6; c < 26; c++) { s[2][c] = 1; s[3][c] = 1 }
+  // Eagle/ornament on top (small 3px gold shape)
+  s[0][15] = 17; s[0][16] = 17
+  s[1][14] = 17; s[1][15] = 16; s[1][16] = 16; s[1][17] = 17
+  s[2][15] = 17; s[2][16] = 17
+  // Display screen
+  for (let r = 5; r < 9; r++) for (let c = 9; c < 23; c++) s[r][c] = 1
+  for (let r = 6; r < 8; r++) for (let c = 10; c < 22; c++) s[r][c] = 13
+  for (let c = 11; c < 21; c++) s[7][c] = 14
+  // Buttons row
+  s[10][10] = 20; s[10][11] = 20
+  s[10][13] = 13; s[10][14] = 13
+  s[10][18] = 18; s[10][19] = 18
+  s[10][21] = 17; s[10][22] = 17
+  // Dual pressure gauges
+  // Left gauge
+  s[12][9] = 1; s[12][10] = 17; s[12][11] = 1
+  s[13][9] = 17; s[13][10] = 8; s[13][11] = 17
+  s[14][9] = 1; s[14][10] = 20; s[14][11] = 1  // needle
+  // Right gauge
+  s[12][20] = 1; s[12][21] = 17; s[12][22] = 1
+  s[13][20] = 17; s[13][21] = 8; s[13][22] = 17
+  s[14][20] = 1; s[14][21] = 20; s[14][22] = 1  // needle
+  // Dual group heads (two spout areas)
+  // Left group head
+  for (let r = 15; r < 19; r++) for (let c = 9; c < 13; c++) s[r][c] = 1
+  for (let r = 16; r < 18; r++) for (let c = 10; c < 12; c++) s[r][c] = 9
+  // Right group head
+  for (let r = 15; r < 19; r++) for (let c = 19; c < 23; c++) s[r][c] = 1
+  for (let r = 16; r < 18; r++) for (let c = 20; c < 22; c++) s[r][c] = 9
+  // Portafilter handles (copper)
+  for (let c = 13; c < 16; c++) s[17][c] = 2
+  for (let c = 23; c < 26; c++) s[17][c] = 2
+  s[16][13] = 1; s[16][14] = 1
+  s[16][23] = 1; s[16][24] = 1
+  // Steam wand (right side, copper)
+  for (let r = 12; r < 19; r++) s[r][24] = 15
+  for (let r = 12; r < 19; r++) s[r][25] = 16
+  s[18][24] = 15; s[18][25] = 15
+  // Steam
+  s[19][24] = 8; s[20][23] = 8; s[20][25] = 8
+  // Richer drip tray (wider, with detail)
+  for (let r = 20; r < 23; r++) for (let c = 7; c < 25; c++) s[r][c] = 1
+  for (let c = 8; c < 24; c++) s[22][c] = 9  // grating
+  for (let c = 8; c < 24; c += 2) s[21][c] = 9
+  for (let c = 9; c < 24; c += 2) s[20][c] = 9
+  return s
+})()
+
+// Polished wood counter — richer grain, darker browns
+export const COUNTER_TOP_T1: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Top edge
+  for (let c = 0; c < 32; c++) { s[0][c] = 1; s[1][c] = 1 }
+  // Surface (medium brown 2 with light brown 3 grain)
+  for (let c = 0; c < 32; c++) { s[2][c] = 22; s[3][c] = 22 }  // side rail
+  for (let r = 4; r < 6; r++) for (let c = 0; c < 32; c++) s[r][c] = 2  // polished surface
+  // Grain lines on surface
+  for (let c = 2; c < 30; c += 5) { s[4][c] = 3; s[5][c] = 3 }
+  for (let c = 4; c < 30; c += 7) { s[4][c] = 4; s[5][c] = 4 }  // tan highlights
+  for (let c = 0; c < 32; c++) { s[6][c] = 22; s[7][c] = 22 }  // lower rail
+  // Body
+  for (let c = 0; c < 32; c++) { s[8][c] = 22; s[9][c] = 22 }  // divider
+  // Panel fronts (1, 2 with 4 tan highlights)
+  for (let r = 10; r < 22; r++) {
+    for (let c = 0; c < 32; c++) {
+      s[r][c] = 1
+    }
+  }
+  // Panel insets
+  for (let panel = 0; panel < 5; panel++) {
+    const c0 = 1 + panel * 6
+    const c1 = c0 + 5
+    for (let r = 11; r < 21; r++) {
+      for (let c = c0; c < c1 && c < 31; c++) {
+        s[r][c] = 2
+      }
+    }
+    // Inner highlight
+    for (let r = 12; r < 20; r++) {
+      for (let c = c0 + 1; c < c1 - 1 && c < 30; c++) {
+        s[r][c] = 3
+      }
+    }
+    // Tan accent
+    if (c0 + 2 < 31) {
+      s[15][c0 + 2] = 4; s[16][c0 + 2] = 4
+    }
+  }
+  // Bottom rail and base
+  for (let c = 0; c < 32; c++) { s[22][c] = 22; s[23][c] = 22 }
+  for (let c = 0; c < 32; c++) { s[24][c] = 1; s[25][c] = 1 }
+  for (let c = 0; c < 32; c++) { s[26][c] = 1; s[27][c] = 1 }
+  // Empty rows at bottom (like original)
+  return s
+})()
+
+// Marble counter — white/gray surface, dark wood body
+export const COUNTER_TOP_T2: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  // Top edge
+  for (let c = 0; c < 32; c++) { s[0][c] = 10; s[1][c] = 10 }  // dark gray rail
+  // Marble surface (white 8, off-white 7)
+  for (let c = 0; c < 32; c++) { s[2][c] = 10 }  // side rail
+  for (let r = 3; r < 6; r++) for (let c = 0; c < 32; c++) s[r][c] = 8  // white marble
+  // Gray veining on surface
+  s[3][5] = 12; s[3][6] = 12; s[4][7] = 12; s[4][8] = 12
+  s[3][17] = 12; s[4][18] = 12; s[4][19] = 12
+  s[5][11] = 12; s[5][12] = 12; s[5][24] = 12; s[5][25] = 12
+  // Off-white accents
+  s[3][10] = 7; s[4][14] = 7; s[4][22] = 7; s[5][3] = 7; s[5][28] = 7
+  for (let c = 0; c < 32; c++) { s[6][c] = 10 }  // lower rail
+  // Lip/trim
+  for (let c = 0; c < 32; c++) { s[7][c] = 10; s[8][c] = 10 }
+  // Dark wood body panels below (1, 2)
+  for (let r = 9; r < 23; r++) for (let c = 0; c < 32; c++) s[r][c] = 1
+  // Panel insets (darker wood)
+  for (let panel = 0; panel < 5; panel++) {
+    const c0 = 1 + panel * 6
+    const c1 = c0 + 5
+    for (let r = 10; r < 22; r++) {
+      for (let c = c0; c < c1 && c < 31; c++) {
+        s[r][c] = 2
+      }
+    }
+    for (let r = 11; r < 21; r++) {
+      for (let c = c0 + 1; c < c1 - 1 && c < 30; c++) {
+        s[r][c] = 3
+      }
+    }
+  }
+  // Base
+  for (let c = 0; c < 32; c++) { s[23][c] = 10; s[24][c] = 10 }
+  for (let c = 0; c < 32; c++) { s[25][c] = 10; s[26][c] = 10 }
+  for (let c = 0; c < 32; c++) { s[27][c] = 1 }
+  return s
+})()
+
 export const SPRITE_MAP: Record<string, Sprite> = {
   FLOOR_WOOD,
   WALL,
@@ -1312,4 +2050,20 @@ export const SPRITE_MAP: Record<string, Sprite> = {
   LANTERN,
   POND,
   CHESS_TABLE,
+  PLANT_T1,
+  PLANT_T2,
+  LAMP_T1,
+  LAMP_T2,
+  CHAIR_T1,
+  CHAIR_T2,
+  TABLE_T1,
+  TABLE_T2,
+  SHELF_T1,
+  SHELF_T2,
+  COFFEE_MACHINE_T1,
+  COFFEE_MACHINE_T2,
+  COUNTER_TOP_T1,
+  COUNTER_TOP_T2,
+  FLOOR_HERRINGBONE,
+  FLOOR_MARBLE,
 }

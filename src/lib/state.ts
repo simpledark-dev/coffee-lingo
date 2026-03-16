@@ -1,4 +1,5 @@
 import { Expression, PlayerState, VocabularyEntry } from './types'
+import { getReadyToInstallIds } from './upgrades'
 
 const STORAGE_KEY = 'coffee-lingo-state'
 
@@ -18,15 +19,21 @@ export function createInitialState(expressions: Expression[]): PlayerState {
     reputation: 0,
     vocabulary,
     recencyBuffer: [],
+    upgrades: {},
   }
 }
 
-export function loadState(): PlayerState | null {
+export function loadState(): { state: PlayerState; readyToInstall: string[] } | null {
   if (typeof window === 'undefined') return null
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
-    return JSON.parse(raw) as PlayerState
+    const state = JSON.parse(raw) as PlayerState
+    // Migration: ensure upgrades field exists
+    state.upgrades = state.upgrades ?? {}
+    // Check which upgrades are ready to install (not auto-finalized — player must claim)
+    const readyToInstall = getReadyToInstallIds(state.upgrades)
+    return { state, readyToInstall }
   } catch {
     return null
   }

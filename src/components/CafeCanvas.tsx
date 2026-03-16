@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react'
 import {
   PALETTE,
   SPRITE_MAP,
@@ -23,10 +23,12 @@ import {
   T,
 } from '../lib/tilemap'
 import type { CafeState } from '../lib/types'
+import { getActiveSpriteKey } from '../lib/upgrades'
 
 interface CafeCanvasProps {
   cafeStateRef: React.RefObject<CafeState | null>
   onCustomerTap: (customerId: number) => void
+  upgrades?: Record<string, import('../lib/types').UpgradeLevel>
 }
 
 const TILE_PX = TILE_SIZE * SCALE
@@ -130,7 +132,22 @@ function drawCached(
 export default function CafeCanvas({
   cafeStateRef,
   onCustomerTap,
+  upgrades,
 }: CafeCanvasProps) {
+  // Build dynamic tile→sprite map based on upgrade tiers
+  const resolvedTileSprite: Record<string, string> = useMemo(() => ({
+    ...TILE_ID_TO_SPRITE,
+    [T.MACHINE]: getActiveSpriteKey('COFFEE_MACHINE', upgrades),
+    [T.TABLE]: getActiveSpriteKey('TABLE', upgrades),
+    [T.CHAIR_U]: getActiveSpriteKey('CHAIR', upgrades),
+    [T.CHAIR_D]: getActiveSpriteKey('CHAIR', upgrades),
+    [T.PLANT]: getActiveSpriteKey('PLANT', upgrades),
+    [T.SHELF]: getActiveSpriteKey('SHELF', upgrades),
+    [T.LAMP]: getActiveSpriteKey('LAMP', upgrades),
+    [T.COUNTER]: getActiveSpriteKey('COUNTER', upgrades),
+    [T.COUNTER_L]: getActiveSpriteKey('COUNTER', upgrades),
+  }), [upgrades])
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const animRef = useRef<number>(0)
@@ -146,7 +163,14 @@ export default function CafeCanvas({
   const currentRoomRef = useRef(1)
   const [currentRoom, setCurrentRoom] = useState(1)
 
-  // Floor style toggle
+  // Floor style — derived from upgrade tier
+  const unlockedFloors = useMemo<FloorStyleKey[]>(() => {
+    const floors: FloorStyleKey[] = ['FLOOR_WOOD', 'FLOOR_TILE']
+    const floorTier = upgrades?.['FLOOR']?.tier ?? 0
+    if (floorTier >= 1) floors.push('FLOOR_HERRINGBONE')
+    if (floorTier >= 2) floors.push('FLOOR_MARBLE')
+    return floors
+  }, [upgrades])
   const [floorStyle, setFloorStyle] = useState<FloorStyleKey>('FLOOR_WOOD')
   const floorSpriteRef = useRef(FLOOR_STYLES.FLOOR_WOOD)
 
@@ -234,7 +258,7 @@ export default function CafeCanvas({
           continue
         }
 
-        const spriteName = TILE_ID_TO_SPRITE[tileId]
+        const spriteName = resolvedTileSprite[tileId]
         if (spriteName && SPRITE_MAP[spriteName]) {
           drawCached(ctx, cache, SPRITE_MAP[spriteName], px, py)
         }
@@ -242,7 +266,7 @@ export default function CafeCanvas({
     }
 
     ctx.restore()
-  }, [])
+  }, [resolvedTileSprite])
 
   // Resize canvas
   useEffect(() => {
@@ -533,7 +557,7 @@ export default function CafeCanvas({
       running = false
       cancelAnimationFrame(animRef.current)
     }
-  }, [drawScene, cafeStateRef, floorStyle])
+  }, [drawScene, cafeStateRef, floorStyle, resolvedTileSprite])
 
   // Render full map onto popup canvas when opened
   useEffect(() => {
@@ -591,7 +615,7 @@ export default function CafeCanvas({
           continue
         }
 
-        const spriteName = TILE_ID_TO_SPRITE[tileId]
+        const spriteName = resolvedTileSprite[tileId]
         if (spriteName && SPRITE_MAP[spriteName]) {
           drawCached(ctx, cache, SPRITE_MAP[spriteName], px, py)
         }
@@ -620,9 +644,12 @@ export default function CafeCanvas({
       {/* Floor style toggle */}
       <button
         style={styles.floorToggle}
-        onClick={() => setFloorStyle(f => f === 'FLOOR_WOOD' ? 'FLOOR_TILE' : 'FLOOR_WOOD')}
+        onClick={() => setFloorStyle(f => {
+          const i = unlockedFloors.indexOf(f)
+          return unlockedFloors[(i + 1) % unlockedFloors.length]
+        })}
       >
-        {floorStyle === 'FLOOR_WOOD' ? '🪵' : '🔲'}
+        {({ FLOOR_WOOD: '🪵', FLOOR_TILE: '🔲', FLOOR_HERRINGBONE: '🪵', FLOOR_MARBLE: '⬜' } as Record<string, string>)[floorStyle] ?? '🪵'}
       </button>
       {/* Full map button */}
       <button

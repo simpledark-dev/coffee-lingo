@@ -317,6 +317,7 @@ export default function GameplayView({
       <CafeCanvas
         cafeStateRef={cafeStateRef}
         onCustomerTap={handleCustomerTap}
+        upgrades={playerState.upgrades}
       />
 
       {/* Conversation overlay */}
