@@ -97,7 +97,7 @@ export type CustomerDirection = 'down' | 'left' | 'right' | 'up'
 
 export interface PointOfInterest {
   id: string
-  type: 'counter' | 'chair' | 'shelf' | 'menu' | 'window' | 'plant' | 'floor' | 'bookshelf'
+  type: 'counter' | 'chair' | 'shelf' | 'menu' | 'window' | 'plant' | 'floor' | 'bookshelf' | 'bench' | 'fountain' | 'tree' | 'pond'
   pos: GridPos
   facingDir: CustomerDirection
   maxOccupants: number

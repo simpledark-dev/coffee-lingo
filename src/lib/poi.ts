@@ -14,8 +14,8 @@ function buildPOIs(): PointOfInterest[] {
         // Counter: the floor tile in front of counter (row 15, the row above counter row 16)
         // We check row 15 specifically for counter slots
         case T.FLOOR: {
-          // Counter slots: row 18 (floor in front of counter at row 19), cols 13/15/17 (cafe room)
-          if (row === 18 && (col === 13 || col === 15 || col === 17)) {
+          // Counter slots: row 26 (floor in front of counter at row 27), cols 13/15/17 (cafe room)
+          if (row === 26 && (col === 13 || col === 15 || col === 17)) {
             pois.push({
               id: `counter_${id++}`,
               type: 'counter',
@@ -110,6 +110,83 @@ function buildPOIs(): PointOfInterest[] {
           break
         }
 
+        // Pond: stand on adjacent walkable tile and gaze at water
+        case T.POND: {
+          const pCandidates: { r: number; c: number; dir: CustomerDirection }[] = [
+            { r: row + 1, c: col, dir: 'up' },
+            { r: row - 1, c: col, dir: 'down' },
+            { r: row, c: col - 1, dir: 'right' },
+            { r: row, c: col + 1, dir: 'left' },
+          ]
+          for (const { r, c, dir } of pCandidates) {
+            if (r >= 0 && r < GRID_ROWS && c >= 0 && c < GRID_COLS && isWalkable(r, c)) {
+              const exists = pois.some(p => p.type === 'pond' && p.pos.row === r && p.pos.col === c)
+              if (!exists) {
+                pois.push({
+                  id: `pond_${id++}`,
+                  type: 'pond',
+                  pos: { row: r, col: c },
+                  facingDir: dir,
+                  maxOccupants: 1,
+                })
+              }
+            }
+          }
+          break
+        }
+
+        // Fountain: stand on adjacent walkable tile and look at it
+        case T.FOUNTAIN: {
+          const fCandidates: { r: number; c: number; dir: CustomerDirection }[] = [
+            { r: row + 1, c: col, dir: 'up' },
+            { r: row - 1, c: col, dir: 'down' },
+            { r: row, c: col - 1, dir: 'right' },
+            { r: row, c: col + 1, dir: 'left' },
+          ]
+          for (const { r, c, dir } of fCandidates) {
+            if (r >= 0 && r < GRID_ROWS && c >= 0 && c < GRID_COLS && isWalkable(r, c)) {
+              const exists = pois.some(p => p.type === 'fountain' && p.pos.row === r && p.pos.col === c)
+              if (!exists) {
+                pois.push({
+                  id: `fountain_${id++}`,
+                  type: 'fountain',
+                  pos: { row: r, col: c },
+                  facingDir: dir,
+                  maxOccupants: 2,
+                })
+              }
+            }
+          }
+          break
+        }
+
+        // Tree: stand below tree and look up
+        case T.TREE: {
+          const belowRow = row + 1
+          if (belowRow < GRID_ROWS && isWalkable(belowRow, col)) {
+            pois.push({
+              id: `tree_${id++}`,
+              type: 'tree',
+              pos: { row: belowRow, col },
+              facingDir: 'up',
+              maxOccupants: 1,
+            })
+          }
+          break
+        }
+
+        // Bench: customer sits on the bench tile itself
+        case T.BENCH: {
+          pois.push({
+            id: `bench_${id++}`,
+            type: 'bench',
+            pos: { row, col },
+            facingDir: 'down',
+            maxOccupants: 1,
+          })
+          break
+        }
+
         // Plant: stand on adjacent floor tile
         case T.PLANT: {
           // Check below first, then left, then right
@@ -138,14 +215,19 @@ function buildPOIs(): PointOfInterest[] {
 
   // Add a few open floor spots for variety (hand-picked central areas)
   const floorSpots = [
-    // Reading room
-    { row: 3, col: 5 },   // reading room upper area
-    { row: 11, col: 5 },  // reading room passage area
-    { row: 16, col: 4 },  // reading room lower area
-    // Cafe
-    { row: 6, col: 15 },  // cafe upper room center
-    { row: 11, col: 15 }, // cafe below divider
-    { row: 16, col: 14 }, // cafe lower area
+    // Reading room (interior)
+    { row: 11, col: 5 },  // reading room upper area
+    { row: 19, col: 5 },  // reading room passage area
+    { row: 24, col: 4 },  // reading room lower area
+    // Cafe (interior)
+    { row: 14, col: 15 }, // cafe upper room center
+    { row: 19, col: 15 }, // cafe below divider
+    { row: 24, col: 14 }, // cafe lower area
+    // Garden
+    { row: 3, col: 5 },   // left garden
+    { row: 3, col: 15 },  // right garden
+    { row: 5, col: 8 },   // left garden lower
+    { row: 5, col: 12 },  // right garden lower
   ]
   for (const pos of floorSpots) {
     if (isWalkable(pos.row, pos.col)) {

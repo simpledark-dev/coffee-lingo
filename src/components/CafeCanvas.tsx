@@ -4,11 +4,15 @@ import { useRef, useEffect, useCallback, useState } from 'react'
 import {
   PALETTE,
   SPRITE_MAP,
-  FLOOR_WOOD,
+  FLOOR_STYLES,
   WALL,
   CUSTOMER_SPRITES,
   EXCLAMATION,
+  POND_VARIANTS,
+  FOUNTAIN_L,
+  FOUNTAIN_R,
 } from '../lib/sprites'
+import type { FloorStyleKey } from '../lib/sprites'
 import {
   TILE_SIZE,
   SCALE,
@@ -46,32 +50,81 @@ const TILE_ID_TO_SPRITE: Record<string, string> = {
   [T.CUP]: 'COFFEE_CUP',
   [T.WINDOW]: 'WINDOW',
   [T.BOOKSHELF]: 'BOOKSHELF',
+  [T.GRASS]: 'GRASS',
+  [T.HEDGE]: 'HEDGE',
+  [T.PATH]: 'PATH_TILE',
+  [T.FLOWER]: 'FLOWER',
+  [T.BENCH]: 'BENCH',
+  [T.FOUNTAIN]: 'FOUNTAIN',
+  [T.TREE]: 'TREE',
+  [T.LANTERN]: 'LANTERN',
+  [T.POND]: 'POND',
+  [T.CHESS]: 'CHESS_TABLE',
 }
 
 const NEEDS_FLOOR = new Set<string>([
   T.TABLE, T.CHAIR_U, T.CHAIR_D, T.MACHINE, T.LAMP, T.PLANT, T.CUP,
-  T.SHELF, T.MENU, T.DOOR, T.BOOKSHELF,
+  T.SHELF, T.MENU, T.DOOR, T.BOOKSHELF, T.CHESS,
 ])
 
 // Swipe thresholds
 const GESTURE_DEAD_ZONE = 10 // px before locking direction
 const SWIPE_THRESHOLD = 60   // px to trigger room switch
+const ROOM_SWITCH_SPEED = 0.04 // camera lerp factor per frame (lower = slower, 0.01–0.2)
 
-function drawSprite(
-  ctx: CanvasRenderingContext2D,
-  sprite: number[][],
-  x: number,
-  y: number,
-  scale: number
-) {
+// --- Sprite cache: pre-render each sprite once to an offscreen canvas ---
+type SpriteCache = Map<number[][], HTMLCanvasElement>
+
+function cacheSprite(cache: SpriteCache, sprite: number[][], scale: number) {
+  if (cache.has(sprite)) return
+  const w = Math.ceil(sprite[0].length * scale)
+  const h = Math.ceil(sprite.length * scale)
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')!
+  const s = Math.ceil(scale)
   for (let row = 0; row < sprite.length; row++) {
     for (let col = 0; col < sprite[row].length; col++) {
       const colorIdx = sprite[row][col]
       if (colorIdx === 0) continue
       ctx.fillStyle = PALETTE[colorIdx]
-      ctx.fillRect(x + col * scale, y + row * scale, scale, scale)
+      ctx.fillRect(col * scale, row * scale, s, s)
     }
   }
+  cache.set(sprite, canvas)
+}
+
+function buildSpriteCache(scale: number): SpriteCache {
+  const cache: SpriteCache = new Map()
+  for (const sprite of Object.values(SPRITE_MAP)) {
+    cacheSprite(cache, sprite, scale)
+  }
+  for (const variant of CUSTOMER_SPRITES) {
+    for (const dir of ['down', 'up', 'left', 'right'] as const) {
+      cacheSprite(cache, variant[dir], scale)
+    }
+  }
+  cacheSprite(cache, EXCLAMATION, scale)
+  // Pond autotile variants
+  for (const sprite of Object.values(POND_VARIANTS)) {
+    cacheSprite(cache, sprite, scale)
+  }
+  // Fountain halves
+  cacheSprite(cache, FOUNTAIN_L, scale)
+  cacheSprite(cache, FOUNTAIN_R, scale)
+  return cache
+}
+
+function drawCached(
+  ctx: CanvasRenderingContext2D,
+  cache: SpriteCache,
+  sprite: number[][],
+  x: number,
+  y: number,
+) {
+  const cached = cache.get(sprite)
+  if (cached) ctx.drawImage(cached, x, y)
 }
 
 export default function CafeCanvas({
@@ -93,6 +146,10 @@ export default function CafeCanvas({
   const currentRoomRef = useRef(1)
   const [currentRoom, setCurrentRoom] = useState(1)
 
+  // Floor style toggle
+  const [floorStyle, setFloorStyle] = useState<FloorStyleKey>('FLOOR_WOOD')
+  const floorSpriteRef = useRef(FLOOR_STYLES.FLOOR_WOOD)
+
   // Touch state for panning + swipe + tap detection
   const touchStartYRef = useRef(0)
   const touchStartXRef = useRef(0)
@@ -108,6 +165,10 @@ export default function CafeCanvas({
   // Check if other room has exclamation customers
   const [otherRoomAlert, setOtherRoomAlert] = useState(false)
 
+  // Full map popup
+  const [showMap, setShowMap] = useState(false)
+  const mapCanvasRef = useRef<HTMLCanvasElement>(null)
+
   function getRoomCamX(room: number): number {
     const roomLeft = room * ROOM_W
     // Center the room within the viewport; clamp so we don't go past room edges
@@ -121,8 +182,9 @@ export default function CafeCanvas({
     targetCamXRef.current = getRoomCamX(room)
   }
 
-  const drawScene = useCallback((ctx: CanvasRenderingContext2D, camX: number, camY: number, viewW: number, viewH: number) => {
+  const drawScene = useCallback((ctx: CanvasRenderingContext2D, cache: SpriteCache, camX: number, camY: number, viewW: number, viewH: number) => {
     ctx.clearRect(0, 0, viewW, viewH)
+    const floor = floorSpriteRef.current
 
     const startCol = Math.max(0, Math.floor(camX / TILE_PX))
     const endCol = Math.min(GRID_COLS - 1, Math.floor((camX + viewW) / TILE_PX))
@@ -141,19 +203,40 @@ export default function CafeCanvas({
         if (tileId === T.EMPTY) continue
 
         if (NEEDS_FLOOR.has(tileId)) {
-          drawSprite(ctx, FLOOR_WOOD, px, py, SCALE)
+          drawCached(ctx, cache, floor, px, py)
         }
 
         if (tileId === T.WALL) {
-          drawSprite(ctx, WALL, px, py, SCALE)
+          drawCached(ctx, cache, WALL, px, py)
+          continue
+        }
+
+        if (tileId === T.FLOOR) {
+          drawCached(ctx, cache, floor, px, py)
+          continue
+        }
+
+        // Pond autotile: check neighbors to pick seamless variant
+        if (tileId === T.POND) {
+          const t = (CAFE_LAYOUT[row - 1]?.[col] === T.POND) ? 1 : 0
+          const r = (CAFE_LAYOUT[row]?.[col + 1] === T.POND) ? 1 : 0
+          const b = (CAFE_LAYOUT[row + 1]?.[col] === T.POND) ? 1 : 0
+          const l = (CAFE_LAYOUT[row]?.[col - 1] === T.POND) ? 1 : 0
+          const variant = POND_VARIANTS[`${t}${r}${b}${l}`]
+          if (variant) drawCached(ctx, cache, variant, px, py)
+          continue
+        }
+
+        // Fountain: pick left or right half based on neighbor
+        if (tileId === T.FOUNTAIN) {
+          const rightIsFountain = CAFE_LAYOUT[row]?.[col + 1] === T.FOUNTAIN
+          drawCached(ctx, cache, rightIsFountain ? FOUNTAIN_L : FOUNTAIN_R, px, py)
           continue
         }
 
         const spriteName = TILE_ID_TO_SPRITE[tileId]
         if (spriteName && SPRITE_MAP[spriteName]) {
-          drawSprite(ctx, SPRITE_MAP[spriteName], px, py, SCALE)
-        } else if (tileId === T.FLOOR) {
-          drawSprite(ctx, FLOOR_WOOD, px, py, SCALE)
+          drawCached(ctx, cache, SPRITE_MAP[spriteName], px, py)
         }
       }
     }
@@ -180,7 +263,7 @@ export default function CafeCanvas({
 
   // Set default camera position (cafe room, counter area)
   useEffect(() => {
-    const counterY = 19 * TILE_PX
+    const counterY = 27 * TILE_PX
     cameraYRef.current = Math.max(0, counterY - viewHRef.current * 0.4)
     // Center camera X on cafe room
     const camX = getRoomCamX(1)
@@ -340,13 +423,18 @@ export default function CafeCanvas({
     }
   }, [cafeStateRef, onCustomerTap])
 
-  // Animation loop
+  // Animation loop (re-runs when floor style changes to rebuild cache)
   useEffect(() => {
+    floorSpriteRef.current = FLOOR_STYLES[floorStyle]
+
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    const spriteCache = buildSpriteCache(SCALE)
+    // Ensure active floor is in the cache
+    cacheSprite(spriteCache, floorSpriteRef.current, SCALE)
     let running = true
     let alertCheckCounter = 0
 
@@ -362,7 +450,7 @@ export default function CafeCanvas({
       const targetX = targetCamXRef.current
       const diff = targetX - cameraXRef.current
       if (Math.abs(diff) > 0.5) {
-        cameraXRef.current += diff * 0.15
+        cameraXRef.current += diff * ROOM_SWITCH_SPEED
       } else {
         cameraXRef.current = targetX
       }
@@ -373,13 +461,13 @@ export default function CafeCanvas({
       const camY = Math.round(cameraYRef.current)
 
       ctx.imageSmoothingEnabled = false
-      drawScene(ctx, camX, camY, viewW, viewH)
+      drawScene(ctx, spriteCache, camX, camY, viewW, viewH)
 
       // Draw barista behind counter (row 20, col 14 in cafe room)
       ctx.save()
       ctx.translate(-camX, -camY)
       const baristaSprite = CUSTOMER_SPRITES[0].up
-      drawSprite(ctx, baristaSprite, 14 * TILE_PX, 20 * TILE_PX, SCALE)
+      drawCached(ctx, spriteCache, baristaSprite, 14 * TILE_PX, 28 * TILE_PX)
       ctx.restore()
 
       // Draw customers sorted by Y for depth
@@ -393,14 +481,19 @@ export default function CafeCanvas({
         for (const customer of sorted) {
           const spriteSet = CUSTOMER_SPRITES[customer.spriteVariant % CUSTOMER_SPRITES.length]
           const sprite = spriteSet[customer.facingDir]
-          drawSprite(ctx, sprite, customer.worldPos.x, customer.worldPos.y, SCALE)
+          drawCached(ctx, spriteCache, sprite, customer.worldPos.x, customer.worldPos.y)
 
           if (customer.phase === 'exclamation') {
             const pulse = 1 + 0.15 * Math.sin(tickRef.current * 0.1)
             const exSize = SCALE * pulse
-            const exX = customer.worldPos.x + TILE_PX / 2 - (8 * exSize) / 2
-            const exY = customer.worldPos.y - 12 * exSize
-            drawSprite(ctx, EXCLAMATION, exX, exY, exSize)
+            const cachedEx = spriteCache.get(EXCLAMATION)
+            if (cachedEx) {
+              const exW = 16 * exSize
+              const exH = 16 * exSize
+              const exX = customer.worldPos.x + TILE_PX / 2 - exW / 2
+              const exY = customer.worldPos.y - 20 * exSize
+              ctx.drawImage(cachedEx, exX, exY, exW, exH)
+            }
           }
 
           if (customer.phase === 'conversing') {
@@ -440,7 +533,71 @@ export default function CafeCanvas({
       running = false
       cancelAnimationFrame(animRef.current)
     }
-  }, [drawScene, cafeStateRef])
+  }, [drawScene, cafeStateRef, floorStyle])
+
+  // Render full map onto popup canvas when opened
+  useEffect(() => {
+    if (!showMap) return
+    const canvas = mapCanvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const mapScale = 0.5
+    const pxPerTile = TILE_SIZE * mapScale
+    canvas.width = GRID_COLS * pxPerTile
+    canvas.height = GRID_ROWS * pxPerTile
+
+    const cache = buildSpriteCache(mapScale)
+    cacheSprite(cache, floorSpriteRef.current, mapScale)
+
+    ctx.imageSmoothingEnabled = false
+
+    for (let row = 0; row < GRID_ROWS; row++) {
+      for (let col = 0; col < GRID_COLS; col++) {
+        const tileId = CAFE_LAYOUT[row]?.[col] ?? T.EMPTY
+        const px = col * pxPerTile
+        const py = row * pxPerTile
+
+        if (tileId === T.EMPTY) continue
+
+        if (NEEDS_FLOOR.has(tileId)) {
+          drawCached(ctx, cache, floorSpriteRef.current, px, py)
+        }
+
+        if (tileId === T.WALL) {
+          drawCached(ctx, cache, WALL, px, py)
+          continue
+        }
+
+        if (tileId === T.FLOOR) {
+          drawCached(ctx, cache, floorSpriteRef.current, px, py)
+          continue
+        }
+
+        if (tileId === T.POND) {
+          const t = (CAFE_LAYOUT[row - 1]?.[col] === T.POND) ? 1 : 0
+          const r = (CAFE_LAYOUT[row]?.[col + 1] === T.POND) ? 1 : 0
+          const b = (CAFE_LAYOUT[row + 1]?.[col] === T.POND) ? 1 : 0
+          const l = (CAFE_LAYOUT[row]?.[col - 1] === T.POND) ? 1 : 0
+          const variant = POND_VARIANTS[`${t}${r}${b}${l}`]
+          if (variant) drawCached(ctx, cache, variant, px, py)
+          continue
+        }
+
+        if (tileId === T.FOUNTAIN) {
+          const rightIsFountain = CAFE_LAYOUT[row]?.[col + 1] === T.FOUNTAIN
+          drawCached(ctx, cache, rightIsFountain ? FOUNTAIN_L : FOUNTAIN_R, px, py)
+          continue
+        }
+
+        const spriteName = TILE_ID_TO_SPRITE[tileId]
+        if (spriteName && SPRITE_MAP[spriteName]) {
+          drawCached(ctx, cache, SPRITE_MAP[spriteName], px, py)
+        }
+      }
+    }
+  }, [showMap, floorStyle])
 
   return (
     <div ref={containerRef} style={styles.container}>
@@ -460,6 +617,34 @@ export default function CafeCanvas({
       <div style={styles.roomLabel}>
         {currentRoom === 0 ? 'Reading Room' : 'Café'}
       </div>
+      {/* Floor style toggle */}
+      <button
+        style={styles.floorToggle}
+        onClick={() => setFloorStyle(f => f === 'FLOOR_WOOD' ? 'FLOOR_TILE' : 'FLOOR_WOOD')}
+      >
+        {floorStyle === 'FLOOR_WOOD' ? '🪵' : '🔲'}
+      </button>
+      {/* Full map button */}
+      <button
+        style={styles.mapButton}
+        onClick={() => setShowMap(true)}
+      >
+        🗺
+      </button>
+      {/* Full map popup */}
+      {showMap && (
+        <div style={styles.mapOverlay} onClick={() => setShowMap(false)}>
+          <div style={styles.mapPopup} onClick={e => e.stopPropagation()}>
+            <div style={styles.mapHeader}>
+              <span>Full Map</span>
+              <button style={styles.mapClose} onClick={() => setShowMap(false)}>✕</button>
+            </div>
+            <div style={styles.mapBody}>
+              <canvas ref={mapCanvasRef} style={styles.mapCanvas} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -528,5 +713,88 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     letterSpacing: 0.5,
     zIndex: 5,
+  },
+  floorToggle: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    width: 36,
+    height: 36,
+    background: 'rgba(93, 64, 55, 0.85)',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: 8,
+    fontSize: 18,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+  },
+  mapButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 52,
+    width: 36,
+    height: 36,
+    background: 'rgba(93, 64, 55, 0.85)',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: 8,
+    fontSize: 18,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+  },
+  mapOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  mapPopup: {
+    background: '#3E2723',
+    borderRadius: 12,
+    border: '2px solid rgba(255, 255, 255, 0.2)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
+    maxWidth: '90vw',
+    maxHeight: '90vh',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    overflow: 'hidden',
+  },
+  mapHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '8px 12px',
+    color: '#FFEFD5',
+    fontSize: 14,
+    fontWeight: 600,
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  mapClose: {
+    background: 'none',
+    border: 'none',
+    color: '#FFEFD5',
+    fontSize: 18,
+    cursor: 'pointer',
+    padding: '0 4px',
+  },
+  mapBody: {
+    overflow: 'auto',
+    padding: 8,
+  },
+  mapCanvas: {
+    imageRendering: 'pixelated' as const,
+    display: 'block',
   },
 }
