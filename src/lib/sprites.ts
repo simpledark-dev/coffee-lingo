@@ -2024,6 +2024,177 @@ export const COUNTER_TOP_T2: Sprite = (() => {
   return s
 })()
 
+// === OUTSIDE / STREET SCENE SPRITES ===
+
+// Road — dark asphalt, subtle texture
+export const ROAD: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(10))
+  for (let r = 0; r < 32; r++)
+    for (let c = 0; c < 32; c++)
+      if ((r * 7 + c * 13) % 31 === 0) s[r][c] = 9
+  return s
+})()
+
+// Road with dashed yellow center line
+export const ROAD_LINE: Sprite = (() => {
+  const s: Sprite = ROAD.map(r => [...r])
+  for (let r = 4; r < 28; r++) { s[r][15] = 17; s[r][16] = 17 }
+  return s
+})()
+
+// Sidewalk — clean stone slab grid
+export const SIDEWALK: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(6))
+  // Subtle slab grid
+  for (let c = 0; c < 32; c++) { s[0][c] = 5; s[16][c] = 5 }
+  for (let r = 0; r < 32; r++) { s[r][0] = 5; s[r][16] = 5 }
+  return s
+})()
+
+// Shop wall — warm brown facade
+export const SHOP_WALL: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(2))
+  for (let r = 0; r < 32; r++)
+    for (let c = 0; c < 32; c++)
+      if ((r + c) % 11 === 0) s[r][c] = 23
+  return s
+})()
+
+// Shop wall light — warm beige/sand facade (distinct from sidewalk)
+export const SHOP_WALL_LIGHT: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(31)) // warm beige
+  for (let r = 0; r < 32; r++)
+    for (let c = 0; c < 32; c++)
+      if ((r * 3 + c * 5) % 17 === 0) s[r][c] = 29 // peach highlight
+  return s
+})()
+
+// Helper: make striped awning
+function makeAwning(color1: number, color2: number, shadow: number): Sprite {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  for (let r = 0; r < 30; r++)
+    for (let c = 0; c < 32; c++)
+      s[r][c] = (Math.floor((c + r * 0.5) / 4) % 2 === 0) ? color1 : color2
+  for (let c = 0; c < 32; c++) { s[30][c] = shadow; s[31][c] = 9 }
+  return s
+}
+
+export const AWNING_RED: Sprite = makeAwning(20, 8, 33)
+export const AWNING_BLUE: Sprite = makeAwning(18, 8, 32)
+export const AWNING_GREEN: Sprite = makeAwning(13, 8, 28)
+export const AWNING_BROWN: Sprite = makeAwning(2, 16, 1)
+
+// Shop window — glass pane on wall
+export const SHOP_WINDOW: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(2))
+  // Glass
+  for (let r = 3; r < 29; r++)
+    for (let c = 3; c < 29; c++)
+      s[r][c] = 19
+  // Frame
+  for (let c = 2; c < 30; c++) { s[2][c] = 1; s[29][c] = 1 }
+  for (let r = 2; r < 30; r++) { s[r][2] = 1; s[r][29] = 1 }
+  // Reflection highlight
+  for (let r = 5; r < 14; r++) { s[r][5] = 8; s[r][6] = 26 }
+  return s
+})()
+
+// Locked door — gray, clearly not enterable
+export const LOCKED_DOOR: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(2))
+  for (let r = 4; r < 32; r++)
+    for (let c = 6; c < 26; c++)
+      s[r][c] = 11
+  for (let r = 4; r < 32; r++) { s[r][6] = 10; s[r][25] = 10 }
+  for (let c = 6; c < 26; c++) s[4][c] = 10
+  s[20][22] = 12; s[21][22] = 12
+  return s
+})()
+
+// Café door — warm wood, welcoming
+export const CAFE_DOOR: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(2))
+  for (let r = 4; r < 32; r++)
+    for (let c = 6; c < 26; c++)
+      s[r][c] = 3
+  for (let r = 4; r < 32; r++) { s[r][6] = 1; s[r][25] = 1 }
+  for (let c = 6; c < 26; c++) s[4][c] = 1
+  // Window in door
+  for (let r = 7; r < 16; r++)
+    for (let c = 10; c < 22; c++)
+      s[r][c] = 19
+  for (let c = 10; c < 22; c++) { s[7][c] = 1; s[15][c] = 1 }
+  for (let r = 7; r < 16; r++) { s[r][10] = 1; s[r][21] = 1 }
+  // Handle
+  s[22][22] = 17; s[23][22] = 17
+  // Welcome mat
+  for (let c = 8; c < 24; c++) { s[30][c] = 15; s[31][c] = 15 }
+  return s
+})()
+
+// Street lamp on sidewalk
+export const STREET_LAMP: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(6)) // sidewalk base
+  // Post
+  for (let r = 8; r < 26; r++) { s[r][15] = 10; s[r][16] = 10 }
+  // Lamp head
+  for (let r = 4; r < 9; r++)
+    for (let c = 12; c < 20; c++)
+      s[r][c] = 10
+  // Glow
+  for (let r = 5; r < 8; r++)
+    for (let c = 13; c < 19; c++)
+      s[r][c] = 17
+  // Base
+  for (let c = 13; c < 19; c++) { s[25][c] = 10; s[26][c] = 10 }
+  return s
+})()
+
+// Outdoor potted plant on sidewalk
+export const OUTDOOR_PLANT: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(6)) // sidewalk base
+  // Pot
+  for (let r = 20; r < 28; r++)
+    for (let c = 11; c < 21; c++)
+      s[r][c] = 15
+  for (let c = 10; c < 22; c++) s[19][c] = 36
+  // Foliage
+  for (let r = 6; r < 20; r++)
+    for (let c = 8; c < 24; c++) {
+      const d = Math.sqrt((r - 12) ** 2 + (c - 16) ** 2)
+      if (d < 8) s[r][c] = ((r + c) % 3 === 0) ? 14 : 13
+    }
+  return s
+})()
+
+// Curb left (sidewalk left, road right)
+export const CURB: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(6))
+  for (let r = 0; r < 32; r++)
+    for (let c = 28; c < 32; c++)
+      s[r][c] = 10
+  for (let r = 0; r < 32; r++) { s[r][26] = 8; s[r][27] = 11 }
+  return s
+})()
+
+// Curb right (road left, sidewalk right)
+export const CURB_R: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(6))
+  for (let r = 0; r < 32; r++)
+    for (let c = 0; c < 4; c++)
+      s[r][c] = 10
+  for (let r = 0; r < 32; r++) { s[r][4] = 11; s[r][5] = 8 }
+  return s
+})()
+
+// Roof — gray tiles seen from above
+export const ROOF: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(11))
+  for (let r = 0; r < 32; r++)
+    if (r % 6 === 0) for (let c = 0; c < 32; c++) s[r][c] = 10
+  return s
+})()
+
 export const SPRITE_MAP: Record<string, Sprite> = {
   FLOOR_WOOD,
   WALL,
@@ -2066,4 +2237,22 @@ export const SPRITE_MAP: Record<string, Sprite> = {
   COUNTER_TOP_T2,
   FLOOR_HERRINGBONE,
   FLOOR_MARBLE,
+  // Outside scene
+  ROAD,
+  ROAD_LINE,
+  SIDEWALK,
+  SHOP_WALL,
+  SHOP_WALL_LIGHT,
+  AWNING_RED,
+  AWNING_BLUE,
+  AWNING_GREEN,
+  AWNING_BROWN,
+  SHOP_WINDOW,
+  LOCKED_DOOR,
+  CAFE_DOOR,
+  STREET_LAMP,
+  OUTDOOR_PLANT,
+  CURB,
+  CURB_R,
+  ROOF,
 }

@@ -13,6 +13,7 @@ import { getCharacter, getFriendshipLevel, FRIENDSHIP_GAIN } from '../lib/charac
 import { CUSTOMER_SPRITES, PALETTE } from '../lib/sprites'
 import HUD from './HUD'
 import CafeCanvas from './CafeCanvas'
+import ContactsView from './ContactsView'
 
 interface GameplayViewProps {
   conversations: CustomerConversation[]
@@ -45,8 +46,9 @@ function spriteToDataURL(spriteVariant: number, size: number): string {
   return canvas.toDataURL()
 }
 
-// Cache French male voice
-let cachedVoice: SpeechSynthesisVoice | null = null
+// Cache French voices (male + female)
+let cachedMaleVoice: SpeechSynthesisVoice | null = null
+let cachedFemaleVoice: SpeechSynthesisVoice | null = null
 let voicesLoaded = false
 
 function loadVoices() {
@@ -54,11 +56,17 @@ function loadVoices() {
   const voices = window.speechSynthesis.getVoices()
   if (voices.length === 0) return
   voicesLoaded = true
-  // Prefer male French voices (Thomas on macOS, Google français on Chrome)
   const frenchVoices = voices.filter(v => v.lang.startsWith('fr'))
-  cachedVoice =
+  // Male: prefer Thomas on macOS, avoid known female names
+  cachedMaleVoice =
     frenchVoices.find(v => /thomas|male|homme/i.test(v.name)) ??
-    frenchVoices.find(v => !/female|femme|amélie|audrey|marie/i.test(v.name)) ??
+    frenchVoices.find(v => !/female|femme|amélie|audrey|marie|sophie|julie/i.test(v.name)) ??
+    frenchVoices[0] ??
+    null
+  // Female: prefer Amélie/Audrey/Marie on macOS, or any with female keywords
+  cachedFemaleVoice =
+    frenchVoices.find(v => /amélie|audrey|marie|female|femme|sophie|julie/i.test(v.name)) ??
+    frenchVoices.find(v => v !== cachedMaleVoice) ??
     frenchVoices[0] ??
     null
 }
@@ -69,7 +77,7 @@ if (typeof window !== 'undefined' && window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = loadVoices
 }
 
-function speakFrench(text: string): Promise<void> {
+function speakFrench(text: string, gender: 'male' | 'female' = 'male'): Promise<void> {
   return new Promise((resolve) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) { resolve(); return }
     if (!voicesLoaded) loadVoices()
@@ -77,7 +85,8 @@ function speakFrench(text: string): Promise<void> {
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = 'fr-FR'
     utterance.rate = 0.85
-    if (cachedVoice) utterance.voice = cachedVoice
+    const voice = gender === 'female' ? cachedFemaleVoice : cachedMaleVoice
+    if (voice) utterance.voice = voice
     utterance.onend = () => resolve()
     utterance.onerror = () => resolve()
     window.speechSynthesis.speak(utterance)
@@ -104,8 +113,10 @@ export default function GameplayView({
   const [hintLevel, setHintLevel] = useState(0)
   const [patiencePercent, setPatiencePercent] = useState(100)
   const [activeCharacterName, setActiveCharacterName] = useState<string | null>(null)
+  const activeGenderRef = useRef<'male' | 'female'>('male')
   const [friendshipGain, setFriendshipGain] = useState<number | null>(null)
   const [inspectedCharacterId, setInspectedCharacterId] = useState<string | null>(null)
+  const [showContacts, setShowContacts] = useState(false)
   const [displayCoins, setDisplayCoins] = useState(playerState.coins)
   const [displayRep, setDisplayRep] = useState(playerState.reputation)
   const [served, setServed] = useState(0)
@@ -203,6 +214,7 @@ export default function GameplayView({
 
     const charData = getCharacter(customer.characterId)
     setActiveCharacterName(charData?.name ?? null)
+    activeGenderRef.current = charData?.gender ?? 'male'
     setActiveExchange(exchange)
     setLastResult(null)
     setSelectedChoiceId(null)
@@ -212,7 +224,7 @@ export default function GameplayView({
     respondingRef.current = true
     processingRef.current = false
     setPatiencePercent(100)
-    speakFrench(exchange.customerLine)
+    speakFrench(exchange.customerLine, activeGenderRef.current)
   }, [])
 
   const processResult = useCallback((choice: AnswerChoice | null) => {
@@ -299,7 +311,7 @@ export default function GameplayView({
         respondingRef.current = true
         processingRef.current = false
         setPatiencePercent(100)
-        speakFrench(nextExchange.customerLine)
+        speakFrench(nextExchange.customerLine, activeGenderRef.current)
       } else {
         // No more exchanges — end conversation
         endConversation(state)
@@ -377,8 +389,17 @@ export default function GameplayView({
         cafeStateRef={cafeStateRef}
         onCustomerTap={handleCustomerTap}
         onCharacterTap={setInspectedCharacterId}
+        onContactsTap={() => setShowContacts(true)}
         upgrades={playerState.upgrades}
       />
+
+      {showContacts && (
+        <ContactsView
+          relationships={playerState.relationships ?? {}}
+          reputation={playerState.reputation}
+          onClose={() => setShowContacts(false)}
+        />
+      )}
 
       {/* Character info popup */}
       {inspectedCharacterId && !activeExchange && (() => {

@@ -21,6 +21,11 @@ import {
   GRID_ROWS,
   CAFE_LAYOUT,
   ROOM_COLS,
+  OUTSIDE_COLS,
+  OUTSIDE_ROWS,
+  OUTSIDE_LAYOUT,
+  CAFE_OUTSIDE_DOOR,
+  DOOR_POS,
   T,
 } from '../lib/tilemap'
 import type { CafeState } from '../lib/types'
@@ -30,6 +35,7 @@ interface CafeCanvasProps {
   cafeStateRef: React.RefObject<CafeState | null>
   onCustomerTap: (customerId: number) => void
   onCharacterTap?: (characterId: string) => void
+  onContactsTap?: () => void
   upgrades?: Record<string, import('../lib/types').UpgradeLevel>
 }
 
@@ -64,6 +70,24 @@ const TILE_ID_TO_SPRITE: Record<string, string> = {
   [T.LANTERN]: 'LANTERN',
   [T.POND]: 'POND',
   [T.CHESS]: 'CHESS_TABLE',
+  // Outside scene tiles
+  [T.ROAD]: 'ROAD',
+  [T.ROAD_LINE]: 'ROAD_LINE',
+  [T.SIDEWALK]: 'SIDEWALK',
+  [T.SHOP_WALL]: 'SHOP_WALL',
+  [T.SHOP_WALL_LIGHT]: 'SHOP_WALL_LIGHT',
+  [T.AWNING_RED]: 'AWNING_RED',
+  [T.AWNING_BLUE]: 'AWNING_BLUE',
+  [T.AWNING_GREEN]: 'AWNING_GREEN',
+  [T.AWNING_BROWN]: 'AWNING_BROWN',
+  [T.SHOP_WINDOW]: 'SHOP_WINDOW',
+  [T.LOCKED_DOOR]: 'LOCKED_DOOR',
+  [T.CAFE_DOOR]: 'CAFE_DOOR',
+  [T.STREET_LAMP]: 'STREET_LAMP',
+  [T.OUTDOOR_PLANT]: 'OUTDOOR_PLANT',
+  [T.CURB]: 'CURB',
+  [T.CURB_R]: 'CURB_R',
+  [T.ROOF]: 'ROOF',
 }
 
 const NEEDS_FLOOR = new Set<string>([
@@ -135,6 +159,7 @@ export default function CafeCanvas({
   cafeStateRef,
   onCustomerTap,
   onCharacterTap,
+  onContactsTap,
   upgrades,
 }: CafeCanvasProps) {
   // Build dynamic tile→sprite map based on upgrade tiers
@@ -191,6 +216,12 @@ export default function CafeCanvas({
 
   // Check if other room has exclamation customers
   const [otherRoomAlert, setOtherRoomAlert] = useState(false)
+
+  // Scene: interior (cafe + reading room) or outside
+  const [scene, setScene] = useState<'interior' | 'outside'>('interior')
+  const sceneRef = useRef<'interior' | 'outside'>('interior')
+  const outsideCamYRef = useRef(0)
+  const outsideCamStartYRef = useRef(0)
 
   // Full map popup
   const [showMap, setShowMap] = useState(false)
@@ -309,6 +340,7 @@ export default function CafeCanvas({
       touchStartYRef.current = e.touches[0].clientY
       touchStartXRef.current = e.touches[0].clientX
       cameraStartYRef.current = cameraYRef.current
+      outsideCamStartYRef.current = outsideCamYRef.current
       touchMovedRef.current = 0
       gestureDirRef.current = 'none'
       swipeDxRef.current = 0
@@ -328,8 +360,14 @@ export default function CafeCanvas({
       }
 
       if (gestureDirRef.current === 'vertical') {
-        const maxY = Math.max(0, WORLD_H - viewHRef.current)
-        cameraYRef.current = Math.max(0, Math.min(maxY, cameraStartYRef.current + dy))
+        if (sceneRef.current === 'outside') {
+          const outsideH = OUTSIDE_ROWS * TILE_PX
+          const maxY = Math.max(0, outsideH - viewHRef.current)
+          outsideCamYRef.current = Math.max(0, Math.min(maxY, outsideCamStartYRef.current + dy))
+        } else {
+          const maxY = Math.max(0, WORLD_H - viewHRef.current)
+          cameraYRef.current = Math.max(0, Math.min(maxY, cameraStartYRef.current + dy))
+        }
       } else if (gestureDirRef.current === 'horizontal') {
         swipeDxRef.current = dx
       }
@@ -359,6 +397,7 @@ export default function CafeCanvas({
       touchStartYRef.current = e.clientY
       touchStartXRef.current = e.clientX
       cameraStartYRef.current = cameraYRef.current
+      outsideCamStartYRef.current = outsideCamYRef.current
       touchMovedRef.current = 0
       gestureDirRef.current = 'none'
       swipeDxRef.current = 0
@@ -376,8 +415,14 @@ export default function CafeCanvas({
       }
 
       if (gestureDirRef.current === 'vertical') {
-        const maxY = Math.max(0, WORLD_H - viewHRef.current)
-        cameraYRef.current = Math.max(0, Math.min(maxY, cameraStartYRef.current + dy))
+        if (sceneRef.current === 'outside') {
+          const outsideH = OUTSIDE_ROWS * TILE_PX
+          const maxY = Math.max(0, outsideH - viewHRef.current)
+          outsideCamYRef.current = Math.max(0, Math.min(maxY, outsideCamStartYRef.current + dy))
+        } else {
+          const maxY = Math.max(0, WORLD_H - viewHRef.current)
+          cameraYRef.current = Math.max(0, Math.min(maxY, cameraStartYRef.current + dy))
+        }
       } else if (gestureDirRef.current === 'horizontal') {
         swipeDxRef.current = dx
       }
@@ -402,15 +447,47 @@ export default function CafeCanvas({
 
     function handleTap(clientX: number, clientY: number) {
       const canvas = canvasRef.current
-      const state = cafeStateRef.current
-      if (!canvas || !state) return
-      if (state.activeConvo) return
+      if (!canvas) return
 
       const rect = canvas.getBoundingClientRect()
       const canvasX = clientX - rect.left
       const canvasY = clientY - rect.top
+
+      // Outside scene: check café door tap to go inside
+      if (sceneRef.current === 'outside') {
+        const outsideW = OUTSIDE_COLS * TILE_PX
+        const ocamX = Math.round(Math.max(0, (outsideW - viewWRef.current) / 2))
+        const ocamY = outsideCamYRef.current
+        const oworldX = canvasX + ocamX
+        const oworldY = canvasY + ocamY
+        const cafeDoorWX = CAFE_OUTSIDE_DOOR.col * TILE_PX + TILE_PX / 2
+        const cafeDoorWY = CAFE_OUTSIDE_DOOR.row * TILE_PX + TILE_PX / 2
+        if (Math.sqrt((oworldX - cafeDoorWX) ** 2 + (oworldY - cafeDoorWY) ** 2) < 50) {
+          sceneRef.current = 'interior'
+          setScene('interior')
+        }
+        return
+      }
+
+      // Interior scene
       const worldX = canvasX + cameraXRef.current
       const worldY = canvasY + cameraYRef.current
+
+      // Check exit arrow tap (left of door tile)
+      const doorWorldX = DOOR_POS.col * TILE_PX - TILE_PX / 2
+      const doorWorldY = DOOR_POS.row * TILE_PX + TILE_PX / 2
+      if (Math.sqrt((worldX - doorWorldX) ** 2 + (worldY - doorWorldY) ** 2) < 50) {
+        sceneRef.current = 'outside'
+        setScene('outside')
+        // Center camera on the café (rows 7-11, center ~row 9)
+        const cafeCenterY = 9 * TILE_PX
+        outsideCamYRef.current = Math.max(0, cafeCenterY - viewHRef.current / 2)
+        return
+      }
+
+      const state = cafeStateRef.current
+      if (!state) return
+      if (state.activeConvo) return
 
       const TAP_RADIUS = 60
       // Priority: exclamation customers first (interactive)
@@ -439,8 +516,14 @@ export default function CafeCanvas({
 
     function onWheel(e: WheelEvent) {
       e.preventDefault()
-      const maxY = Math.max(0, WORLD_H - viewHRef.current)
-      cameraYRef.current = Math.max(0, Math.min(maxY, cameraYRef.current + e.deltaY))
+      if (sceneRef.current === 'outside') {
+        const outsideH = OUTSIDE_ROWS * TILE_PX
+        const maxY = Math.max(0, outsideH - viewHRef.current)
+        outsideCamYRef.current = Math.max(0, Math.min(maxY, outsideCamYRef.current + e.deltaY))
+      } else {
+        const maxY = Math.max(0, WORLD_H - viewHRef.current)
+        cameraYRef.current = Math.max(0, Math.min(maxY, cameraYRef.current + e.deltaY))
+      }
     }
 
     container.addEventListener('touchstart', onTouchStart, { passive: true })
@@ -468,7 +551,7 @@ export default function CafeCanvas({
 
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d')!
     if (!ctx) return
 
     const spriteCache = buildSpriteCache(SCALE)
@@ -477,13 +560,7 @@ export default function CafeCanvas({
     let running = true
     let alertCheckCounter = 0
 
-    function frame() {
-      if (!running || !ctx) return
-
-      tickRef.current++
-      const viewW = viewWRef.current
-      const viewH = viewHRef.current
-
+    function drawInterior(viewW: number, viewH: number) {
       // Smooth camera X toward target room (recalc centering for current viewport)
       targetCamXRef.current = getRoomCamX(currentRoomRef.current)
       const targetX = targetCamXRef.current
@@ -578,6 +655,130 @@ export default function CafeCanvas({
         }
       }
 
+      // Draw exit arrow on the door tile
+      const doorWorldX = DOOR_POS.col * TILE_PX
+      const doorWorldY = DOOR_POS.row * TILE_PX
+      const arrowScreenX = doorWorldX - TILE_PX / 2 - camX
+      const arrowScreenY = doorWorldY + TILE_PX / 2 - camY
+      // Only draw if visible
+      if (arrowScreenX > -40 && arrowScreenX < viewW + 40 && arrowScreenY > -40 && arrowScreenY < viewH + 40) {
+        const pulse = 0.8 + 0.2 * Math.sin(tickRef.current * 0.08)
+        ctx.save()
+        ctx.globalAlpha = pulse
+        ctx.font = `bold ${Math.round(14 * SCALE)}px sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillStyle = '#FFD54F'
+        ctx.shadowColor = 'rgba(0,0,0,0.6)'
+        ctx.shadowBlur = 4
+        ctx.fillText('▶', arrowScreenX, arrowScreenY)
+        ctx.shadowBlur = 0
+        ctx.font = `bold ${Math.round(5 * SCALE)}px sans-serif`
+        ctx.fillStyle = '#FFEFD5'
+        ctx.fillText('EXIT', arrowScreenX, arrowScreenY + 16 * SCALE)
+        ctx.restore()
+      }
+    }
+
+    function drawOutside(viewW: number, viewH: number) {
+      const outsideW = OUTSIDE_COLS * TILE_PX
+      const outsideH = OUTSIDE_ROWS * TILE_PX
+      const maxY = Math.max(0, outsideH - viewH)
+      outsideCamYRef.current = Math.max(0, Math.min(maxY, outsideCamYRef.current))
+      const camY = Math.round(outsideCamYRef.current)
+      // Center horizontally
+      const camX = Math.round(Math.max(0, (outsideW - viewW) / 2))
+
+      ctx.clearRect(0, 0, viewW, viewH)
+      ctx.imageSmoothingEnabled = false
+
+      const startCol = Math.max(0, Math.floor(camX / TILE_PX))
+      const endCol = Math.min(OUTSIDE_COLS - 1, Math.floor((camX + viewW) / TILE_PX))
+      const startRow = Math.max(0, Math.floor(camY / TILE_PX))
+      const endRow = Math.min(OUTSIDE_ROWS - 1, Math.floor((camY + viewH) / TILE_PX))
+
+      ctx.save()
+      ctx.translate(-camX, -camY)
+      for (let row = startRow; row <= endRow; row++) {
+        for (let col = startCol; col <= endCol; col++) {
+          const tileId = OUTSIDE_LAYOUT[row]?.[col] ?? T.EMPTY
+          if (tileId === T.EMPTY) continue
+          const px = col * TILE_PX
+          const py = row * TILE_PX
+          const spriteName = TILE_ID_TO_SPRITE[tileId]
+          if (spriteName && SPRITE_MAP[spriteName]) {
+            drawCached(ctx, spriteCache, SPRITE_MAP[spriteName], px, py)
+          }
+        }
+      }
+      ctx.restore()
+
+      // Draw shop signs with colored accent bar
+      const signs: { name: string; row: number; textColor: string; barColor: string }[] = [
+        { name: 'Boulangerie', row: 1, textColor: '#FFEFD5', barColor: '#EF5350' },
+        { name: 'Coffee Lingo', row: 7, textColor: '#FFD54F', barColor: '#5D4037' },
+        { name: 'Librairie', row: 13, textColor: '#FFEFD5', barColor: '#42A5F5' },
+        { name: 'Fleuriste', row: 18, textColor: '#FFEFD5', barColor: '#81C784' },
+      ]
+      for (const sign of signs) {
+        const barX = 0 * TILE_PX - camX
+        const barY = sign.row * TILE_PX - camY
+        if (barY > -TILE_PX && barY < viewH + TILE_PX) {
+          // Colored accent bar across the shop front
+          ctx.fillStyle = sign.barColor
+          ctx.fillRect(barX, barY, 4 * TILE_PX, TILE_PX * 0.55)
+          // Bottom shadow
+          ctx.fillStyle = 'rgba(0,0,0,0.2)'
+          ctx.fillRect(barX, barY + TILE_PX * 0.55, 4 * TILE_PX, 3)
+          // Sign text
+          const sx = 2 * TILE_PX - camX
+          const sy = barY + TILE_PX * 0.35
+          ctx.save()
+          ctx.font = `bold ${Math.round(7 * SCALE)}px sans-serif`
+          ctx.textAlign = 'center'
+          ctx.fillStyle = 'rgba(0,0,0,0.4)'
+          ctx.fillText(sign.name, sx + 1, sy + 1)
+          ctx.fillStyle = sign.textColor
+          ctx.fillText(sign.name, sx, sy)
+          ctx.restore()
+        }
+      }
+
+      // Draw enter arrow on the café door
+      const cafeDoorX = CAFE_OUTSIDE_DOOR.col * TILE_PX + TILE_PX / 2 - camX
+      const cafeDoorY = CAFE_OUTSIDE_DOOR.row * TILE_PX + TILE_PX / 2 - camY
+      if (cafeDoorY > -40 && cafeDoorY < viewH + 40) {
+        const pulse = 0.8 + 0.2 * Math.sin(tickRef.current * 0.08)
+        ctx.save()
+        ctx.globalAlpha = pulse
+        ctx.font = `bold ${Math.round(14 * SCALE)}px sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillStyle = '#FFD54F'
+        ctx.shadowColor = 'rgba(0,0,0,0.6)'
+        ctx.shadowBlur = 4
+        ctx.fillText('▶', cafeDoorX, cafeDoorY)
+        ctx.shadowBlur = 0
+        ctx.font = `bold ${Math.round(5 * SCALE)}px sans-serif`
+        ctx.fillStyle = '#FFEFD5'
+        ctx.fillText('ENTER', cafeDoorX, cafeDoorY + 16 * SCALE)
+        ctx.restore()
+      }
+    }
+
+    function frame() {
+      if (!running || !ctx) return
+
+      tickRef.current++
+      const viewW = viewWRef.current
+      const viewH = viewHRef.current
+
+      if (sceneRef.current === 'outside') {
+        drawOutside(viewW, viewH)
+      } else {
+        drawInterior(viewW, viewH)
+      }
+
       animRef.current = requestAnimationFrame(frame)
     }
 
@@ -656,32 +857,45 @@ export default function CafeCanvas({
   return (
     <div ref={containerRef} style={styles.container}>
       <canvas ref={canvasRef} style={styles.canvas} />
-      {/* Room switch arrow button */}
+      {scene === 'interior' && (
+        <>
+          {/* Room switch arrow button */}
+          <button
+            style={{
+              ...styles.roomArrow,
+              ...(currentRoom === 1 ? styles.roomArrowLeft : styles.roomArrowRight),
+            }}
+            onClick={() => switchToRoom(currentRoom === 1 ? 0 : 1)}
+          >
+            {currentRoom === 1 ? '◀' : '▶'}
+            {otherRoomAlert && <span style={styles.alertDot} />}
+          </button>
+          {/* Room label */}
+          <div style={styles.roomLabel}>
+            {currentRoom === 0 ? 'Reading Room' : 'Café'}
+          </div>
+          {/* Floor style toggle */}
+          <button
+            style={styles.floorToggle}
+            onClick={() => setFloorStyle(f => {
+              const i = unlockedFloors.indexOf(f)
+              return unlockedFloors[(i + 1) % unlockedFloors.length]
+            })}
+          >
+            {({ FLOOR_WOOD: '🪵', FLOOR_TILE: '🔲', FLOOR_HERRINGBONE: '🪵', FLOOR_MARBLE: '⬜' } as Record<string, string>)[floorStyle] ?? '🪵'}
+          </button>
+        </>
+      )}
+      {scene === 'outside' && (
+        <div style={styles.roomLabel}>Outside</div>
+      )}
+      {/* Bottom buttons — always visible */}
       <button
-        style={{
-          ...styles.roomArrow,
-          ...(currentRoom === 1 ? styles.roomArrowLeft : styles.roomArrowRight),
-        }}
-        onClick={() => switchToRoom(currentRoom === 1 ? 0 : 1)}
+        style={styles.contactsButton}
+        onClick={() => onContactsTap?.()}
       >
-        {currentRoom === 1 ? '◀' : '▶'}
-        {otherRoomAlert && <span style={styles.alertDot} />}
+        👥
       </button>
-      {/* Room label */}
-      <div style={styles.roomLabel}>
-        {currentRoom === 0 ? 'Reading Room' : 'Café'}
-      </div>
-      {/* Floor style toggle */}
-      <button
-        style={styles.floorToggle}
-        onClick={() => setFloorStyle(f => {
-          const i = unlockedFloors.indexOf(f)
-          return unlockedFloors[(i + 1) % unlockedFloors.length]
-        })}
-      >
-        {({ FLOOR_WOOD: '🪵', FLOOR_TILE: '🔲', FLOOR_HERRINGBONE: '🪵', FLOOR_MARBLE: '⬜' } as Record<string, string>)[floorStyle] ?? '🪵'}
-      </button>
-      {/* Full map button */}
       <button
         style={styles.mapButton}
         onClick={() => setShowMap(true)}
@@ -775,6 +989,23 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     bottom: 10,
     right: 10,
+    width: 36,
+    height: 36,
+    background: 'rgba(93, 64, 55, 0.85)',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: 8,
+    fontSize: 18,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+  },
+  contactsButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 94,
     width: 36,
     height: 36,
     background: 'rgba(93, 64, 55, 0.85)',

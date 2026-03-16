@@ -49,6 +49,24 @@ export const T = {
   LANTERN: 'K',
   POND: 'J',
   CHESS: 'Z',
+  // Outside scene tiles
+  ROAD: 'r',
+  ROAD_LINE: 'l',
+  SIDEWALK: 'w',
+  SHOP_WALL: 'b',       // brick wall
+  SHOP_WALL_LIGHT: 'v', // light stone wall
+  AWNING_RED: '1',
+  AWNING_BLUE: '2',
+  AWNING_GREEN: '3',
+  AWNING_BROWN: '4',
+  SHOP_WINDOW: 'n',     // shop display window
+  LOCKED_DOOR: 'x',
+  CAFE_DOOR: 'e',
+  STREET_LAMP: 'k',
+  OUTDOOR_PLANT: 'p',
+  CURB: 'g',            // curb left (sidewalk→road)
+  CURB_R: 'h',          // curb right (road→sidewalk)
+  ROOF: 'f',
 } as const
 
 // Full layout: 20 wide × 30 tall
@@ -92,6 +110,54 @@ export const CAFE_LAYOUT: string[][] = [
   ['W','W','W','W','W','W','W','W','W','W',  'c','C','C','C','C','C','C','C','C','C'],  // row 27: counter
   ['W','W','W','W','W','W','W','W','W','W',  'W','F','X','Q','F','F','X','Q','F','W'],  // row 28: behind counter
   ['W','W','W','W','W','W','W','W','W','W',  'W','W','W','W','W','W','W','W','W','W'],  // row 29: back wall
+]
+
+// Outside scene: 8 cols × 20 rows — a clean Parisian street
+// Cols 0-3: shop facades (wall, awning, window, door)
+// Cols 4-5: wide sidewalk
+// Cols 6-7: road
+export const OUTSIDE_COLS = 8
+export const OUTSIDE_ROWS = 20
+
+// Café door position in outside grid (for enter arrow + tap detection)
+export const CAFE_OUTSIDE_DOOR = { row: 10, col: 3 }
+
+export const OUTSIDE_LAYOUT: string[][] = [
+  // Row 0: top edge
+  ['b','b','b','b','w','w','r','r'],
+
+  // Row 1-4: Boulangerie (bakery)
+  ['b','b','b','b','w','k','r','r'],
+  ['b','n','n','b','w','w','l','r'],
+  ['b','b','x','b','p','w','r','r'],
+  ['b','b','b','b','w','w','r','r'],
+
+  // Row 5: sidewalk gap
+  ['w','w','w','w','p','w','l','r'],
+
+  // Row 6-11: Our Café (enterable)
+  ['b','b','b','b','w','w','r','r'],
+  ['b','b','b','b','w','k','r','r'],
+  ['b','n','n','b','w','w','l','r'],
+  ['b','n','n','b','w','w','r','r'],
+  ['b','b','e','b','p','w','r','r'],
+  ['b','b','b','b','w','w','l','r'],
+
+  // Row 12: sidewalk gap
+  ['w','w','w','w','w','k','r','r'],
+
+  // Row 13-16: Librairie (bookstore)
+  ['v','v','v','v','w','w','l','r'],
+  ['v','n','n','v','w','w','r','r'],
+  ['v','v','x','v','p','w','r','r'],
+  ['v','v','v','v','w','w','l','r'],
+
+  // Row 17: sidewalk gap
+  ['w','w','w','w','w','k','r','r'],
+
+  // Row 18-19: Fleuriste (flower shop)
+  ['b','b','b','b','w','w','r','r'],
+  ['b','n','x','b','p','w','l','r'],
 ]
 
 // Legacy single-customer positions (kept for backward compat)

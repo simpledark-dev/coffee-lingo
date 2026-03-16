@@ -2,6 +2,7 @@ export interface Character {
   id: string
   name: string
   bio: string
+  gender: 'male' | 'female'
   spriteVariant: number   // 0-12 index into CUSTOMER_SPRITES
   unlockRep: number       // minimum reputation to encounter
 }
@@ -39,26 +40,26 @@ export const FRIENDSHIP_GAIN: Record<string, number> = {
 
 export const CHARACTER_ROSTER: Character[] = [
   // Always available (unlockRep: 0)
-  { id: 'marie',    name: 'Marie',    bio: 'A cheerful regular who loves croissants', spriteVariant: 0,  unlockRep: 0 },
-  { id: 'jean',     name: 'Jean',     bio: 'Retired teacher, always reads the paper', spriteVariant: 1,  unlockRep: 0 },
-  { id: 'camille',  name: 'Camille',  bio: 'Art student sketching in the corner',     spriteVariant: 2,  unlockRep: 0 },
-  { id: 'lucas',    name: 'Lucas',    bio: 'Tech worker, needs his espresso fix',     spriteVariant: 3,  unlockRep: 0 },
-  { id: 'sophie',   name: 'Sophie',   bio: 'Florist from next door',                  spriteVariant: 4,  unlockRep: 0 },
-  { id: 'pierre',   name: 'Pierre',   bio: 'Local chef, very picky about coffee',     spriteVariant: 5,  unlockRep: 0 },
+  { id: 'marie',    name: 'Marie',    bio: 'A cheerful regular who loves croissants', gender: 'female', spriteVariant: 0,  unlockRep: 0 },
+  { id: 'jean',     name: 'Jean',     bio: 'Retired teacher, always reads the paper', gender: 'male',   spriteVariant: 1,  unlockRep: 0 },
+  { id: 'camille',  name: 'Camille',  bio: 'Art student sketching in the corner',     gender: 'female', spriteVariant: 2,  unlockRep: 0 },
+  { id: 'lucas',    name: 'Lucas',    bio: 'Tech worker, needs his espresso fix',     gender: 'male',   spriteVariant: 3,  unlockRep: 0 },
+  { id: 'sophie',   name: 'Sophie',   bio: 'Florist from next door',                  gender: 'female', spriteVariant: 4,  unlockRep: 0 },
+  { id: 'pierre',   name: 'Pierre',   bio: 'Local chef, very picky about coffee',     gender: 'male',   spriteVariant: 5,  unlockRep: 0 },
   // Unlock at rep 10
-  { id: 'amelie',   name: 'Amélie',   bio: 'Bookworm with a sweet tooth',             spriteVariant: 6,  unlockRep: 10 },
-  { id: 'hugo',     name: 'Hugo',     bio: 'Musician, always humming a tune',          spriteVariant: 7,  unlockRep: 10 },
-  { id: 'claire',   name: 'Claire',   bio: 'Journalist chasing her next story',        spriteVariant: 8,  unlockRep: 15 },
+  { id: 'amelie',   name: 'Amélie',   bio: 'Bookworm with a sweet tooth',             gender: 'female', spriteVariant: 6,  unlockRep: 10 },
+  { id: 'hugo',     name: 'Hugo',     bio: 'Musician, always humming a tune',          gender: 'male',   spriteVariant: 7,  unlockRep: 10 },
+  { id: 'claire',   name: 'Claire',   bio: 'Journalist chasing her next story',        gender: 'female', spriteVariant: 8,  unlockRep: 15 },
   // Unlock at rep 25+
-  { id: 'nicolas',  name: 'Nicolas',  bio: 'Wine merchant with refined taste',         spriteVariant: 9,  unlockRep: 25 },
-  { id: 'isabelle', name: 'Isabelle', bio: 'Fashion designer, always stylish',         spriteVariant: 10, unlockRep: 30 },
-  { id: 'remi',     name: 'Rémi',     bio: 'Pastry chef, your friendly rival',         spriteVariant: 11, unlockRep: 40 },
+  { id: 'nicolas',  name: 'Nicolas',  bio: 'Wine merchant with refined taste',         gender: 'male',   spriteVariant: 9,  unlockRep: 25 },
+  { id: 'isabelle', name: 'Isabelle', bio: 'Fashion designer, always stylish',         gender: 'female', spriteVariant: 10, unlockRep: 30 },
+  { id: 'remi',     name: 'Rémi',     bio: 'Pastry chef, your friendly rival',         gender: 'male',   spriteVariant: 11, unlockRep: 40 },
   // Unlock at rep 60+
-  { id: 'colette',  name: 'Colette',  bio: 'Mystery novelist, observes everything',    spriteVariant: 12, unlockRep: 60 },
-  { id: 'antoine',  name: 'Antoine',  bio: 'Professor of philosophy at the Sorbonne',  spriteVariant: 0,  unlockRep: 80 },
-  { id: 'juliette', name: 'Juliette', bio: 'Opera singer, dramatic flair',             spriteVariant: 4,  unlockRep: 100 },
-  { id: 'marcel',   name: 'Marcel',   bio: 'Retired diplomat, speaks many languages',  spriteVariant: 9,  unlockRep: 140 },
-  { id: 'eloise',   name: 'Éloïse',   bio: 'Famous food critic — impress her!',        spriteVariant: 10, unlockRep: 200 },
+  { id: 'colette',  name: 'Colette',  bio: 'Mystery novelist, observes everything',    gender: 'female', spriteVariant: 12, unlockRep: 60 },
+  { id: 'antoine',  name: 'Antoine',  bio: 'Professor of philosophy at the Sorbonne',  gender: 'male',   spriteVariant: 0,  unlockRep: 80 },
+  { id: 'juliette', name: 'Juliette', bio: 'Opera singer, dramatic flair',             gender: 'female', spriteVariant: 4,  unlockRep: 100 },
+  { id: 'marcel',   name: 'Marcel',   bio: 'Retired diplomat, speaks many languages',  gender: 'male',   spriteVariant: 9,  unlockRep: 140 },
+  { id: 'eloise',   name: 'Éloïse',   bio: 'Famous food critic — impress her!',        gender: 'female', spriteVariant: 10, unlockRep: 200 },
 ]
 
 /**
