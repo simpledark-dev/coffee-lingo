@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import {
   PALETTE,
   SPRITE_MAP,
@@ -15,6 +15,7 @@ import {
   GRID_COLS,
   GRID_ROWS,
   CAFE_LAYOUT,
+  ROOM_COLS,
   T,
 } from '../lib/tilemap'
 import type { CafeState } from '../lib/types'
@@ -25,8 +26,8 @@ interface CafeCanvasProps {
 }
 
 const TILE_PX = TILE_SIZE * SCALE
-const WORLD_W = GRID_COLS * TILE_PX
 const WORLD_H = GRID_ROWS * TILE_PX
+const ROOM_W = ROOM_COLS * TILE_PX // width of one room in pixels
 
 const TILE_ID_TO_SPRITE: Record<string, string> = {
   [T.FLOOR]: 'FLOOR_WOOD',
@@ -44,12 +45,17 @@ const TILE_ID_TO_SPRITE: Record<string, string> = {
   [T.PLANT]: 'PLANT',
   [T.CUP]: 'COFFEE_CUP',
   [T.WINDOW]: 'WINDOW',
+  [T.BOOKSHELF]: 'BOOKSHELF',
 }
 
 const NEEDS_FLOOR = new Set<string>([
   T.TABLE, T.CHAIR_U, T.CHAIR_D, T.MACHINE, T.LAMP, T.PLANT, T.CUP,
-  T.SHELF, T.MENU, T.DOOR,
+  T.SHELF, T.MENU, T.DOOR, T.BOOKSHELF,
 ])
+
+// Swipe thresholds
+const GESTURE_DEAD_ZONE = 10 // px before locking direction
+const SWIPE_THRESHOLD = 60   // px to trigger room switch
 
 function drawSprite(
   ctx: CanvasRenderingContext2D,
@@ -77,20 +83,43 @@ export default function CafeCanvas({
   const animRef = useRef<number>(0)
 
   // Camera
-  const cameraXRef = useRef(0)
+  const cameraXRef = useRef(ROOM_W) // start in cafe (room 1)
   const cameraYRef = useRef(0)
+  const targetCamXRef = useRef(ROOM_W) // smooth animation target
   const viewWRef = useRef(390)
   const viewHRef = useRef(500)
 
-  // Touch state for panning + tap detection
+  // Current room (0 = reading, 1 = cafe)
+  const currentRoomRef = useRef(1)
+  const [currentRoom, setCurrentRoom] = useState(1)
+
+  // Touch state for panning + swipe + tap detection
   const touchStartYRef = useRef(0)
   const touchStartXRef = useRef(0)
   const cameraStartYRef = useRef(0)
   const isDraggingRef = useRef(false)
-  const touchMovedRef = useRef(0) // total distance moved
+  const touchMovedRef = useRef(0)
+  const gestureDirRef = useRef<'none' | 'horizontal' | 'vertical'>('none')
+  const swipeDxRef = useRef(0)
 
   // Exclamation pulse animation
   const tickRef = useRef(0)
+
+  // Check if other room has exclamation customers
+  const [otherRoomAlert, setOtherRoomAlert] = useState(false)
+
+  function getRoomCamX(room: number): number {
+    const roomLeft = room * ROOM_W
+    // Center the room within the viewport; clamp so we don't go past room edges
+    const offset = Math.max(0, (ROOM_W - viewWRef.current) / 2)
+    return roomLeft + offset
+  }
+
+  function switchToRoom(room: number) {
+    currentRoomRef.current = room
+    setCurrentRoom(room)
+    targetCamXRef.current = getRoomCamX(room)
+  }
 
   const drawScene = useCallback((ctx: CanvasRenderingContext2D, camX: number, camY: number, viewW: number, viewH: number) => {
     ctx.clearRect(0, 0, viewW, viewH)
@@ -149,14 +178,17 @@ export default function CafeCanvas({
     return () => ro.disconnect()
   }, [])
 
-  // Set default camera Y
+  // Set default camera position (cafe room, counter area)
   useEffect(() => {
-    // Default to showing counter area (row 19)
     const counterY = 19 * TILE_PX
     cameraYRef.current = Math.max(0, counterY - viewHRef.current * 0.4)
+    // Center camera X on cafe room
+    const camX = getRoomCamX(1)
+    cameraXRef.current = camX
+    targetCamXRef.current = camX
   }, [])
 
-  // Touch panning + tap detection
+  // Touch panning + horizontal swipe + tap detection
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -168,6 +200,8 @@ export default function CafeCanvas({
       touchStartXRef.current = e.touches[0].clientX
       cameraStartYRef.current = cameraYRef.current
       touchMovedRef.current = 0
+      gestureDirRef.current = 'none'
+      swipeDxRef.current = 0
     }
 
     function onTouchMove(e: TouchEvent) {
@@ -175,18 +209,39 @@ export default function CafeCanvas({
       e.preventDefault()
       const dy = touchStartYRef.current - e.touches[0].clientY
       const dx = touchStartXRef.current - e.touches[0].clientX
-      touchMovedRef.current = Math.sqrt(dx * dx + dy * dy)
-      const maxY = Math.max(0, WORLD_H - viewHRef.current)
-      cameraYRef.current = Math.max(0, Math.min(maxY, cameraStartYRef.current + dy))
+      const totalMove = Math.sqrt(dx * dx + dy * dy)
+      touchMovedRef.current = totalMove
+
+      // Lock gesture direction after dead zone
+      if (gestureDirRef.current === 'none' && totalMove > GESTURE_DEAD_ZONE) {
+        gestureDirRef.current = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
+      }
+
+      if (gestureDirRef.current === 'vertical') {
+        const maxY = Math.max(0, WORLD_H - viewHRef.current)
+        cameraYRef.current = Math.max(0, Math.min(maxY, cameraStartYRef.current + dy))
+      } else if (gestureDirRef.current === 'horizontal') {
+        swipeDxRef.current = dx
+      }
     }
 
     function onTouchEnd(e: TouchEvent) {
-      if (isDraggingRef.current && touchMovedRef.current < 10) {
-        // This was a tap, not a drag
-        const touch = e.changedTouches[0]
-        if (touch) handleTap(touch.clientX, touch.clientY)
+      if (isDraggingRef.current) {
+        if (touchMovedRef.current < 10) {
+          const touch = e.changedTouches[0]
+          if (touch) handleTap(touch.clientX, touch.clientY)
+        } else if (gestureDirRef.current === 'horizontal') {
+          // Check for room switch
+          if (swipeDxRef.current > SWIPE_THRESHOLD && currentRoomRef.current === 0) {
+            switchToRoom(1)
+          } else if (swipeDxRef.current < -SWIPE_THRESHOLD && currentRoomRef.current === 1) {
+            switchToRoom(0)
+          }
+        }
       }
       isDraggingRef.current = false
+      gestureDirRef.current = 'none'
+      swipeDxRef.current = 0
     }
 
     function onMouseDown(e: MouseEvent) {
@@ -195,29 +250,51 @@ export default function CafeCanvas({
       touchStartXRef.current = e.clientX
       cameraStartYRef.current = cameraYRef.current
       touchMovedRef.current = 0
+      gestureDirRef.current = 'none'
+      swipeDxRef.current = 0
     }
 
     function onMouseMove(e: MouseEvent) {
       if (!isDraggingRef.current) return
       const dy = touchStartYRef.current - e.clientY
       const dx = touchStartXRef.current - e.clientX
-      touchMovedRef.current = Math.sqrt(dx * dx + dy * dy)
-      const maxY = Math.max(0, WORLD_H - viewHRef.current)
-      cameraYRef.current = Math.max(0, Math.min(maxY, cameraStartYRef.current + dy))
+      const totalMove = Math.sqrt(dx * dx + dy * dy)
+      touchMovedRef.current = totalMove
+
+      if (gestureDirRef.current === 'none' && totalMove > GESTURE_DEAD_ZONE) {
+        gestureDirRef.current = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
+      }
+
+      if (gestureDirRef.current === 'vertical') {
+        const maxY = Math.max(0, WORLD_H - viewHRef.current)
+        cameraYRef.current = Math.max(0, Math.min(maxY, cameraStartYRef.current + dy))
+      } else if (gestureDirRef.current === 'horizontal') {
+        swipeDxRef.current = dx
+      }
     }
 
     function onMouseUp(e: MouseEvent) {
-      if (isDraggingRef.current && touchMovedRef.current < 10) {
-        handleTap(e.clientX, e.clientY)
+      if (isDraggingRef.current) {
+        if (touchMovedRef.current < 10) {
+          handleTap(e.clientX, e.clientY)
+        } else if (gestureDirRef.current === 'horizontal') {
+          if (swipeDxRef.current > SWIPE_THRESHOLD && currentRoomRef.current === 0) {
+            switchToRoom(1)
+          } else if (swipeDxRef.current < -SWIPE_THRESHOLD && currentRoomRef.current === 1) {
+            switchToRoom(0)
+          }
+        }
       }
       isDraggingRef.current = false
+      gestureDirRef.current = 'none'
+      swipeDxRef.current = 0
     }
 
     function handleTap(clientX: number, clientY: number) {
       const canvas = canvasRef.current
       const state = cafeStateRef.current
       if (!canvas || !state) return
-      if (state.activeConvo) return // already in conversation
+      if (state.activeConvo) return
 
       const rect = canvas.getBoundingClientRect()
       const canvasX = clientX - rect.left
@@ -225,7 +302,6 @@ export default function CafeCanvas({
       const worldX = canvasX + cameraXRef.current
       const worldY = canvasY + cameraYRef.current
 
-      // Hit-test against exclamation-phase customers
       const TAP_RADIUS = 60
       for (const customer of state.customers) {
         if (customer.phase !== 'exclamation') continue
@@ -272,6 +348,7 @@ export default function CafeCanvas({
     if (!ctx) return
 
     let running = true
+    let alertCheckCounter = 0
 
     function frame() {
       if (!running || !ctx) return
@@ -280,8 +357,16 @@ export default function CafeCanvas({
       const viewW = viewWRef.current
       const viewH = viewHRef.current
 
-      // Camera X centered
-      cameraXRef.current = Math.max(0, (WORLD_W - viewW) / 2)
+      // Smooth camera X toward target room (recalc centering for current viewport)
+      targetCamXRef.current = getRoomCamX(currentRoomRef.current)
+      const targetX = targetCamXRef.current
+      const diff = targetX - cameraXRef.current
+      if (Math.abs(diff) > 0.5) {
+        cameraXRef.current += diff * 0.15
+      } else {
+        cameraXRef.current = targetX
+      }
+
       cameraYRef.current = Math.max(0, Math.min(WORLD_H - viewH, cameraYRef.current))
 
       const camX = Math.round(cameraXRef.current)
@@ -290,11 +375,11 @@ export default function CafeCanvas({
       ctx.imageSmoothingEnabled = false
       drawScene(ctx, camX, camY, viewW, viewH)
 
-      // Draw barista behind counter (row 20, col 8, facing up)
+      // Draw barista behind counter (row 20, col 14 in cafe room)
       ctx.save()
       ctx.translate(-camX, -camY)
       const baristaSprite = CUSTOMER_SPRITES[0].up
-      drawSprite(ctx, baristaSprite, 4 * TILE_PX, 20 * TILE_PX, SCALE)
+      drawSprite(ctx, baristaSprite, 14 * TILE_PX, 20 * TILE_PX, SCALE)
       ctx.restore()
 
       // Draw customers sorted by Y for depth
@@ -310,7 +395,6 @@ export default function CafeCanvas({
           const sprite = spriteSet[customer.facingDir]
           drawSprite(ctx, sprite, customer.worldPos.x, customer.worldPos.y, SCALE)
 
-          // Draw exclamation mark
           if (customer.phase === 'exclamation') {
             const pulse = 1 + 0.15 * Math.sin(tickRef.current * 0.1)
             const exSize = SCALE * pulse
@@ -319,7 +403,6 @@ export default function CafeCanvas({
             drawSprite(ctx, EXCLAMATION, exX, exY, exSize)
           }
 
-          // Draw highlight for conversing customer
           if (customer.phase === 'conversing') {
             ctx.strokeStyle = '#FFD700'
             ctx.lineWidth = 2
@@ -333,6 +416,19 @@ export default function CafeCanvas({
         }
 
         ctx.restore()
+
+        // Periodically check for exclamation in other room (every ~30 frames)
+        alertCheckCounter++
+        if (alertCheckCounter >= 30) {
+          alertCheckCounter = 0
+          const room = currentRoomRef.current
+          const hasAlert = state.customers.some(c => {
+            if (c.phase !== 'exclamation') return false
+            const customerRoom = c.worldPos.x < ROOM_W ? 0 : 1
+            return customerRoom !== room
+          })
+          setOtherRoomAlert(hasAlert)
+        }
       }
 
       animRef.current = requestAnimationFrame(frame)
@@ -349,6 +445,21 @@ export default function CafeCanvas({
   return (
     <div ref={containerRef} style={styles.container}>
       <canvas ref={canvasRef} style={styles.canvas} />
+      {/* Room switch arrow button */}
+      <button
+        style={{
+          ...styles.roomArrow,
+          ...(currentRoom === 1 ? styles.roomArrowLeft : styles.roomArrowRight),
+        }}
+        onClick={() => switchToRoom(currentRoom === 1 ? 0 : 1)}
+      >
+        {currentRoom === 1 ? '◀' : '▶'}
+        {otherRoomAlert && <span style={styles.alertDot} />}
+      </button>
+      {/* Room label */}
+      <div style={styles.roomLabel}>
+        {currentRoom === 0 ? 'Reading Room' : 'Café'}
+      </div>
     </div>
   )
 }
@@ -367,5 +478,55 @@ const styles: Record<string, React.CSSProperties> = {
     height: '100%',
     imageRendering: 'pixelated',
     display: 'block',
+  },
+  roomArrow: {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: 36,
+    height: 60,
+    background: 'rgba(93, 64, 55, 0.85)',
+    color: '#FFEFD5',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: 8,
+    fontSize: 18,
+    fontWeight: 700,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+  },
+  roomArrowLeft: {
+    left: 6,
+  },
+  roomArrowRight: {
+    right: 6,
+  },
+  alertDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 10,
+    height: 10,
+    borderRadius: '50%',
+    background: '#FFD700',
+    border: '1px solid #5D4037',
+    animation: 'pulse 1s infinite',
+  },
+  roomLabel: {
+    position: 'absolute',
+    top: 8,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: 'rgba(93, 64, 55, 0.75)',
+    color: '#FFEFD5',
+    padding: '4px 12px',
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: 0.5,
+    zIndex: 5,
   },
 }

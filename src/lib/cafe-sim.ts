@@ -117,8 +117,11 @@ function spawnCustomer(state: CafeState): void {
     const blocked = getBlockedPositions(state, customer.id)
     customer.path = findPath(DOOR_ENTRY, poi.pos, blocked)
     customer.targetPOI = poi.id
+    occupyPOI(state, poi.id, customer.id) // reserve immediately
     if (customer.path.length === 0) {
       // Fallback: walk to door entry and idle
+      vacatePOI(state, poi.id, customer.id)
+      customer.targetPOI = null
       customer.path = [DOOR_ENTRY]
     }
   } else {
@@ -181,11 +184,10 @@ function tickCustomer(customer: CustomerState, state: CafeState, deltaMs: number
     case 'walking': {
       const arrived = advanceAlongPath(customer, deltaMs)
       if (arrived) {
-        // Occupy the POI
+        // Arrive at the POI (already reserved via occupyPOI on assignment)
         if (customer.targetPOI) {
           customer.currentPOI = customer.targetPOI
           customer.targetPOI = null
-          occupyPOI(state, customer.currentPOI, customer.id)
           // Face the POI's intended direction
           const poi = POINTS_OF_INTEREST.find(p => p.id === customer.currentPOI)
           if (poi) customer.facingDir = poi.facingDir
@@ -283,6 +285,7 @@ function moveToNextPOI(customer: CustomerState, state: CafeState): void {
 
   customer.currentPOI = null
   customer.targetPOI = poi.id
+  occupyPOI(state, poi.id, customer.id) // reserve immediately
   customer.path = path
   customer.pathIndex = 0
   customer.phase = 'walking'
