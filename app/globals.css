@@ -22,7 +22,7 @@
 }
 
 html, body {
-  height: 100dvh;
+  height: 100vh;
   width: 100%;
   overflow: hidden;
   background: var(--bg-container);
@@ -43,8 +43,9 @@ html, body {
 #game-container {
   width: 100%;
   max-width: 430px;
-  height: 100dvh;
+  height: 100vh;
   margin: 0 auto;
+  padding-bottom: env(safe-area-inset-bottom);
   background: var(--bg-container);
   position: relative;
   overflow: hidden;
