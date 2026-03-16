@@ -53,7 +53,7 @@ export const CAFE_LAYOUT: string[][] = [
   ['W','F','F','F','F','F','F','F','P','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 7
 
   // === DIVIDER rows 8-9 ===
-  ['W','W','W','W','W','W','W','W','W','W',  'W','W','W','W','F','F','W','W','W','W'],  // row 8
+  ['W','W','W','W','F','W','W','W','W','W',  'W','W','W','W','F','F','W','W','W','W'],  // row 8
   ['W','F','B','B','F','F','B','B','F','W',  'W','W','S','S','F','F','M','M','W','W'],  // row 9
 
   // === LOWER AREAS (rows 10-21) — passage at cols 9-10 ===
