@@ -56,9 +56,9 @@ export const T = {
 export const CAFE_LAYOUT: string[][] = [
   // === GARDEN (rows 0-7) ===
   ['H','H','H','H','H','H','H','H','H','H',  'H','H','H','H','H','H','H','H','H','H'],  // row 0: hedge border
-  ['H','G','G','Y','E','E','G','G','Y','G',  'G','Y','G','G','G','G','Y','G','G','H'],  // row 1: trees
+  ['H','G','G','Y','E','E','G','G','Y','G',  'G','Y','G','G','O','O','Y','Y','G','H'],  // row 1: trees
   ['H','G','R','G','G','G','G','R','G','G',  'G','G','R','G','E','E','G','R','G','H'],  // row 2: flowers + benches
-  ['H','G','G','G','G','G','J','J','J','O',  'O','G','G','G','G','G','G','R','G','H'],  // row 3: fountain center
+  ['H','G','G','G','G','G','J','J','J','G',  'G','G','G','G','G','G','G','R','G','H'],  // row 3: fountain center
   ['H','G','G','R','G','G','J','J','J','G',  'G','G','G','G','G','G','G','G','G','H'],  // row 4: flowers + pond
   ['H','G','G','G','G','G','G','G','G','G',  'G','G','G','G','G','G','G','G','G','H'],  // row 5: pond
   ['H','G','G','K','A','A','K','G','G','G',  'G','G','G','K','A','A','K','G','G','H'],  // row 6: lanterns flanking paths
@@ -87,7 +87,7 @@ export const CAFE_LAYOUT: string[][] = [
   ['W','F','u','F','F','F','u','F','F','W',  'W','F','F','u','F','F','T','F','F','W'],  // row 22
   ['W','P','F','F','F','F','F','F','F','W',  'W','P','F','F','F','F','u','F','F','W'],  // row 23
   ['W','F','F','d','F','F','F','F','F','W',  'W','F','u','F','F','F','F','F','F','W'],  // row 24
-  ['W','F','F','Z','F','F','F','F','F','W',  'W','u','T','F','F','F','F','F','F','D'],  // row 25: chess table + door
+  ['W','F','d','Z','d','F','F','F','F','W',  'W','u','T','F','F','F','F','F','F','D'],  // row 25: chess table + door
   ['W','F','F','u','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 26
   ['W','W','W','W','W','W','W','W','W','W',  'c','C','C','C','C','C','C','C','C','C'],  // row 27: counter
   ['W','W','W','W','W','W','W','W','W','W',  'W','F','X','Q','F','F','X','Q','F','W'],  // row 28: behind counter
