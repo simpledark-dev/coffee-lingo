@@ -117,47 +117,47 @@ export const CAFE_LAYOUT: string[][] = [
 // Cols 4-5: wide sidewalk
 // Cols 6-7: road
 export const OUTSIDE_COLS = 8
-export const OUTSIDE_ROWS = 20
+export const OUTSIDE_ROWS = 18
 
 // Café door position in outside grid (for enter arrow + tap detection)
-export const CAFE_OUTSIDE_DOOR = { row: 10, col: 3 }
+export const CAFE_OUTSIDE_DOOR = { row: 7, col: 2 }
 
 export const OUTSIDE_LAYOUT: string[][] = [
-  // Row 0: top edge
+  // Row 0: top sidewalk
+  ['w','w','w','w','w','w','r','r'],
+
+  // Row 1-3: Boulangerie (bakery)
+  ['b','b','n','b','w','w','l','r'],
+  ['b','b','x','b','w','k','r','r'],
   ['b','b','b','b','w','w','r','r'],
 
-  // Row 1-4: Boulangerie (bakery)
-  ['b','b','b','b','w','k','r','r'],
-  ['b','n','n','b','w','w','l','r'],
-  ['b','b','x','b','p','w','r','r'],
-  ['b','b','b','b','w','w','r','r'],
-
-  // Row 5: sidewalk gap
+  // Row 4: sidewalk gap
   ['w','w','w','w','p','w','l','r'],
 
-  // Row 6-11: Our Café (enterable)
+  // Row 5-8: Our Café (enterable)
+  ['b','b','n','b','w','w','r','r'],
+  ['b','b','n','b','w','k','l','r'],
+  ['b','b','e','b','w','w','r','r'],
   ['b','b','b','b','w','w','r','r'],
-  ['b','b','b','b','w','k','r','r'],
-  ['b','n','n','b','w','w','l','r'],
-  ['b','n','n','b','w','w','r','r'],
-  ['b','b','e','b','p','w','r','r'],
-  ['b','b','b','b','w','w','l','r'],
 
-  // Row 12: sidewalk gap
-  ['w','w','w','w','w','k','r','r'],
+  // Row 9: sidewalk gap
+  ['w','w','w','w','w','k','l','r'],
 
-  // Row 13-16: Librairie (bookstore)
-  ['v','v','v','v','w','w','l','r'],
-  ['v','n','n','v','w','w','r','r'],
-  ['v','v','x','v','p','w','r','r'],
-  ['v','v','v','v','w','w','l','r'],
+  // Row 10-12: Librairie (bookstore)
+  ['v','v','n','v','w','w','r','r'],
+  ['v','v','x','v','w','w','l','r'],
+  ['v','v','v','v','p','w','r','r'],
 
-  // Row 17: sidewalk gap
-  ['w','w','w','w','w','k','r','r'],
+  // Row 13: sidewalk gap
+  ['w','w','w','w','w','k','l','r'],
 
-  // Row 18-19: Fleuriste (flower shop)
-  ['b','b','b','b','w','w','r','r'],
-  ['b','n','x','b','p','w','l','r'],
+  // Row 14-16: Fleuriste (flower shop)
+  ['b','b','n','b','w','w','r','r'],
+  ['b','b','x','b','w','w','l','r'],
+  ['b','b','b','b','p','w','r','r'],
+
+  // Row 17: bottom sidewalk
+  ['w','w','w','w','w','w','l','r'],
 ]
 
 // Legacy single-customer positions (kept for backward compat)

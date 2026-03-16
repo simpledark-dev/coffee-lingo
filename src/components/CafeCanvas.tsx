@@ -223,6 +223,15 @@ export default function CafeCanvas({
   const outsideCamYRef = useRef(0)
   const outsideCamStartYRef = useRef(0)
 
+  // Outside scene: shops aligned to tile-grid rows
+  // Each shop's { startRow, endRow } matches OUTSIDE_LAYOUT
+  const OUTSIDE_SHOPS = useMemo(() => [
+    { name: 'Boulangerie',  wallColor: '#D4A373', wallDark: '#C4956A', awningColor: '#C62828', awningStripe: '#A01919', trimColor: '#8B5E3C', locked: true,  startRow: 1,  endRow: 3  },
+    { name: 'Coffee Lingo', wallColor: '#5D4037', wallDark: '#4E342E', awningColor: '#6D4C41', awningStripe: '#4E342E', trimColor: '#3E2723', locked: false, startRow: 5,  endRow: 8  },
+    { name: 'Librairie',    wallColor: '#B0BEC5', wallDark: '#90A4AE', awningColor: '#1565C0', awningStripe: '#0D47A1', trimColor: '#546E7A', locked: true,  startRow: 10, endRow: 12 },
+    { name: 'Fleuriste',    wallColor: '#C8E6C9', wallDark: '#A5D6A7', awningColor: '#2E7D32', awningStripe: '#1B5E20', trimColor: '#4CAF50', locked: true,  startRow: 14, endRow: 16 },
+  ], [])
+
   // Full map popup
   const [showMap, setShowMap] = useState(false)
   const mapCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -453,16 +462,19 @@ export default function CafeCanvas({
       const canvasX = clientX - rect.left
       const canvasY = clientY - rect.top
 
-      // Outside scene: check café door tap to go inside
+      // Outside scene: check if tapping the Coffee Lingo shop
       if (sceneRef.current === 'outside') {
+        const camY = outsideCamYRef.current
         const outsideW = OUTSIDE_COLS * TILE_PX
-        const ocamX = Math.round(Math.max(0, (outsideW - viewWRef.current) / 2))
-        const ocamY = outsideCamYRef.current
-        const oworldX = canvasX + ocamX
-        const oworldY = canvasY + ocamY
-        const cafeDoorWX = CAFE_OUTSIDE_DOOR.col * TILE_PX + TILE_PX / 2
-        const cafeDoorWY = CAFE_OUTSIDE_DOOR.row * TILE_PX + TILE_PX / 2
-        if (Math.sqrt((oworldX - cafeDoorWX) ** 2 + (oworldY - cafeDoorWY) ** 2) < 50) {
+        const bgCamX = Math.max(0, (outsideW - viewWRef.current) / 2)
+        const worldX = canvasX + bgCamX
+        const worldY = canvasY + camY
+        // Café occupies rows 5-8, cols 0-3
+        const cafeX0 = 0
+        const cafeX1 = 4 * TILE_PX
+        const cafeY0 = 5 * TILE_PX
+        const cafeY1 = 9 * TILE_PX
+        if (worldX >= cafeX0 && worldX <= cafeX1 && worldY >= cafeY0 && worldY <= cafeY1) {
           sceneRef.current = 'interior'
           setScene('interior')
         }
@@ -479,8 +491,8 @@ export default function CafeCanvas({
       if (Math.sqrt((worldX - doorWorldX) ** 2 + (worldY - doorWorldY) ** 2) < 50) {
         sceneRef.current = 'outside'
         setScene('outside')
-        // Center camera on the café (rows 7-11, center ~row 9)
-        const cafeCenterY = 9 * TILE_PX
+        // Center camera on the café (rows 5-8, center ~row 6)
+        const cafeCenterY = 6 * TILE_PX
         outsideCamYRef.current = Math.max(0, cafeCenterY - viewHRef.current / 2)
         return
       }
@@ -680,29 +692,39 @@ export default function CafeCanvas({
       }
     }
 
+    // Outside scene — tile background + colored shop rectangles aligned to tile grid
+    const outsideTotalH = OUTSIDE_ROWS * TILE_PX
+    const SHOP_COLS = 4 // shops span cols 0-3
+
     function drawOutside(viewW: number, viewH: number) {
-      const outsideW = OUTSIDE_COLS * TILE_PX
-      const outsideH = OUTSIDE_ROWS * TILE_PX
-      const maxY = Math.max(0, outsideH - viewH)
+      const maxY = Math.max(0, outsideTotalH - viewH)
       outsideCamYRef.current = Math.max(0, Math.min(maxY, outsideCamYRef.current))
       const camY = Math.round(outsideCamYRef.current)
-      // Center horizontally
-      const camX = Math.round(Math.max(0, (outsideW - viewW) / 2))
 
       ctx.clearRect(0, 0, viewW, viewH)
       ctx.imageSmoothingEnabled = false
 
-      const startCol = Math.max(0, Math.floor(camX / TILE_PX))
-      const endCol = Math.min(OUTSIDE_COLS - 1, Math.floor((camX + viewW) / TILE_PX))
+      // Tile-based background — 1:1 scrolling with camY
+      const outsideW = OUTSIDE_COLS * TILE_PX
+      const bgCamX = Math.round(Math.max(0, (outsideW - viewW) / 2))
+      const startCol = Math.max(0, Math.floor(bgCamX / TILE_PX))
+      const endCol = Math.min(OUTSIDE_COLS - 1, Math.floor((bgCamX + viewW) / TILE_PX))
       const startRow = Math.max(0, Math.floor(camY / TILE_PX))
       const endRow = Math.min(OUTSIDE_ROWS - 1, Math.floor((camY + viewH) / TILE_PX))
 
+      // Set of tile IDs that get replaced by rectangles (skip drawing these)
+      const SHOP_TILE_IDS: Set<string> = new Set([T.SHOP_WALL, T.SHOP_WALL_LIGHT, T.SHOP_WINDOW, T.LOCKED_DOOR, T.CAFE_DOOR])
+
       ctx.save()
-      ctx.translate(-camX, -camY)
+      ctx.translate(-bgCamX, -camY)
+
+      // Draw non-shop tiles
       for (let row = startRow; row <= endRow; row++) {
         for (let col = startCol; col <= endCol; col++) {
           const tileId = OUTSIDE_LAYOUT[row]?.[col] ?? T.EMPTY
           if (tileId === T.EMPTY) continue
+          // Skip shop wall/window/door tiles in cols 0-3 — rectangles replace them
+          if (col < SHOP_COLS && SHOP_TILE_IDS.has(tileId)) continue
           const px = col * TILE_PX
           const py = row * TILE_PX
           const spriteName = TILE_ID_TO_SPRITE[tileId]
@@ -711,59 +733,203 @@ export default function CafeCanvas({
           }
         }
       }
-      ctx.restore()
 
-      // Draw shop signs with colored accent bar
-      const signs: { name: string; row: number; textColor: string; barColor: string }[] = [
-        { name: 'Boulangerie', row: 1, textColor: '#FFEFD5', barColor: '#EF5350' },
-        { name: 'Coffee Lingo', row: 7, textColor: '#FFD54F', barColor: '#5D4037' },
-        { name: 'Librairie', row: 13, textColor: '#FFEFD5', barColor: '#42A5F5' },
-        { name: 'Fleuriste', row: 18, textColor: '#FFEFD5', barColor: '#81C784' },
-      ]
-      for (const sign of signs) {
-        const barX = 0 * TILE_PX - camX
-        const barY = sign.row * TILE_PX - camY
-        if (barY > -TILE_PX && barY < viewH + TILE_PX) {
-          // Colored accent bar across the shop front
-          ctx.fillStyle = sign.barColor
-          ctx.fillRect(barX, barY, 4 * TILE_PX, TILE_PX * 0.55)
-          // Bottom shadow
-          ctx.fillStyle = 'rgba(0,0,0,0.2)'
-          ctx.fillRect(barX, barY + TILE_PX * 0.55, 4 * TILE_PX, 3)
-          // Sign text
-          const sx = 2 * TILE_PX - camX
-          const sy = barY + TILE_PX * 0.35
+      // Draw buildings at tile-grid positions (still in world coords)
+      for (const shop of OUTSIDE_SHOPS) {
+        const y = shop.startRow * TILE_PX
+        const h = (shop.endRow - shop.startRow + 1) * TILE_PX
+        const x = 0
+        const w = SHOP_COLS * TILE_PX
+
+        // Culling
+        if (y + h < camY - 20 || y > camY + viewH + 20) continue
+
+        // Drop shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.18)'
+        ctx.fillRect(x + 3, y + 3, w, h)
+
+        // Wall base
+        ctx.fillStyle = shop.wallColor
+        ctx.fillRect(x, y, w, h)
+
+        // Brick/stone texture — subtle horizontal mortar lines
+        ctx.strokeStyle = shop.wallDark
+        ctx.lineWidth = 1
+        const brickH = 8
+        for (let by = y + brickH; by < y + h; by += brickH) {
+          ctx.beginPath()
+          ctx.moveTo(x, by)
+          ctx.lineTo(x + w, by)
+          ctx.globalAlpha = 0.2
+          ctx.stroke()
+        }
+        // Vertical mortar (offset every other row)
+        const brickW = 16
+        for (let row2 = 0; row2 * brickH < h; row2++) {
+          const by = y + row2 * brickH
+          const offset = (row2 % 2) * (brickW / 2)
+          for (let bx = x + offset + brickW; bx < x + w; bx += brickW) {
+            ctx.beginPath()
+            ctx.moveTo(bx, by)
+            ctx.lineTo(bx, by + brickH)
+            ctx.stroke()
+          }
+        }
+        ctx.globalAlpha = 1
+
+        // Foundation / base strip
+        const baseH = 6
+        ctx.fillStyle = shop.trimColor
+        ctx.fillRect(x, y + h - baseH, w, baseH)
+
+        // --- Windows ---
+        const winW = 36
+        const winH = 30
+        const winY = y + h * 0.35
+        const winGap = 14
+        const totalWinW = winW * 2 + winGap
+        const winStartX = x + (w - totalWinW) / 2
+
+        for (let wi = 0; wi < 2; wi++) {
+          const wx = winStartX + wi * (winW + winGap)
+          // Window recess
+          ctx.fillStyle = 'rgba(0,0,0,0.15)'
+          ctx.fillRect(wx - 1, winY - 1, winW + 2, winH + 2)
+          // Glass — dark with blue tint
+          ctx.fillStyle = '#1A3A5C'
+          ctx.fillRect(wx, winY, winW, winH)
+          // Reflection highlight
+          ctx.fillStyle = 'rgba(150,200,255,0.25)'
+          ctx.fillRect(wx + 2, winY + 2, winW * 0.4, winH - 4)
+          ctx.fillStyle = 'rgba(200,230,255,0.12)'
+          ctx.fillRect(wx + winW * 0.5, winY + winH * 0.3, winW * 0.3, winH * 0.4)
+          // Frame
+          ctx.strokeStyle = shop.trimColor
+          ctx.lineWidth = 2
+          ctx.strokeRect(wx, winY, winW, winH)
+          // Cross bar
+          ctx.beginPath()
+          ctx.moveTo(wx + winW / 2, winY)
+          ctx.lineTo(wx + winW / 2, winY + winH)
+          ctx.moveTo(wx, winY + winH / 2)
+          ctx.lineTo(wx + winW, winY + winH / 2)
+          ctx.lineWidth = 1.5
+          ctx.stroke()
+        }
+
+        // --- Door ---
+        const doorW = 22
+        const doorH = 36
+        const doorX = x + w / 2 - doorW / 2
+        const doorY = y + h - baseH - doorH
+        // Door recess
+        ctx.fillStyle = 'rgba(0,0,0,0.2)'
+        ctx.fillRect(doorX - 1, doorY - 1, doorW + 2, doorH + 2)
+        // Door body
+        ctx.fillStyle = shop.locked ? '#5D4037' : '#3E2723'
+        ctx.fillRect(doorX, doorY, doorW, doorH)
+        // Door panels
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)'
+        ctx.lineWidth = 1
+        ctx.strokeRect(doorX + 3, doorY + 3, doorW - 6, doorH * 0.4)
+        ctx.strokeRect(doorX + 3, doorY + doorH * 0.5, doorW - 6, doorH * 0.4)
+        // Door handle
+        ctx.fillStyle = '#FFD54F'
+        ctx.beginPath()
+        ctx.arc(doorX + doorW - 5, doorY + doorH / 2, 2, 0, Math.PI * 2)
+        ctx.fill()
+        // Small window in door top
+        ctx.fillStyle = '#1A3A5C'
+        ctx.fillRect(doorX + 5, doorY + 5, doorW - 10, doorH * 0.25)
+        ctx.fillStyle = 'rgba(150,200,255,0.2)'
+        ctx.fillRect(doorX + 6, doorY + 6, (doorW - 10) * 0.4, doorH * 0.2)
+
+        // --- Awning ---
+        const awningH = 14
+        const awningOverhang = 6
+        ctx.fillStyle = shop.awningColor
+        // Awning shape — slight trapezoid
+        ctx.beginPath()
+        ctx.moveTo(x - 2, y)
+        ctx.lineTo(x + w + 2, y)
+        ctx.lineTo(x + w + awningOverhang, y + awningH)
+        ctx.lineTo(x - awningOverhang, y + awningH)
+        ctx.closePath()
+        ctx.fill()
+        // Awning stripes
+        const stripeW = 12
+        ctx.fillStyle = shop.awningStripe
+        for (let sx = x; sx < x + w; sx += stripeW * 2) {
+          ctx.beginPath()
+          const t0 = (sx - x) / w
+          const t1 = Math.min(1, (sx + stripeW - x) / w)
+          const lx0 = x - awningOverhang + (w + 2 * awningOverhang) * t0
+          const lx1 = x - awningOverhang + (w + 2 * awningOverhang) * t1
+          ctx.moveTo(sx, y)
+          ctx.lineTo(sx + stripeW, y)
+          ctx.lineTo(lx1, y + awningH)
+          ctx.lineTo(lx0, y + awningH)
+          ctx.closePath()
+          ctx.fill()
+        }
+        // Awning bottom edge shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.15)'
+        ctx.fillRect(x - awningOverhang, y + awningH, w + awningOverhang * 2, 2)
+        // Scalloped edge
+        ctx.fillStyle = shop.awningColor
+        const scallops = 10
+        const scW = (w + awningOverhang * 2) / scallops
+        for (let si = 0; si < scallops; si++) {
+          const sx2 = x - awningOverhang + si * scW + scW / 2
+          ctx.beginPath()
+          ctx.arc(sx2, y + awningH + 1, scW / 2.5, 0, Math.PI)
+          ctx.fill()
+        }
+
+        // --- Sign text on awning ---
+        ctx.save()
+        ctx.font = `bold ${Math.round(7 * SCALE)}px serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        // Text shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillText(shop.name, x + w / 2 + 1, y + awningH / 2 + 1)
+        ctx.fillStyle = '#FFEFD5'
+        ctx.fillText(shop.name, x + w / 2, y + awningH / 2)
+        ctx.restore()
+
+        // Border outline
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)'
+        ctx.lineWidth = 1.5
+        ctx.strokeRect(x, y, w, h)
+
+        // --- Locked overlay or enter hint ---
+        if (shop.locked) {
+          // Darken slightly
+          ctx.fillStyle = 'rgba(0,0,0,0.15)'
+          ctx.fillRect(x, y, w, h)
           ctx.save()
-          ctx.font = `bold ${Math.round(7 * SCALE)}px sans-serif`
+          ctx.font = `${Math.round(6 * SCALE)}px sans-serif`
           ctx.textAlign = 'center'
-          ctx.fillStyle = 'rgba(0,0,0,0.4)'
-          ctx.fillText(sign.name, sx + 1, sy + 1)
-          ctx.fillStyle = sign.textColor
-          ctx.fillText(sign.name, sx, sy)
+          ctx.fillStyle = 'rgba(255,255,255,0.5)'
+          ctx.fillText('Coming soon', x + w / 2, y + h - baseH - 10)
+          ctx.restore()
+        } else {
+          const pulse = 0.7 + 0.3 * Math.sin(tickRef.current * 0.08)
+          ctx.save()
+          ctx.globalAlpha = pulse
+          ctx.font = `bold ${Math.round(8 * SCALE)}px sans-serif`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillStyle = '#FFD54F'
+          ctx.shadowColor = 'rgba(0,0,0,0.5)'
+          ctx.shadowBlur = 4
+          ctx.fillText('▶ ENTER', x + w / 2, y + h - baseH - 14)
           ctx.restore()
         }
       }
 
-      // Draw enter arrow on the café door
-      const cafeDoorX = CAFE_OUTSIDE_DOOR.col * TILE_PX + TILE_PX / 2 - camX
-      const cafeDoorY = CAFE_OUTSIDE_DOOR.row * TILE_PX + TILE_PX / 2 - camY
-      if (cafeDoorY > -40 && cafeDoorY < viewH + 40) {
-        const pulse = 0.8 + 0.2 * Math.sin(tickRef.current * 0.08)
-        ctx.save()
-        ctx.globalAlpha = pulse
-        ctx.font = `bold ${Math.round(14 * SCALE)}px sans-serif`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillStyle = '#FFD54F'
-        ctx.shadowColor = 'rgba(0,0,0,0.6)'
-        ctx.shadowBlur = 4
-        ctx.fillText('▶', cafeDoorX, cafeDoorY)
-        ctx.shadowBlur = 0
-        ctx.font = `bold ${Math.round(5 * SCALE)}px sans-serif`
-        ctx.fillStyle = '#FFEFD5'
-        ctx.fillText('ENTER', cafeDoorX, cafeDoorY + 16 * SCALE)
-        ctx.restore()
-      }
+      ctx.restore()
     }
 
     function frame() {
