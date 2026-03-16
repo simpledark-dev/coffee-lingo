@@ -20,6 +20,7 @@ export function createInitialState(expressions: Expression[]): PlayerState {
     vocabulary,
     recencyBuffer: [],
     upgrades: {},
+    relationships: {},
   }
 }
 
@@ -29,8 +30,9 @@ export function loadState(): { state: PlayerState; readyToInstall: string[] } | 
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const state = JSON.parse(raw) as PlayerState
-    // Migration: ensure upgrades field exists
+    // Migration: ensure optional fields exist
     state.upgrades = state.upgrades ?? {}
+    state.relationships = state.relationships ?? {}
     // Check which upgrades are ready to install (not auto-finalized — player must claim)
     const readyToInstall = getReadyToInstallIds(state.upgrades)
     return { state, readyToInstall }
@@ -49,7 +51,8 @@ export function updateMastery(
   usedWords: Expression[],
   requiredIdeas: string[],
   bonusIdeas: string[],
-  currentDay: number
+  currentDay: number,
+  masteryXpMultiplier: number = 1
 ): PlayerState {
   const allTargetIdeas = new Set([...requiredIdeas, ...bonusIdeas])
   const newVocabulary = { ...state.vocabulary }
@@ -62,7 +65,7 @@ export function updateMastery(
     if (!entry) continue
 
     const updated = { ...entry }
-    updated.totalSuccessfulUses += 1
+    updated.totalSuccessfulUses += Math.random() < (masteryXpMultiplier - 1) ? 2 : 1
 
     if (updated.lastUsedDay !== currentDay) {
       updated.sessionsUsedIn += 1

@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { PlayerState, CustomerConversation, DaySummary, Expression, DialogueTemplate } from '../src/lib/types'
 import { generateConversations } from '../src/lib/game'
 import { createInitialState, loadState, saveState } from '../src/lib/state'
-import { installUpgrade } from '../src/lib/upgrades'
+import { installUpgrade, getUpgradeBonuses } from '../src/lib/upgrades'
+import { selectDayRoster, FRIENDSHIP_GAIN } from '../src/lib/characters'
 import DayStartView from '../src/components/DayStartView'
 import GameplayView from '../src/components/GameplayView'
 import SummaryView from '../src/components/SummaryView'
@@ -22,6 +23,7 @@ export default function Home() {
   const [dayConversations, setDayConversations] = useState<CustomerConversation[]>([])
   const [daySummary, setDaySummary] = useState<DaySummary | null>(null)
   const [readyToInstallIds, setReadyToInstallIds] = useState<string[]>([])
+  const [dayRoster, setDayRoster] = useState<string[]>([])
 
   // Load state on mount
   useEffect(() => {
@@ -35,6 +37,8 @@ export default function Home() {
       setPlayerState(createInitialState(expressions))
     }
   }, [])
+
+  const bonuses = useMemo(() => getUpgradeBonuses(playerState?.upgrades), [playerState?.upgrades])
 
   if (!playerState) {
     return (
@@ -52,8 +56,16 @@ export default function Home() {
       templates,
       expressions,
       playerState.vocabulary,
-      playerState.recencyBuffer
+      playerState.recencyBuffer,
+      bonuses.extraCustomers
     )
+    const roster = selectDayRoster(
+      convos.length,
+      playerState.reputation,
+      playerState.relationships ?? {},
+      playerState.currentDay
+    )
+    setDayRoster(roster)
     setDayConversations(convos)
     setPhase('gameplay')
   }
@@ -115,6 +127,24 @@ export default function Home() {
     })
   }
 
+  function handleFriendshipGain(characterId: string, score: string) {
+    setPlayerState((prev) => {
+      if (!prev) return prev
+      const gain = FRIENDSHIP_GAIN[score] ?? 0
+      if (gain === 0) return prev
+      const rels = { ...(prev.relationships ?? {}) }
+      const existing = rels[characterId] ?? { friendship: 0, timesServed: 0, lastSeenDay: prev.currentDay }
+      rels[characterId] = {
+        friendship: Math.min(100, existing.friendship + gain),
+        timesServed: existing.timesServed + 1,
+        lastSeenDay: prev.currentDay,
+      }
+      const updated = { ...prev, relationships: rels }
+      saveState(updated)
+      return updated
+    })
+  }
+
   function handleFinishUpgrade(upgradeId: string) {
     setPlayerState((prev) => {
       if (!prev?.upgrades?.[upgradeId]?.upgrading) return prev
@@ -170,6 +200,9 @@ export default function Home() {
         <GameplayView
           conversations={dayConversations}
           playerState={playerState}
+          bonuses={bonuses}
+          onFriendshipGain={handleFriendshipGain}
+          roster={dayRoster}
           onDayEnd={handleDayEnd}
         />
       )}
@@ -177,6 +210,7 @@ export default function Home() {
         <SummaryView
           day={playerState.currentDay - 1}
           summary={daySummary}
+          reputation={playerState.reputation}
           onContinue={handleContinue}
         />
       )}

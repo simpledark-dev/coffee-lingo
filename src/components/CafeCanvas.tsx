@@ -13,6 +13,7 @@ import {
   FOUNTAIN_R,
 } from '../lib/sprites'
 import type { FloorStyleKey } from '../lib/sprites'
+import { getCharacter } from '../lib/characters'
 import {
   TILE_SIZE,
   SCALE,
@@ -28,6 +29,7 @@ import { getActiveSpriteKey } from '../lib/upgrades'
 interface CafeCanvasProps {
   cafeStateRef: React.RefObject<CafeState | null>
   onCustomerTap: (customerId: number) => void
+  onCharacterTap?: (characterId: string) => void
   upgrades?: Record<string, import('../lib/types').UpgradeLevel>
 }
 
@@ -132,6 +134,7 @@ function drawCached(
 export default function CafeCanvas({
   cafeStateRef,
   onCustomerTap,
+  onCharacterTap,
   upgrades,
 }: CafeCanvasProps) {
   // Build dynamic tile→sprite map based on upgrade tiers
@@ -410,6 +413,7 @@ export default function CafeCanvas({
       const worldY = canvasY + cameraYRef.current
 
       const TAP_RADIUS = 60
+      // Priority: exclamation customers first (interactive)
       for (const customer of state.customers) {
         if (customer.phase !== 'exclamation') continue
         const cx = customer.worldPos.x + TILE_PX / 2
@@ -417,6 +421,17 @@ export default function CafeCanvas({
         const dist = Math.sqrt((worldX - cx) ** 2 + (worldY - cy) ** 2)
         if (dist < TAP_RADIUS) {
           onCustomerTap(customer.id)
+          return
+        }
+      }
+      // Then: any non-exclamation customer → show info
+      for (const customer of state.customers) {
+        if (customer.phase === 'exclamation' || customer.phase === 'exiting') continue
+        const cx = customer.worldPos.x + TILE_PX / 2
+        const cy = customer.worldPos.y + TILE_PX / 2
+        const dist = Math.sqrt((worldX - cx) ** 2 + (worldY - cy) ** 2)
+        if (dist < TAP_RADIUS) {
+          onCharacterTap?.(customer.characterId)
           return
         }
       }
@@ -445,7 +460,7 @@ export default function CafeCanvas({
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [cafeStateRef, onCustomerTap])
+  }, [cafeStateRef, onCustomerTap, onCharacterTap])
 
   // Animation loop (re-runs when floor style changes to rebuild cache)
   useEffect(() => {
@@ -506,6 +521,21 @@ export default function CafeCanvas({
           const spriteSet = CUSTOMER_SPRITES[customer.spriteVariant % CUSTOMER_SPRITES.length]
           const sprite = spriteSet[customer.facingDir]
           drawCached(ctx, spriteCache, sprite, customer.worldPos.x, customer.worldPos.y)
+
+          // Draw name above head (unless exclamation is showing)
+          if (customer.phase !== 'exclamation') {
+            const char = getCharacter(customer.characterId)
+            if (char) {
+              const nameX = customer.worldPos.x + TILE_PX / 2
+              const nameY = customer.worldPos.y - 4
+              ctx.font = `bold ${Math.round(8 * SCALE)}px sans-serif`
+              ctx.textAlign = 'center'
+              ctx.fillStyle = 'rgba(0,0,0,0.5)'
+              ctx.fillText(char.name, nameX + 1, nameY + 1)
+              ctx.fillStyle = '#FFEFD5'
+              ctx.fillText(char.name, nameX, nameY)
+            }
+          }
 
           if (customer.phase === 'exclamation') {
             const pulse = 1 + 0.15 * Math.sin(tickRef.current * 0.1)

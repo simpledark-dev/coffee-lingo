@@ -7,17 +7,43 @@ import {
 } from '../lib/types'
 import { evaluateChoice } from '../lib/game'
 import { updateMastery } from '../lib/state'
+import type { UpgradeBonuses } from '../lib/upgrades'
 import { createCafeState, tickCafe, startConversation, endConversation, recordResult } from '../lib/cafe-sim'
+import { getCharacter, getFriendshipLevel, FRIENDSHIP_GAIN } from '../lib/characters'
+import { CUSTOMER_SPRITES, PALETTE } from '../lib/sprites'
 import HUD from './HUD'
 import CafeCanvas from './CafeCanvas'
 
 interface GameplayViewProps {
   conversations: CustomerConversation[]
   playerState: PlayerState
+  bonuses: UpgradeBonuses
+  onFriendshipGain: (characterId: string, score: string) => void
+  roster: string[]
   onDayEnd: (summary: DaySummary, updatedState: PlayerState) => void
 }
 
 const PATIENCE_DURATION = 20_000
+
+function spriteToDataURL(spriteVariant: number, size: number): string {
+  const sprites = CUSTOMER_SPRITES[spriteVariant % CUSTOMER_SPRITES.length]
+  const sprite = sprites.down
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  const scale = size / 32
+  const s = Math.ceil(scale)
+  for (let row = 0; row < sprite.length; row++) {
+    for (let col = 0; col < sprite[row].length; col++) {
+      const idx = sprite[row][col]
+      if (idx === 0) continue
+      ctx.fillStyle = PALETTE[idx]
+      ctx.fillRect(col * scale, row * scale, s, s)
+    }
+  }
+  return canvas.toDataURL()
+}
 
 // Cache French male voice
 let cachedVoice: SpeechSynthesisVoice | null = null
@@ -61,6 +87,9 @@ function speakFrench(text: string): Promise<void> {
 export default function GameplayView({
   conversations,
   playerState,
+  bonuses,
+  onFriendshipGain,
+  roster,
   onDayEnd,
 }: GameplayViewProps) {
   // Simulation state (mutable ref, no re-renders on frame updates)
@@ -74,6 +103,9 @@ export default function GameplayView({
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null)
   const [hintLevel, setHintLevel] = useState(0)
   const [patiencePercent, setPatiencePercent] = useState(100)
+  const [activeCharacterName, setActiveCharacterName] = useState<string | null>(null)
+  const [friendshipGain, setFriendshipGain] = useState<number | null>(null)
+  const [inspectedCharacterId, setInspectedCharacterId] = useState<string | null>(null)
   const [displayCoins, setDisplayCoins] = useState(playerState.coins)
   const [displayRep, setDisplayRep] = useState(playerState.reputation)
   const [served, setServed] = useState(0)
@@ -86,12 +118,14 @@ export default function GameplayView({
   const patienceStartRef = useRef(0)
   const patienceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Initialize simulation
+  // Initialize simulation (only on mount — playerState changes mid-day must not reset)
+  const initialPlayerStateRef = useRef(playerState)
   useEffect(() => {
-    const state = createCafeState(conversations, conversations.length, playerState)
+    const state = createCafeState(conversations, conversations.length, initialPlayerStateRef.current, roster)
     cafeStateRef.current = state
     lastFrameRef.current = performance.now()
-  }, [conversations, playerState])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations])
 
   // Simulation loop
   useEffect(() => {
@@ -136,7 +170,7 @@ export default function GameplayView({
 
     patienceTimerRef.current = setInterval(() => {
       const elapsed = Date.now() - patienceStartRef.current
-      const remaining = Math.max(0, 100 - (elapsed / PATIENCE_DURATION) * 100)
+      const remaining = Math.max(0, 100 - (elapsed / (PATIENCE_DURATION + bonuses.patienceBonus)) * 100)
       setPatiencePercent(remaining)
 
       if (remaining <= 0) {
@@ -167,6 +201,8 @@ export default function GameplayView({
     const exchange = customer.conversation.exchanges[convo.exchangeIndex]
     if (!exchange) return
 
+    const charData = getCharacter(customer.characterId)
+    setActiveCharacterName(charData?.name ?? null)
     setActiveExchange(exchange)
     setLastResult(null)
     setSelectedChoiceId(null)
@@ -195,13 +231,32 @@ export default function GameplayView({
     if (!exchange) return
 
     const result: EvaluationResult = choice
-      ? evaluateChoice(choice, hintLevelRef.current)
+      ? evaluateChoice(choice, hintLevelRef.current, bonuses)
       : { score: 'MISSED' as Score, coveredRequired: [], coveredBonus: [], tipAmount: 0 }
 
     setLastResult(result)
 
+    // Show friendship gain + update immediately
+    const gain = FRIENDSHIP_GAIN[result.score] ?? 0
+    if (gain > 0 && customer.characterId) {
+      setFriendshipGain(gain)
+      setTimeout(() => setFriendshipGain(null), 1500)
+      onFriendshipGain(customer.characterId, result.score)
+    } else {
+      setFriendshipGain(null)
+    }
+
     // Record into accumulator
     recordResult(state, result.score, result.tipAmount)
+
+    // Track character interaction (keep best score)
+    if (customer.characterId) {
+      const scoreRank: Record<string, number> = { PERFECT: 3, GOOD: 2, UNDERSTOOD: 1, MISSED: 0 }
+      const existing = state.dayAccumulator.characterScores.get(customer.characterId)
+      if (!existing || scoreRank[result.score] > scoreRank[existing]) {
+        state.dayAccumulator.characterScores.set(customer.characterId, result.score)
+      }
+    }
 
     // Update mastery
     const words = choice?.expressions ?? []
@@ -212,7 +267,7 @@ export default function GameplayView({
     const newState = updateMastery(
       prevState, words,
       exchange.requiredIdeas, exchange.bonusIdeas,
-      prevState.currentDay
+      prevState.currentDay, bonuses.masteryXpMultiplier
     )
 
     for (const w of words) {
@@ -266,9 +321,13 @@ export default function GameplayView({
       totalCustomers: state.maxToSpawn,
       scores: { ...acc.scores },
       coinsEarned: acc.coinsEarned,
-      reputationChange: acc.reputationChange + 2,
+      reputationChange: acc.reputationChange + 2 + bonuses.repBonusPerDay,
       wordsPracticed: acc.wordsPracticed.size,
       wordsLeveledUp: [...acc.wordsLeveledUp],
+      characterInteractions: [...acc.characterScores.entries()].map(([characterId, bestScore]) => ({
+        characterId,
+        bestScore,
+      })),
     }
     onDayEnd(summary, acc.playerState)
   }
@@ -317,8 +376,50 @@ export default function GameplayView({
       <CafeCanvas
         cafeStateRef={cafeStateRef}
         onCustomerTap={handleCustomerTap}
+        onCharacterTap={setInspectedCharacterId}
         upgrades={playerState.upgrades}
       />
+
+      {/* Character info popup */}
+      {inspectedCharacterId && !activeExchange && (() => {
+        const char = getCharacter(inspectedCharacterId)
+        if (!char) return null
+        const rel = playerState.relationships?.[inspectedCharacterId]
+        const friendship = rel?.friendship ?? 0
+        const fl = getFriendshipLevel(friendship)
+        return (
+          <div style={styles.charInfoOverlay} onClick={() => setInspectedCharacterId(null)}>
+            <div style={styles.charInfoCard} onClick={e => e.stopPropagation()}>
+              <img
+                src={spriteToDataURL(char.spriteVariant, 64)}
+                width={64}
+                height={64}
+                alt={char.name}
+                style={{ imageRendering: 'pixelated' }}
+              />
+              <div style={styles.charInfoDetails}>
+                <div style={styles.charInfoName}>{char.name}</div>
+                <div style={styles.charInfoBio}>{char.bio}</div>
+                <div style={styles.charInfoFriendship}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 2 }}>
+                    <span style={{ color: '#FFD54F' }}>{fl.current.title}</span>
+                    {fl.next && <span style={{ color: '#8D6E63' }}>{fl.next.title}</span>}
+                  </div>
+                  <div style={styles.charInfoBarBg}>
+                    <div style={{ ...styles.charInfoBarFill, width: `${fl.progress * 100}%` }} />
+                  </div>
+                  {rel && (
+                    <div style={{ fontSize: 10, color: '#8D6E63', marginTop: 2 }}>
+                      Served {rel.timesServed} time{rel.timesServed !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button style={styles.charInfoClose} onClick={() => setInspectedCharacterId(null)}>✕</button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Conversation overlay */}
       {activeExchange && (
@@ -326,6 +427,14 @@ export default function GameplayView({
           {/* Speech bubble - fixed position over canvas */}
           <div style={styles.speechOverlay}>
             <div style={styles.speechBubble}>
+              {activeCharacterName && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <div style={styles.characterName}>{activeCharacterName}</div>
+                  {friendshipGain !== null && (
+                    <span style={styles.friendshipGain}>+{friendshipGain} ♥</span>
+                  )}
+                </div>
+              )}
               <div style={styles.speechText}>{activeExchange.customerLine}</div>
               {hintLevel >= 1 && <div style={styles.hintText}>{activeExchange.hintIdea}</div>}
               {hintLevel >= 2 && <div style={styles.hintTranslation}>{activeExchange.hintTranslation}</div>}
@@ -422,6 +531,21 @@ const styles: Record<string, React.CSSProperties> = {
     pointerEvents: 'auto',
     border: '2px solid #5D4037',
   },
+  characterName: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: '#8D6E63',
+    marginBottom: 2,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 1,
+  },
+  friendshipGain: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: '#E91E63',
+    marginBottom: 2,
+    animation: 'fadeInUp 0.3s ease-out',
+  },
   speechText: {
     fontSize: 16,
     fontWeight: 600,
@@ -499,5 +623,68 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: '#FFD700',
     textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+  },
+  charInfoOverlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 15,
+  },
+  charInfoCard: {
+    backgroundColor: '#3E2723',
+    borderRadius: 14,
+    padding: 14,
+    display: 'flex',
+    gap: 12,
+    alignItems: 'flex-start',
+    border: '2px solid #5D4037',
+    boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
+    maxWidth: 320,
+    width: '85%',
+    position: 'relative' as const,
+  },
+  charInfoDetails: {
+    flex: 1,
+    minWidth: 0,
+  },
+  charInfoName: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: '#FFEFD5',
+  },
+  charInfoBio: {
+    fontSize: 12,
+    color: '#BCAAA4',
+    marginTop: 2,
+  },
+  charInfoFriendship: {
+    marginTop: 8,
+  },
+  charInfoBarBg: {
+    height: 6,
+    backgroundColor: '#5D4037',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  charInfoBarFill: {
+    height: '100%',
+    backgroundColor: '#FFD54F',
+    borderRadius: 3,
+    transition: 'width 0.3s',
+  },
+  charInfoClose: {
+    position: 'absolute' as const,
+    top: 8,
+    right: 8,
+    background: 'none',
+    border: 'none',
+    color: '#8D6E63',
+    fontSize: 16,
+    fontWeight: 700,
+    cursor: 'pointer',
+    padding: '2px 6px',
   },
 }

@@ -1,14 +1,18 @@
 'use client'
 
 import { DaySummary } from '../lib/types'
+import { getRepLevel } from '../lib/upgrades'
 
 interface SummaryViewProps {
   day: number
   summary: DaySummary
+  reputation: number
   onContinue: () => void
 }
 
-export default function SummaryView({ day, summary, onContinue }: SummaryViewProps) {
+export default function SummaryView({ day, summary, reputation, onContinue }: SummaryViewProps) {
+  const rep = getRepLevel(reputation)
+
   return (
     <div className="summary">
       <div className="summary-title">Day {day} Complete!</div>
@@ -59,6 +63,16 @@ export default function SummaryView({ day, summary, onContinue }: SummaryViewPro
             {summary.reputationChange >= 0 ? '+' : ''}
             {summary.reputationChange}
           </span>
+        </div>
+        {/* Rep level bar */}
+        <div style={{ marginTop: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+            <span style={{ color: '#FFD54F', fontWeight: 600 }}>Lv{rep.current.level} {rep.current.title}</span>
+            {rep.next && <span style={{ color: '#8D6E63' }}>{rep.next.minRep - reputation} to Lv{rep.next.level}</span>}
+          </div>
+          <div style={{ height: 8, backgroundColor: '#5D4037', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${rep.progress * 100}%`, backgroundColor: '#FFD54F', borderRadius: 4, transition: 'width 0.3s' }} />
+          </div>
         </div>
       </div>
 

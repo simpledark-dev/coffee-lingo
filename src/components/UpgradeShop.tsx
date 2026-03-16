@@ -164,6 +164,7 @@ export default function UpgradeShop({ playerState, onPurchase, onInstall, onFini
                       </div>
                     </div>
                     <div style={styles.description}>{nextTier.description}</div>
+                    <div style={styles.bonusText}>{nextTier.bonusDescription}</div>
                     <div style={styles.timerInfo}>
                       Build time: {formatTimeRemaining(nextTier.durationMs)}
                     </div>
@@ -428,6 +429,13 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#BCAAA4',
     textAlign: 'center' as const,
     marginTop: 8,
+  },
+  bonusText: {
+    fontSize: 13,
+    color: '#FFD54F',
+    textAlign: 'center' as const,
+    marginTop: 6,
+    fontWeight: 600,
   },
   timerInfo: {
     fontSize: 12,

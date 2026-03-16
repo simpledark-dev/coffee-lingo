@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import type { PlayerState } from '../lib/types'
-import { getUpgradeCatalogEntry } from '../lib/upgrades'
+import { getUpgradeCatalogEntry, getRepLevel } from '../lib/upgrades'
 import UpgradeShop from './UpgradeShop'
+import ContactsView from './ContactsView'
 
 interface DayStartViewProps {
   day: number
@@ -33,6 +34,7 @@ export default function DayStartView({
   const [showShop, setShowShop] = useState(false)
   const [editingField, setEditingField] = useState<'coins' | 'reputation' | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [showContacts, setShowContacts] = useState(false)
 
   return (
     <div className="day-start">
@@ -99,6 +101,25 @@ export default function DayStartView({
             </span>
           )}
         </div>
+        {(() => {
+          const rep = getRepLevel(playerState.reputation)
+          return (
+            <div style={{ marginTop: 8, width: '60%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+                <span style={{ color: '#FFD54F', fontWeight: 600 }}>Lv{rep.current.level} {rep.current.title}</span>
+                {rep.next && <span style={{ color: '#8D6E63' }}>Lv{rep.next.level}</span>}
+              </div>
+              <div style={{ height: 8, backgroundColor: '#5D4037', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${rep.progress * 100}%`, backgroundColor: '#FFD54F', borderRadius: 4, transition: 'width 0.3s' }} />
+              </div>
+              {rep.next && (
+                <div style={{ fontSize: 10, color: '#8D6E63', marginTop: 2, textAlign: 'right' as const }}>
+                  {rep.next.minRep - playerState.reputation} to {rep.next.title}
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', padding: '0 20px' }}>
@@ -113,12 +134,27 @@ export default function DayStartView({
           Upgrades
         </button>
         <button
+          className="open-shop-button"
+          style={{ backgroundColor: '#5D4037' }}
+          onClick={() => setShowContacts(true)}
+        >
+          Contacts
+        </button>
+        <button
           style={resetBtnStyle}
           onClick={() => { if (confirm('Reset all progress?')) onReset() }}
         >
           Reset Game
         </button>
       </div>
+
+      {showContacts && (
+        <ContactsView
+          relationships={playerState.relationships ?? {}}
+          reputation={playerState.reputation}
+          onClose={() => setShowContacts(false)}
+        />
+      )}
 
       {showShop && (
         <UpgradeShop

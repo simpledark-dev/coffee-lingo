@@ -65,6 +65,12 @@ export interface UpgradeLevel {
   }
 }
 
+export interface Relationship {
+  friendship: number       // 0-100
+  timesServed: number
+  lastSeenDay: number
+}
+
 export interface PlayerState {
   currentDay: number
   coins: number
@@ -72,6 +78,7 @@ export interface PlayerState {
   vocabulary: Record<string, VocabularyEntry>
   recencyBuffer: string[]
   upgrades?: Record<string, UpgradeLevel>
+  relationships?: Record<string, Relationship>
 }
 
 export interface VocabularyEntry {
@@ -79,6 +86,11 @@ export interface VocabularyEntry {
   totalSuccessfulUses: number
   sessionsUsedIn: number
   lastUsedDay: number
+}
+
+export interface CharacterInteraction {
+  characterId: string
+  bestScore: Score
 }
 
 export interface DaySummary {
@@ -89,6 +101,7 @@ export interface DaySummary {
   reputationChange: number
   wordsPracticed: number
   wordsLeveledUp: string[]
+  characterInteractions: CharacterInteraction[]
 }
 
 // --- Multi-customer cafe simulation types ---
@@ -124,6 +137,7 @@ export type CustPhase =
 
 export interface CustomerState {
   id: number
+  characterId: string
   spriteVariant: number
   phase: CustPhase
   worldPos: WorldPos
@@ -169,6 +183,7 @@ export interface DayAccumulator {
   wordsLeveledUp: string[]
   customersServed: number
   playerState: PlayerState
+  characterScores: Map<string, Score>  // characterId → best score this day
 }
 
 export interface CafeTickResult {

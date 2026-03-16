@@ -8,6 +8,7 @@ import {
   EvaluationResult,
   VocabularyEntry,
 } from './types'
+import type { UpgradeBonuses } from './upgrades'
 
 const IDEA_HINT_MAP: Record<string, string> = {
   greeting: 'Greet the customer',
@@ -136,7 +137,8 @@ export function evaluate(
   selectedWords: Expression[],
   requiredIdeas: string[],
   bonusIdeas: string[],
-  hintLevel: number
+  hintLevel: number,
+  bonuses?: UpgradeBonuses
 ): EvaluationResult {
   const selectedTags = new Set<string>()
   for (const word of selectedWords) {
@@ -161,6 +163,13 @@ export function evaluate(
     score = 'MISSED'
   }
 
+  const tipAmount = computeTip(score, hintLevel, bonuses)
+
+  return { score, coveredRequired, coveredBonus, tipAmount }
+}
+
+// Shared tip calculation with upgrade bonuses
+function computeTip(score: Score, hintLevel: number, bonuses?: UpgradeBonuses): number {
   const SCORE_MULTIPLIERS: Record<Score, number> = {
     PERFECT: 1.5,
     GOOD: 1.0,
@@ -170,30 +179,35 @@ export function evaluate(
   const HINT_MULTIPLIERS = [1.0, 0.75, 0.5]
   const BASE_TIP = 10
 
-  const tipAmount = Math.round(
-    BASE_TIP * SCORE_MULTIPLIERS[score] * (HINT_MULTIPLIERS[hintLevel] ?? 0.5)
+  // Lamp bonus: reduce hint penalty
+  const rawHintMult = HINT_MULTIPLIERS[hintLevel] ?? 0.5
+  const hintMult = bonuses
+    ? 1 - (1 - rawHintMult) * (1 - bonuses.hintPenaltyReduction)
+    : rawHintMult
+
+  let tipAmount = Math.round(
+    BASE_TIP
+    * SCORE_MULTIPLIERS[score]
+    * hintMult
+    * (bonuses?.tipMultiplier ?? 1)   // Coffee Machine
+    * (bonuses?.coinMultiplier ?? 1)   // Floor
   )
 
-  return { score, coveredRequired, coveredBonus, tipAmount }
+  // Plant bonus: chance of bonus coins
+  if (bonuses && bonuses.bonusCoinChance > 0 && score !== 'MISSED') {
+    if (Math.random() < bonuses.bonusCoinChance) tipAmount += 5
+  }
+
+  return tipAmount
 }
 
 // Evaluate a choice directly using its pre-assigned score
 export function evaluateChoice(
   choice: AnswerChoice,
-  hintLevel: number
+  hintLevel: number,
+  bonuses?: UpgradeBonuses
 ): EvaluationResult {
-  const SCORE_MULTIPLIERS: Record<Score, number> = {
-    PERFECT: 1.5,
-    GOOD: 1.0,
-    UNDERSTOOD: 0.5,
-    MISSED: 0,
-  }
-  const HINT_MULTIPLIERS = [1.0, 0.75, 0.5]
-  const BASE_TIP = 10
-
-  const tipAmount = Math.round(
-    BASE_TIP * SCORE_MULTIPLIERS[choice.score] * (HINT_MULTIPLIERS[hintLevel] ?? 0.5)
-  )
+  const tipAmount = computeTip(choice.score, hintLevel, bonuses)
 
   return {
     score: choice.score,
@@ -238,9 +252,10 @@ export function generateConversations(
   templates: DialogueTemplate[],
   expressions: Expression[],
   _playerVocabulary: Record<string, VocabularyEntry>,
-  recencyBuffer: string[]
+  recencyBuffer: string[],
+  extraCustomers: number = 0
 ): CustomerConversation[] {
-  const TARGET_CUSTOMERS = 10
+  const TARGET_CUSTOMERS = 10 + extraCustomers
   const conversations: CustomerConversation[] = []
   const usedTemplateIds = new Set<string>()
 

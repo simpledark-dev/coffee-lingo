@@ -2,6 +2,7 @@ import { findPath, gridToWorld, worldToGrid, movementDirection } from './pathfin
 import { POINTS_OF_INTEREST, pickNextPOI } from './poi'
 import { DOOR_ENTRY, TILE_SIZE, SCALE } from './tilemap'
 import { CUSTOMER_SPRITES } from './sprites'
+import { getCharacter } from './characters'
 import type {
   CafeState,
   CafeTickResult,
@@ -31,10 +32,13 @@ function randomBetween(min: number, max: number): number {
   return min + Math.random() * (max - min)
 }
 
+type CafeStateInternal = CafeState & { _conversations: CustomerConversation[]; _roster: string[] }
+
 export function createCafeState(
   conversations: CustomerConversation[],
   maxToSpawn: number,
   playerState: PlayerState,
+  roster?: string[],
 ): CafeState {
   return {
     customers: [],
@@ -52,14 +56,20 @@ export function createCafeState(
       wordsLeveledUp: [],
       customersServed: 0,
       playerState: { ...playerState },
+      characterScores: new Map(),
     },
     _conversations: conversations,
-  } as CafeState & { _conversations: CustomerConversation[] }
+    _roster: roster ?? [],
+  } as CafeStateInternal
 }
 
 // Internal: access conversations stored on state
 function getConversations(state: CafeState): CustomerConversation[] {
-  return (state as CafeState & { _conversations: CustomerConversation[] })._conversations
+  return (state as CafeStateInternal)._conversations
+}
+
+function getRoster(state: CafeState): string[] {
+  return (state as CafeStateInternal)._roster
 }
 
 function occupyPOI(state: CafeState, poiId: string, customerId: number) {
@@ -92,9 +102,14 @@ function spawnCustomer(state: CafeState): void {
   const convoIndex = state.totalSpawned % conversations.length
   const conversation = conversations[convoIndex]
 
+  const roster = getRoster(state)
+  const characterId = roster[state.totalSpawned % roster.length] ?? ''
+  const character = getCharacter(characterId)
+
   const customer: CustomerState = {
     id: state.nextId++,
-    spriteVariant: state.totalSpawned % CUSTOMER_SPRITES.length,
+    characterId,
+    spriteVariant: character?.spriteVariant ?? (state.totalSpawned % CUSTOMER_SPRITES.length),
     phase: 'entering',
     worldPos: gridToWorld({ row: DOOR_ENTRY.row, col: DOOR_ENTRY.col + 2 }), // start off-screen right
     path: [],
