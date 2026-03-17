@@ -1,4 +1,4 @@
-import { GRID_COLS, GRID_ROWS, TILE_SIZE, SCALE, isWalkable } from './tilemap'
+import { TILE_SIZE, SCALE, isWalkable, isOutsideWalkable } from './tilemap'
 import type { GridPos, WorldPos } from './types'
 
 const TILE_PX = TILE_SIZE * SCALE
@@ -14,6 +14,10 @@ export function worldToGrid(pos: WorldPos): GridPos {
   }
 }
 
+// Outside grid uses the same pixel scale
+export const outsideGridToWorld = gridToWorld
+export const outsideWorldToGrid = worldToGrid
+
 function posKey(row: number, col: number): string {
   return `${row},${col}`
 }
@@ -26,7 +30,7 @@ const DIRS = [
 ]
 
 /**
- * BFS pathfinding on the walkable grid.
+ * BFS pathfinding on the interior walkable grid.
  * Returns array of GridPos from `from` to `to` (inclusive), or empty if no path.
  * `blocked` is an optional set of "row,col" strings to avoid (other customers).
  * If no path with blocked tiles, retries without blocking.
@@ -36,14 +40,34 @@ export function findPath(
   to: GridPos,
   blocked?: Set<string>
 ): GridPos[] {
-  const result = bfs(from, to, blocked)
+  return findPathGeneric(from, to, isWalkable, blocked)
+}
+
+/**
+ * BFS pathfinding on the outside walkable grid.
+ */
+export function findOutsidePath(
+  from: GridPos,
+  to: GridPos,
+  blocked?: Set<string>
+): GridPos[] {
+  return findPathGeneric(from, to, isOutsideWalkable, blocked)
+}
+
+function findPathGeneric(
+  from: GridPos,
+  to: GridPos,
+  walkCheck: (row: number, col: number) => boolean,
+  blocked?: Set<string>
+): GridPos[] {
+  const result = bfs(from, to, walkCheck, blocked)
   if (result.length > 0) return result
   // Retry without blocked tiles if soft avoidance failed
-  if (blocked && blocked.size > 0) return bfs(from, to)
+  if (blocked && blocked.size > 0) return bfs(from, to, walkCheck)
   return []
 }
 
-function bfs(from: GridPos, to: GridPos, blocked?: Set<string>): GridPos[] {
+function bfs(from: GridPos, to: GridPos, walkCheck: (row: number, col: number) => boolean, blocked?: Set<string>): GridPos[] {
   if (from.row === to.row && from.col === to.col) return [from]
 
   const visited = new Set<string>()
@@ -62,7 +86,7 @@ function bfs(from: GridPos, to: GridPos, blocked?: Set<string>): GridPos[] {
       const nKey = posKey(nr, nc)
 
       if (visited.has(nKey)) continue
-      if (!isWalkable(nr, nc)) continue
+      if (!walkCheck(nr, nc)) continue
       if (blocked?.has(nKey) && !(nr === to.row && nc === to.col)) continue
 
       visited.add(nKey)

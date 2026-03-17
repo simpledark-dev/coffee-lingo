@@ -168,7 +168,7 @@ export const DOOR_POS = { row: 25, col: 19 }
 export const DOOR_ENTRY = { row: 25, col: 19 } // door tile — customers walk in/out here
 export const DOOR_EXIT = { row: 25, col: 19 }
 
-// Walkable tile check
+// Walkable tile check — interior
 const WALKABLE_TILES: Set<string> = new Set([T.FLOOR, T.DOOR, T.CHAIR_U, T.CHAIR_D, T.GRASS, T.PATH, T.BENCH])
 
 export function isWalkable(row: number, col: number): boolean {
@@ -176,3 +176,18 @@ export function isWalkable(row: number, col: number): boolean {
   const tile = CAFE_LAYOUT[row]?.[col]
   return tile !== undefined && WALKABLE_TILES.has(tile)
 }
+
+// Walkable tile check — outside (sidewalk + cafe door)
+const OUTSIDE_WALKABLE_TILES: Set<string> = new Set([T.SIDEWALK, T.OUTDOOR_PLANT, T.CAFE_DOOR, T.STREET_LAMP])
+
+export function isOutsideWalkable(row: number, col: number): boolean {
+  if (row < 0 || row >= OUTSIDE_ROWS || col < 0 || col >= OUTSIDE_COLS) return false
+  const tile = OUTSIDE_LAYOUT[row]?.[col]
+  return tile !== undefined && OUTSIDE_WALKABLE_TILES.has(tile)
+}
+
+// Outside spawn/despawn edges
+export const OUTSIDE_SPAWN_TOP = { row: 0, col: 4 }
+export const OUTSIDE_SPAWN_BOTTOM = { row: 17, col: 5 }
+// Sidewalk tile adjacent to cafe door (where characters transition in/out)
+export const CAFE_DOOR_SIDEWALK = { row: 7, col: 4 }

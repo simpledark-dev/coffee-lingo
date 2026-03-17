@@ -12,14 +12,14 @@ export interface UpgradeTier {
 }
 
 export interface UpgradeBonuses {
-  tipMultiplier: number        // Coffee Machine: 1.0 / 1.10 / 1.25
-  repBonusPerDay: number       // Counter: 0 / 1 / 2
-  extraCustomers: number       // Table: 0 / 2 / 4
-  patienceBonus: number        // Chair: 0 / 5000 / 10000 (ms)
-  bonusCoinChance: number      // Plant: 0 / 0.10 / 0.20
-  hintPenaltyReduction: number // Lamp: 0 / 0.15 / 0.30
-  masteryXpMultiplier: number  // Shelf: 1.0 / 1.20 / 1.40
-  coinMultiplier: number       // Floor: 1.0 / 1.05 / 1.10
+  tipMultiplier: number           // Coffee Machine: 1.0 / 1.10 / 1.25
+  repBonusPerCustomer: number     // Counter: 0 / 0.2 / 0.4 rep per customer
+  maxInShopBonus: number          // Table: 0 / 1 / 2 extra simultaneous customers
+  patienceBonus: number           // Chair: 0 / 5000 / 10000 (ms)
+  bonusCoinChance: number         // Plant: 0 / 0.10 / 0.20
+  hintPenaltyReduction: number    // Lamp: 0 / 0.15 / 0.30
+  masteryXpMultiplier: number     // Shelf: 1.0 / 1.20 / 1.40
+  coinMultiplier: number          // Floor: 1.0 / 1.05 / 1.10
 }
 
 export interface UpgradeCatalogEntry {
@@ -68,8 +68,8 @@ export const UPGRADE_CATALOG: UpgradeCatalogEntry[] = [
     displayName: 'Table',
     defaultSpriteKey: 'TABLE',
     tiers: [
-      { tier: 1, name: 'Marble Bistro', description: 'Light surface, thin legs', bonusDescription: '+2 customers per day', cost: 150, requiredReputation: 10, durationMs: 1 * HOUR, spriteKey: 'TABLE_T1' },
-      { tier: 2, name: 'Ornate Parisian', description: 'Iron scrollwork, mosaic top', bonusDescription: '+4 customers per day', cost: 400, requiredReputation: 30, durationMs: 3 * HOUR, spriteKey: 'TABLE_T2' },
+      { tier: 1, name: 'Marble Bistro', description: 'Light surface, thin legs', bonusDescription: '+1 max customers in shop', cost: 150, requiredReputation: 10, durationMs: 1 * HOUR, spriteKey: 'TABLE_T1' },
+      { tier: 2, name: 'Ornate Parisian', description: 'Iron scrollwork, mosaic top', bonusDescription: '+2 max customers in shop', cost: 400, requiredReputation: 30, durationMs: 3 * HOUR, spriteKey: 'TABLE_T2' },
     ],
   },
   {
@@ -95,8 +95,8 @@ export const UPGRADE_CATALOG: UpgradeCatalogEntry[] = [
     displayName: 'Counter',
     defaultSpriteKey: 'COUNTER_TOP',
     tiers: [
-      { tier: 1, name: 'Polished Wood', description: 'Rich grain, darker tones', bonusDescription: '+1 rep per day', cost: 200, requiredReputation: 10, durationMs: 1.5 * HOUR, spriteKey: 'COUNTER_TOP_T1' },
-      { tier: 2, name: 'Marble Counter', description: 'White and gray surface', bonusDescription: '+2 rep per day', cost: 500, requiredReputation: 30, durationMs: 4 * HOUR, spriteKey: 'COUNTER_TOP_T2' },
+      { tier: 1, name: 'Polished Wood', description: 'Rich grain, darker tones', bonusDescription: '+1 rep per customer', cost: 200, requiredReputation: 10, durationMs: 1.5 * HOUR, spriteKey: 'COUNTER_TOP_T1' },
+      { tier: 2, name: 'Marble Counter', description: 'White and gray surface', bonusDescription: '+2 rep per customer', cost: 500, requiredReputation: 30, durationMs: 4 * HOUR, spriteKey: 'COUNTER_TOP_T2' },
     ],
   },
   {
@@ -160,8 +160,8 @@ export function installUpgrade(
 
 const BONUS_TABLE: Record<string, Record<number, Partial<UpgradeBonuses>>> = {
   COFFEE_MACHINE: { 1: { tipMultiplier: 1.10 }, 2: { tipMultiplier: 1.25 } },
-  COUNTER:        { 1: { repBonusPerDay: 1 },    2: { repBonusPerDay: 2 } },
-  TABLE:          { 1: { extraCustomers: 2 },     2: { extraCustomers: 4 } },
+  COUNTER:        { 1: { repBonusPerCustomer: 1 }, 2: { repBonusPerCustomer: 2 } },
+  TABLE:          { 1: { maxInShopBonus: 1 },       2: { maxInShopBonus: 2 } },
   CHAIR:          { 1: { patienceBonus: 5000 },   2: { patienceBonus: 10000 } },
   PLANT:          { 1: { bonusCoinChance: 0.10 }, 2: { bonusCoinChance: 0.20 } },
   LAMP:           { 1: { hintPenaltyReduction: 0.15 }, 2: { hintPenaltyReduction: 0.30 } },
@@ -171,8 +171,8 @@ const BONUS_TABLE: Record<string, Record<number, Partial<UpgradeBonuses>>> = {
 
 const DEFAULT_BONUSES: UpgradeBonuses = {
   tipMultiplier: 1,
-  repBonusPerDay: 0,
-  extraCustomers: 0,
+  repBonusPerCustomer: 0,
+  maxInShopBonus: 0,
   patienceBonus: 0,
   bonusCoinChance: 0,
   hintPenaltyReduction: 0,

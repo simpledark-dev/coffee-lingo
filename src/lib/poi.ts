@@ -1,4 +1,4 @@
-import { CAFE_LAYOUT, GRID_COLS, GRID_ROWS, T, isWalkable } from './tilemap'
+import { CAFE_LAYOUT, GRID_COLS, GRID_ROWS, T, isWalkable, isOutsideWalkable } from './tilemap'
 import type { PointOfInterest, CustomerDirection } from './types'
 
 function buildPOIs(): PointOfInterest[] {
@@ -256,6 +256,97 @@ export function pickNextPOI(
   occupiedPositions?: Set<string>,
 ): PointOfInterest | null {
   const available = POINTS_OF_INTEREST.filter(poi => {
+    if (poi.id === currentPOI) return false
+    const occupants = occupancy.get(poi.id) ?? []
+    if (occupants.length >= poi.maxOccupants) return false
+    if (occupiedPositions && occupiedPositions.has(`${poi.pos.row},${poi.pos.col}`)) return false
+    return true
+  })
+
+  if (available.length === 0) return null
+  return available[Math.floor(Math.random() * available.length)]
+}
+
+// --- Outside POIs ---
+
+function buildOutsidePOIs(): PointOfInterest[] {
+  const pois: PointOfInterest[] = []
+  let id = 0
+
+  // Sidewalk strolling spots (gap rows between shops)
+  const sidewalkSpots: { row: number; col: number; dir: 'up' | 'down' | 'left' | 'right' }[] = [
+    { row: 0,  col: 4, dir: 'down' },
+    { row: 0,  col: 5, dir: 'down' },
+    { row: 4,  col: 4, dir: 'left' },
+    { row: 4,  col: 5, dir: 'right' },
+    { row: 9,  col: 4, dir: 'left' },
+    { row: 9,  col: 5, dir: 'right' },
+    { row: 13, col: 4, dir: 'left' },
+    { row: 13, col: 5, dir: 'down' },
+    { row: 17, col: 4, dir: 'up' },
+    { row: 17, col: 5, dir: 'up' },
+  ]
+  for (const { row, col, dir } of sidewalkSpots) {
+    if (isOutsideWalkable(row, col)) {
+      pois.push({
+        id: `outside_walk_${id++}`,
+        type: 'floor',
+        pos: { row, col },
+        facingDir: dir,
+        maxOccupants: 1,
+      })
+    }
+  }
+
+  // Window shopping spots (stand on sidewalk, face left toward shops)
+  const windowShopSpots = [
+    { row: 1,  col: 4 }, // Boulangerie
+    { row: 6,  col: 4 }, // Café
+    { row: 10, col: 4 }, // Librairie
+    { row: 15, col: 4 }, // Fleuriste
+  ]
+  for (const { row, col } of windowShopSpots) {
+    if (isOutsideWalkable(row, col)) {
+      pois.push({
+        id: `outside_shop_${id++}`,
+        type: 'window',
+        pos: { row, col },
+        facingDir: 'left',
+        maxOccupants: 2,
+      })
+    }
+  }
+
+  // Near street lamps (idle spots)
+  const lampSpots = [
+    { row: 2,  col: 5 },
+    { row: 6,  col: 5 },
+    { row: 9,  col: 5 },
+    { row: 13, col: 5 },
+  ]
+  for (const { row, col } of lampSpots) {
+    if (isOutsideWalkable(row, col)) {
+      pois.push({
+        id: `outside_lamp_${id++}`,
+        type: 'floor',
+        pos: { row, col },
+        facingDir: 'down',
+        maxOccupants: 1,
+      })
+    }
+  }
+
+  return pois
+}
+
+export const OUTSIDE_POIS = buildOutsidePOIs()
+
+export function pickNextOutsidePOI(
+  currentPOI: string | null,
+  occupancy: Map<string, number[]>,
+  occupiedPositions?: Set<string>,
+): PointOfInterest | null {
+  const available = OUTSIDE_POIS.filter(poi => {
     if (poi.id === currentPOI) return false
     const occupants = occupancy.get(poi.id) ?? []
     if (occupants.length >= poi.maxOccupants) return false

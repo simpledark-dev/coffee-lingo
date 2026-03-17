@@ -309,6 +309,52 @@ export function generateConversations(
   return conversations
 }
 
+/**
+ * Generate a single conversation on demand (for continuous gameplay).
+ * Returns the conversation and the template IDs used (for recency tracking).
+ */
+export function generateSingleConversation(
+  templates: DialogueTemplate[],
+  expressions: Expression[],
+  _playerVocabulary: Record<string, VocabularyEntry>,
+  recencyBuffer: string[],
+): { conversation: CustomerConversation; usedTemplateIds: string[] } {
+  const recentSet = new Set(recencyBuffer)
+  const byCategory: Record<string, DialogueTemplate[]> = {}
+  for (const t of templates) {
+    if (!byCategory[t.ideaCategory]) byCategory[t.ideaCategory] = []
+    byCategory[t.ideaCategory].push(t)
+  }
+  for (const cat of Object.keys(byCategory)) {
+    const nonRecent = byCategory[cat].filter((t) => !recentSet.has(t.id))
+    const recent = byCategory[cat].filter((t) => recentSet.has(t.id))
+    byCategory[cat] = [...shuffle(nonRecent), ...shuffle(recent)]
+  }
+
+  const pattern = pickRandom(CONVERSATION_PATTERNS)
+  const exchanges: ResolvedExchange[] = []
+  const usedTemplateIds: string[] = []
+
+  for (const category of pattern) {
+    const pool = byCategory[category]
+    if (!pool) continue
+    // Prefer non-recent template
+    const template = pool.find((t) => !recentSet.has(t.id)) ?? pickRandom(pool)
+    try {
+      const exchange = resolveTemplate(template, expressions)
+      exchanges.push(exchange)
+      usedTemplateIds.push(template.id)
+    } catch {
+      continue
+    }
+  }
+
+  return {
+    conversation: { exchanges: exchanges.length > 0 ? exchanges : [resolveTemplate(pickRandom(templates), expressions)] },
+    usedTemplateIds,
+  }
+}
+
 // Backward compat for tests
 export function generateDay(
   templates: DialogueTemplate[],

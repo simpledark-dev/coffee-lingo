@@ -1,29 +1,20 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { PlayerState, CustomerConversation, DaySummary, Expression, DialogueTemplate } from '../src/lib/types'
-import { generateConversations } from '../src/lib/game'
+import { PlayerState, Expression, DialogueTemplate } from '../src/lib/types'
 import { createInitialState, loadState, saveState } from '../src/lib/state'
-import { installUpgrade, getUpgradeBonuses } from '../src/lib/upgrades'
-import { selectDayRoster, FRIENDSHIP_GAIN } from '../src/lib/characters'
-import DayStartView from '../src/components/DayStartView'
+import { installUpgrade, getUpgradeBonuses, getReadyToInstallIds } from '../src/lib/upgrades'
+import { FRIENDSHIP_GAIN } from '../src/lib/characters'
 import GameplayView from '../src/components/GameplayView'
-import SummaryView from '../src/components/SummaryView'
 import expressionsData from '../data/expressions.json'
 import templatesData from '../data/templates.json'
 
 const expressions = expressionsData as Expression[]
 const templates = templatesData as DialogueTemplate[]
 
-type GamePhase = 'dayStart' | 'gameplay' | 'summary'
-
 export default function Home() {
-  const [phase, setPhase] = useState<GamePhase>('dayStart')
   const [playerState, setPlayerState] = useState<PlayerState | null>(null)
-  const [dayConversations, setDayConversations] = useState<CustomerConversation[]>([])
-  const [daySummary, setDaySummary] = useState<DaySummary | null>(null)
   const [readyToInstallIds, setReadyToInstallIds] = useState<string[]>([])
-  const [dayRoster, setDayRoster] = useState<string[]>([])
 
   // Load state on mount
   useEffect(() => {
@@ -50,48 +41,31 @@ export default function Home() {
     )
   }
 
-  function handleOpenShop() {
-    if (!playerState) return
-    const convos = generateConversations(
-      templates,
-      expressions,
-      playerState.vocabulary,
-      playerState.recencyBuffer,
-      bonuses.extraCustomers
-    )
-    const roster = selectDayRoster(
-      convos.length,
-      playerState.reputation,
-      playerState.relationships ?? {},
-      playerState.currentDay
-    )
-    setDayRoster(roster)
-    setDayConversations(convos)
-    setPhase('gameplay')
+  function handleStateUpdate(updates: Partial<PlayerState>) {
+    setPlayerState((prev) => {
+      if (!prev) return prev
+      const updated = { ...prev, ...updates }
+      saveState(updated)
+      return updated
+    })
   }
 
-  function handleDayEnd(summary: DaySummary, updatedState: PlayerState) {
-    const usedTemplateIds = dayConversations.flatMap((c) => c.exchanges.map((e) => e.templateId))
-    const newRecencyBuffer = [...usedTemplateIds.slice(-3)]
-
-    const finalState: PlayerState = {
-      ...updatedState,
-      coins: updatedState.coins + summary.coinsEarned,
-      reputation: updatedState.reputation + summary.reputationChange,
-      currentDay: updatedState.currentDay + 1,
-      recencyBuffer: newRecencyBuffer,
-    }
-
-    setPlayerState(finalState)
-    setDaySummary(summary)
-    setPhase('summary')
-  }
-
-  function handleContinue() {
-    if (!playerState) return
-    saveState(playerState)
-    setDaySummary(null)
-    setPhase('dayStart')
+  function handleFriendshipGain(characterId: string, score: string) {
+    setPlayerState((prev) => {
+      if (!prev) return prev
+      const gain = FRIENDSHIP_GAIN[score] ?? 0
+      if (gain === 0) return prev
+      const rels = { ...(prev.relationships ?? {}) }
+      const existing = rels[characterId] ?? { friendship: 0, timesServed: 0, lastSeenAt: prev.totalCustomersServed }
+      rels[characterId] = {
+        friendship: Math.min(100, existing.friendship + gain),
+        timesServed: existing.timesServed + 1,
+        lastSeenAt: prev.totalCustomersServed,
+      }
+      const updated = { ...prev, relationships: rels }
+      saveState(updated)
+      return updated
+    })
   }
 
   function handlePurchase(upgradeId: string, tier: number, cost: number, durationMs: number) {
@@ -118,31 +92,15 @@ export default function Home() {
     })
   }
 
-  function handleDebugSet(field: 'coins' | 'reputation', value: number) {
+  function handleInstall(upgradeId: string) {
     setPlayerState((prev) => {
-      if (!prev) return prev
-      const updated = { ...prev, [field]: value }
-      saveState(updated)
-      return updated
+      if (!prev?.upgrades) return prev
+      const updated = installUpgrade(prev.upgrades, upgradeId)
+      const newState = { ...prev, upgrades: updated }
+      saveState(newState)
+      return newState
     })
-  }
-
-  function handleFriendshipGain(characterId: string, score: string) {
-    setPlayerState((prev) => {
-      if (!prev) return prev
-      const gain = FRIENDSHIP_GAIN[score] ?? 0
-      if (gain === 0) return prev
-      const rels = { ...(prev.relationships ?? {}) }
-      const existing = rels[characterId] ?? { friendship: 0, timesServed: 0, lastSeenDay: prev.currentDay }
-      rels[characterId] = {
-        friendship: Math.min(100, existing.friendship + gain),
-        timesServed: existing.timesServed + 1,
-        lastSeenDay: prev.currentDay,
-      }
-      const updated = { ...prev, relationships: rels }
-      saveState(updated)
-      return updated
-    })
+    setReadyToInstallIds((prev) => prev.filter((id) => id !== upgradeId))
   }
 
   function handleFinishUpgrade(upgradeId: string) {
@@ -161,6 +119,15 @@ export default function Home() {
     })
   }
 
+  function handleDebugSet(field: 'coins' | 'reputation', value: number) {
+    setPlayerState((prev) => {
+      if (!prev) return prev
+      const updated = { ...prev, [field]: value }
+      saveState(updated)
+      return updated
+    })
+  }
+
   function handleReset() {
     const fresh = createInitialState(expressions)
     setPlayerState(fresh)
@@ -168,52 +135,22 @@ export default function Home() {
     saveState(fresh)
   }
 
-  function handleInstall(upgradeId: string) {
-    setPlayerState((prev) => {
-      if (!prev?.upgrades) return prev
-      const updated = installUpgrade(prev.upgrades, upgradeId)
-      const newState = { ...prev, upgrades: updated }
-      saveState(newState)
-      return newState
-    })
-    // Remove from ready list
-    setReadyToInstallIds((prev) => prev.filter((id) => id !== upgradeId))
-  }
-
   return (
     <div id="game-container">
-      {phase === 'dayStart' && (
-        <DayStartView
-          day={playerState.currentDay}
-          coins={playerState.coins}
-          playerState={playerState}
-          readyToInstallIds={readyToInstallIds}
-          onOpenShop={handleOpenShop}
-          onPurchase={handlePurchase}
-          onInstall={handleInstall}
-          onDebugSet={handleDebugSet}
-          onReset={handleReset}
-          onFinishUpgrade={handleFinishUpgrade}
-        />
-      )}
-      {phase === 'gameplay' && (
-        <GameplayView
-          conversations={dayConversations}
-          playerState={playerState}
-          bonuses={bonuses}
-          onFriendshipGain={handleFriendshipGain}
-          roster={dayRoster}
-          onDayEnd={handleDayEnd}
-        />
-      )}
-      {phase === 'summary' && daySummary && (
-        <SummaryView
-          day={playerState.currentDay - 1}
-          summary={daySummary}
-          reputation={playerState.reputation}
-          onContinue={handleContinue}
-        />
-      )}
+      <GameplayView
+        templates={templates}
+        expressions={expressions}
+        playerState={playerState}
+        bonuses={bonuses}
+        readyToInstallIds={readyToInstallIds}
+        onStateUpdate={handleStateUpdate}
+        onFriendshipGain={handleFriendshipGain}
+        onPurchase={handlePurchase}
+        onInstall={handleInstall}
+        onFinishUpgrade={handleFinishUpgrade}
+        onDebugSet={handleDebugSet}
+        onReset={handleReset}
+      />
     </div>
   )
 }

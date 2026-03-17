@@ -2,29 +2,57 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  AnswerChoice, CustomerConversation, ResolvedExchange, Score,
-  EvaluationResult, DaySummary, PlayerState, CafeState,
+  AnswerChoice, ResolvedExchange, Score,
+  EvaluationResult, PlayerState, WorldState,
+  DialogueTemplate, Expression,
 } from '../lib/types'
-import { evaluateChoice } from '../lib/game'
+import { evaluateChoice, generateSingleConversation } from '../lib/game'
 import { updateMastery } from '../lib/state'
 import type { UpgradeBonuses } from '../lib/upgrades'
-import { createCafeState, tickCafe, startConversation, endConversation, recordResult } from '../lib/cafe-sim'
-import { getCharacter, getFriendshipLevel, FRIENDSHIP_GAIN } from '../lib/characters'
+import { createWorldState, tickWorld, startConversation, endConversation, spawnCharacter } from '../lib/cafe-sim'
+import { getCharacter, getFriendshipLevel, FRIENDSHIP_GAIN, pickNextCharacter, VoiceProfile } from '../lib/characters'
 import { CUSTOMER_SPRITES, PALETTE } from '../lib/sprites'
 import HUD from './HUD'
 import CafeCanvas from './CafeCanvas'
 import ContactsView from './ContactsView'
+import UpgradeShop from './UpgradeShop'
 
 interface GameplayViewProps {
-  conversations: CustomerConversation[]
+  templates: DialogueTemplate[]
+  expressions: Expression[]
   playerState: PlayerState
   bonuses: UpgradeBonuses
+  readyToInstallIds: string[]
+  onStateUpdate: (updates: Partial<PlayerState>) => void
   onFriendshipGain: (characterId: string, score: string) => void
-  roster: string[]
-  onDayEnd: (summary: DaySummary, updatedState: PlayerState) => void
+  onPurchase: (upgradeId: string, tier: number, cost: number, durationMs: number) => void
+  onInstall: (upgradeId: string) => void
+  onFinishUpgrade: (upgradeId: string) => void
+  onDebugSet: (field: 'coins' | 'reputation', value: number) => void
+  onReset: () => void
 }
 
 const PATIENCE_DURATION = 20_000
+
+let _audioCtx: AudioContext | null = null
+function playCoinSound() {
+  if (typeof window === 'undefined') return
+  if (!_audioCtx) _audioCtx = new AudioContext()
+  const ctx = _audioCtx
+  const now = ctx.currentTime
+  // Two quick ascending tones
+  for (let i = 0; i < 2; i++) {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'square'
+    osc.frequency.value = i === 0 ? 987 : 1319 // B5, E6
+    gain.gain.setValueAtTime(0.08, now + i * 0.08)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.12)
+    osc.connect(gain).connect(ctx.destination)
+    osc.start(now + i * 0.08)
+    osc.stop(now + i * 0.08 + 0.12)
+  }
+}
 
 function spriteToDataURL(spriteVariant: number, size: number): string {
   const sprites = CUSTOMER_SPRITES[spriteVariant % CUSTOMER_SPRITES.length]
@@ -57,13 +85,11 @@ function loadVoices() {
   if (voices.length === 0) return
   voicesLoaded = true
   const frenchVoices = voices.filter(v => v.lang.startsWith('fr'))
-  // Male: prefer Thomas on macOS, avoid known female names
   cachedMaleVoice =
     frenchVoices.find(v => /thomas|male|homme/i.test(v.name)) ??
     frenchVoices.find(v => !/female|femme|amélie|audrey|marie|sophie|julie/i.test(v.name)) ??
     frenchVoices[0] ??
     null
-  // Female: prefer Amélie/Audrey/Marie on macOS, or any with female keywords
   cachedFemaleVoice =
     frenchVoices.find(v => /amélie|audrey|marie|female|femme|sophie|julie/i.test(v.name)) ??
     frenchVoices.find(v => v !== cachedMaleVoice) ??
@@ -71,20 +97,24 @@ function loadVoices() {
     null
 }
 
-// Load voices eagerly — some browsers fire this event, others have them ready immediately
 if (typeof window !== 'undefined' && window.speechSynthesis) {
   loadVoices()
   window.speechSynthesis.onvoiceschanged = loadVoices
 }
 
-function speakFrench(text: string, gender: 'male' | 'female' = 'male'): Promise<void> {
+function speakFrench(text: string, gender: 'male' | 'female' = 'male', profile?: VoiceProfile): Promise<void> {
   return new Promise((resolve) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) { resolve(); return }
     if (!voicesLoaded) loadVoices()
     window.speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = 'fr-FR'
-    utterance.rate = 0.85
+    // Apply voice profile with slight random jitter per utterance
+    const jitterP = (Math.random() - 0.5) * 0.06 // ±0.03
+    const jitterR = (Math.random() - 0.5) * 0.04 // ±0.02
+    utterance.pitch = Math.max(0.5, Math.min(2, (profile?.pitch ?? 1.0) + jitterP))
+    utterance.rate = Math.max(0.5, Math.min(2, (profile?.rate ?? 0.85) + jitterR))
+    utterance.volume = profile?.volume ?? 1.0
     const voice = gender === 'female' ? cachedFemaleVoice : cachedMaleVoice
     if (voice) utterance.voice = voice
     utterance.onend = () => resolve()
@@ -94,16 +124,27 @@ function speakFrench(text: string, gender: 'male' | 'female' = 'male'): Promise<
 }
 
 export default function GameplayView({
-  conversations,
+  templates,
+  expressions,
   playerState,
   bonuses,
+  readyToInstallIds,
+  onStateUpdate,
   onFriendshipGain,
-  roster,
-  onDayEnd,
+  onPurchase,
+  onInstall,
+  onFinishUpgrade,
+  onDebugSet,
+  onReset,
 }: GameplayViewProps) {
   // Simulation state (mutable ref, no re-renders on frame updates)
-  const cafeStateRef = useRef<CafeState | null>(null)
+  const cafeStateRef = useRef<WorldState | null>(null)
   const lastFrameRef = useRef(0)
+
+  // Refs for on-demand spawning
+  const recentCharacterIdsRef = useRef<string[]>([])
+  const playerStateRef = useRef(playerState)
+  playerStateRef.current = playerState
 
   // React state for UI updates
   const [activeExchange, setActiveExchange] = useState<ResolvedExchange | null>(null)
@@ -114,13 +155,21 @@ export default function GameplayView({
   const [patiencePercent, setPatiencePercent] = useState(100)
   const [activeCharacterName, setActiveCharacterName] = useState<string | null>(null)
   const activeGenderRef = useRef<'male' | 'female'>('male')
+  const activeVoiceRef = useRef<VoiceProfile | undefined>(undefined)
   const [friendshipGain, setFriendshipGain] = useState<number | null>(null)
   const [inspectedCharacterId, setInspectedCharacterId] = useState<string | null>(null)
   const [showContacts, setShowContacts] = useState(false)
-  const [displayCoins, setDisplayCoins] = useState(playerState.coins)
-  const [displayRep, setDisplayRep] = useState(playerState.reputation)
-  const [served, setServed] = useState(0)
-  const [dayOver, setDayOver] = useState(false)
+  const [showUpgradeShop, setShowUpgradeShop] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [sessionServed, setSessionServed] = useState(0)
+  const [musicVolume, setMusicVolume] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('coffee-lingo-volume')
+      return saved !== null ? Number(saved) : 0.3
+    }
+    return 0.3
+  })
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   // Refs for callback stability
   const respondingRef = useRef(false)
@@ -129,16 +178,42 @@ export default function GameplayView({
   const patienceStartRef = useRef(0)
   const patienceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Initialize simulation (only on mount — playerState changes mid-day must not reset)
-  const initialPlayerStateRef = useRef(playerState)
+  // Initialize simulation once on mount
   useEffect(() => {
-    const state = createCafeState(conversations, conversations.length, initialPlayerStateRef.current, roster)
+    const state = createWorldState(bonuses.maxInShopBonus)
     cafeStateRef.current = state
     lastFrameRef.current = performance.now()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations])
 
-  // Simulation loop
+    // Initialize audio
+    const audio = new Audio('/coffee_track.mp3')
+    audio.loop = true
+    audio.volume = musicVolume
+    audioRef.current = audio
+    return () => { audio.pause(); audio.src = '' }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleSceneChange = useCallback((scene: 'interior' | 'outside') => {
+    const audio = audioRef.current
+    if (!audio || musicVolume === 0) return
+    if (scene === 'interior') {
+      audio.play().catch(() => {})
+    } else {
+      audio.pause()
+    }
+  }, [musicVolume])
+
+  const handleVolumeChange = useCallback((vol: number) => {
+    setMusicVolume(vol)
+    localStorage.setItem('coffee-lingo-volume', String(vol))
+    const audio = audioRef.current
+    if (audio) {
+      audio.volume = vol
+      if (vol === 0) { audio.pause() } else { audio.play().catch(() => {}) }
+    }
+  }, [])
+
+  // Simulation loop with on-demand spawning
   useEffect(() => {
     let running = true
 
@@ -151,14 +226,36 @@ export default function GameplayView({
       }
 
       const now = performance.now()
-      const deltaMs = Math.min(now - lastFrameRef.current, 100) // cap at 100ms
+      const deltaMs = Math.min(now - lastFrameRef.current, 100)
       lastFrameRef.current = now
 
-      const result = tickCafe(state, deltaMs)
+      const result = tickWorld(state, deltaMs)
 
-      if (result.dayOver && !dayOver) {
-        setDayOver(true)
-        finishDay()
+      if (result.shouldSpawn) {
+        const ps = playerStateRef.current
+        // Collect characters currently in the world to avoid duplicates
+        const presentCharIds = state.characters.map(c => c.characterId)
+        const characterId = pickNextCharacter(
+          ps.reputation,
+          ps.relationships ?? {},
+          ps.totalCustomersServed,
+          recentCharacterIdsRef.current,
+          presentCharIds
+        )
+        // Empty string means all unlocked characters are already in the world
+        if (!characterId) { requestAnimationFrame(loop); return }
+        const { conversation, usedTemplateIds } = generateSingleConversation(
+          templates, expressions, ps.vocabulary, ps.recencyBuffer
+        )
+        spawnCharacter(state, conversation, characterId)
+
+        // Update recency buffers
+        recentCharacterIdsRef.current = [...recentCharacterIdsRef.current, characterId].slice(-5)
+        // Update template recency in state
+        const newRecency = [...ps.recencyBuffer, ...usedTemplateIds].slice(-6)
+        if (newRecency.join() !== ps.recencyBuffer.join()) {
+          onStateUpdate({ recencyBuffer: newRecency })
+        }
       }
 
       requestAnimationFrame(loop)
@@ -167,7 +264,7 @@ export default function GameplayView({
     requestAnimationFrame(loop)
     return () => { running = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dayOver])
+  }, [])
 
   // Patience timer for active conversation
   useEffect(() => {
@@ -186,7 +283,6 @@ export default function GameplayView({
 
       if (remaining <= 0) {
         if (patienceTimerRef.current) clearInterval(patienceTimerRef.current)
-        // Auto-timeout
         if (respondingRef.current && !processingRef.current) {
           processResult(null)
         }
@@ -206,7 +302,7 @@ export default function GameplayView({
     const convo = startConversation(state, customerId)
     if (!convo) return
 
-    const customer = state.customers.find(c => c.id === customerId)
+    const customer = state.characters.find(c => c.id === customerId)
     if (!customer) return
 
     const exchange = customer.conversation.exchanges[convo.exchangeIndex]
@@ -215,6 +311,7 @@ export default function GameplayView({
     const charData = getCharacter(customer.characterId)
     setActiveCharacterName(charData?.name ?? null)
     activeGenderRef.current = charData?.gender ?? 'male'
+    activeVoiceRef.current = charData?.voice
     setActiveExchange(exchange)
     setLastResult(null)
     setSelectedChoiceId(null)
@@ -224,7 +321,7 @@ export default function GameplayView({
     respondingRef.current = true
     processingRef.current = false
     setPatiencePercent(100)
-    speakFrench(exchange.customerLine, activeGenderRef.current)
+    speakFrench(exchange.customerLine, activeGenderRef.current, activeVoiceRef.current)
   }, [])
 
   const processResult = useCallback((choice: AnswerChoice | null) => {
@@ -236,7 +333,7 @@ export default function GameplayView({
     const state = cafeStateRef.current
     if (!state || !state.activeConvo) return
 
-    const customer = state.customers.find(c => c.id === state.activeConvo!.customerId)
+    const customer = state.characters.find(c => c.id === state.activeConvo!.customerId)
     if (!customer) return
 
     const exchange = customer.conversation.exchanges[state.activeConvo.exchangeIndex]
@@ -248,6 +345,8 @@ export default function GameplayView({
 
     setLastResult(result)
 
+    if (result.score === 'PERFECT' || result.score === 'GOOD') playCoinSound()
+
     // Show friendship gain + update immediately
     const gain = FRIENDSHIP_GAIN[result.score] ?? 0
     if (gain > 0 && customer.characterId) {
@@ -258,40 +357,28 @@ export default function GameplayView({
       setFriendshipGain(null)
     }
 
-    // Record into accumulator
-    recordResult(state, result.score, result.tipAmount)
-
-    // Track character interaction (keep best score)
-    if (customer.characterId) {
-      const scoreRank: Record<string, number> = { PERFECT: 3, GOOD: 2, UNDERSTOOD: 1, MISSED: 0 }
-      const existing = state.dayAccumulator.characterScores.get(customer.characterId)
-      if (!existing || scoreRank[result.score] > scoreRank[existing]) {
-        state.dayAccumulator.characterScores.set(customer.characterId, result.score)
-      }
-    }
-
-    // Update mastery
+    // Apply state updates immediately (coins, rep, vocabulary)
+    const ps = playerStateRef.current
     const words = choice?.expressions ?? []
-    const acc = state.dayAccumulator
-    for (const w of words) acc.wordsPracticed.add(w.id)
-
-    const prevState = acc.playerState
-    const newState = updateMastery(
-      prevState, words,
+    const updatedState = updateMastery(
+      ps, words,
       exchange.requiredIdeas, exchange.bonusIdeas,
-      prevState.currentDay, bonuses.masteryXpMultiplier
+      bonuses.masteryXpMultiplier
     )
 
-    for (const w of words) {
-      const prevLevel = prevState.vocabulary[w.id]?.masteryLevel ?? 0
-      const newLevel = newState.vocabulary[w.id]?.masteryLevel ?? 0
-      if (newLevel > prevLevel) acc.wordsLeveledUp.push(w.id)
-    }
-    acc.playerState = newState
+    // Compute rep change for this exchange
+    let repChange = bonuses.repBonusPerCustomer
+    if (result.score === 'PERFECT') repChange += 1
+    if (result.score === 'MISSED') repChange -= 1
 
-    setDisplayCoins(newState.coins + acc.coinsEarned)
-    setDisplayRep(newState.reputation + acc.reputationChange)
-    setServed(acc.customersServed)
+    onStateUpdate({
+      coins: Math.round((updatedState.coins + result.tipAmount) * 100) / 100,
+      reputation: Math.max(0, Math.round(updatedState.reputation + repChange)),
+      vocabulary: updatedState.vocabulary,
+      totalCustomersServed: updatedState.totalCustomersServed + 1,
+    })
+
+    setSessionServed(prev => prev + 1)
 
     // Show score briefly, then advance to next exchange or end conversation
     setTimeout(() => {
@@ -299,7 +386,6 @@ export default function GameplayView({
       const nextExchange = customer.conversation.exchanges[nextIndex]
 
       if (nextExchange) {
-        // Advance to next exchange in same conversation
         state.activeConvo!.exchangeIndex = nextIndex
         customer.nextExchangeIndex = nextIndex
         setActiveExchange(nextExchange)
@@ -311,9 +397,8 @@ export default function GameplayView({
         respondingRef.current = true
         processingRef.current = false
         setPatiencePercent(100)
-        speakFrench(nextExchange.customerLine, activeGenderRef.current)
+        speakFrench(nextExchange.customerLine, activeGenderRef.current, activeVoiceRef.current)
       } else {
-        // No more exchanges — end conversation
         endConversation(state)
         setActiveExchange(null)
         setLastResult(null)
@@ -321,28 +406,7 @@ export default function GameplayView({
         processingRef.current = false
       }
     }, 1000)
-  }, [])
-
-  function finishDay() {
-    const state = cafeStateRef.current
-    if (!state) return
-
-    const acc = state.dayAccumulator
-    const summary: DaySummary = {
-      customersServed: acc.customersServed,
-      totalCustomers: state.maxToSpawn,
-      scores: { ...acc.scores },
-      coinsEarned: acc.coinsEarned,
-      reputationChange: acc.reputationChange + 2 + bonuses.repBonusPerDay,
-      wordsPracticed: acc.wordsPracticed.size,
-      wordsLeveledUp: [...acc.wordsLeveledUp],
-      characterInteractions: [...acc.characterScores.entries()].map(([characterId, bestScore]) => ({
-        characterId,
-        bestScore,
-      })),
-    }
-    onDayEnd(summary, acc.playerState)
-  }
+  }, [bonuses, onFriendshipGain, onStateUpdate])
 
   function handleChoiceTap(choice: AnswerChoice) {
     if (!responding || processingRef.current) return
@@ -350,9 +414,8 @@ export default function GameplayView({
     setResponding(false)
     respondingRef.current = false
     processingRef.current = true
-    // Speak the answer, then process result after TTS finishes
     speakFrench(choice.displayText).then(() => {
-      processingRef.current = false // allow processResult to proceed
+      processingRef.current = false
       processResult(choice)
     })
   }
@@ -366,23 +429,12 @@ export default function GameplayView({
     })
   }
 
-  // Get active customer's screen position for speech bubble
-  const getActiveCustomerScreenPos = () => {
-    const state = cafeStateRef.current
-    if (!state?.activeConvo) return null
-    const customer = state.customers.find(c => c.id === state.activeConvo!.customerId)
-    if (!customer) return null
-    return customer.worldPos
-  }
-
   return (
     <>
       <HUD
-        day={playerState.currentDay}
-        coins={displayCoins}
-        reputation={displayRep}
-        customersRemaining={conversations.length - served}
-        totalCustomers={conversations.length}
+        coins={playerState.coins}
+        reputation={playerState.reputation}
+        customersServed={sessionServed}
       />
 
       <CafeCanvas
@@ -390,8 +442,23 @@ export default function GameplayView({
         onCustomerTap={handleCustomerTap}
         onCharacterTap={setInspectedCharacterId}
         onContactsTap={() => setShowContacts(true)}
+        onUpgradesTap={() => setShowUpgradeShop(true)}
+        onSettingsTap={() => setShowSettings(true)}
+        onSceneChange={handleSceneChange}
         upgrades={playerState.upgrades}
       />
+
+      {/* Upgrade install toasts */}
+      {readyToInstallIds.length > 0 && (
+        <div style={styles.toastContainer}>
+          {readyToInstallIds.map((id) => (
+            <div key={id} style={styles.toast}>
+              <span style={{ flex: 1, fontWeight: 600 }}>Upgrade ready!</span>
+              <button style={styles.toastButton} onClick={() => onInstall(id)}>Install</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {showContacts && (
         <ContactsView
@@ -399,6 +466,63 @@ export default function GameplayView({
           reputation={playerState.reputation}
           onClose={() => setShowContacts(false)}
         />
+      )}
+
+      {showUpgradeShop && (
+        <UpgradeShop
+          playerState={playerState}
+          onPurchase={onPurchase}
+          onInstall={onInstall}
+          onFinishUpgrade={onFinishUpgrade}
+          onClose={() => setShowUpgradeShop(false)}
+        />
+      )}
+
+      {showSettings && (
+        <div style={styles.settingsOverlay} onClick={() => setShowSettings(false)}>
+          <div style={styles.settingsCard} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#FFEFD5', marginBottom: 12 }}>Settings</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ color: '#FFEFD5', fontSize: 13 }}>{musicVolume === 0 ? '🔇' : '🔊'}</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={musicVolume}
+                onChange={e => handleVolumeChange(Number(e.target.value))}
+                style={{ flex: 1, accentColor: '#FFD54F' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button
+                style={styles.debugButton}
+                onClick={() => {
+                  const val = prompt('Set coins:', String(playerState.coins))
+                  if (val !== null) onDebugSet('coins', Number(val) || 0)
+                }}
+              >
+                Set Coins
+              </button>
+              <button
+                style={styles.debugButton}
+                onClick={() => {
+                  const val = prompt('Set reputation:', String(playerState.reputation))
+                  if (val !== null) onDebugSet('reputation', Number(val) || 0)
+                }}
+              >
+                Set Rep
+              </button>
+            </div>
+            <button
+              style={styles.resetButton}
+              onClick={() => { if (confirm('Reset all progress?')) { onReset(); setShowSettings(false) } }}
+            >
+              Reset Game
+            </button>
+            <button style={styles.closeSettingsButton} onClick={() => setShowSettings(false)}>Close</button>
+          </div>
+        </div>
       )}
 
       {/* Character info popup */}
@@ -445,7 +569,6 @@ export default function GameplayView({
       {/* Conversation overlay */}
       {activeExchange && (
         <>
-          {/* Speech bubble - fixed position over canvas */}
           <div style={styles.speechOverlay}>
             <div style={styles.speechBubble}>
               {activeCharacterName && (
@@ -461,7 +584,6 @@ export default function GameplayView({
               {hintLevel >= 2 && <div style={styles.hintTranslation}>{activeExchange.hintTranslation}</div>}
             </div>
 
-            {/* Patience bar */}
             <div style={styles.patienceContainer}>
               <div style={{
                 ...styles.patienceBar,
@@ -470,10 +592,8 @@ export default function GameplayView({
               }} />
             </div>
 
-            {/* Hint button */}
             <button style={styles.hintButton} onClick={handleHint}>?</button>
 
-            {/* Score display */}
             {lastResult && (
               <div style={styles.scoreContainer}>
                 <div style={{ ...styles.scoreText, color: SCORE_COLORS[lastResult.score] }}>
@@ -528,6 +648,90 @@ const SCORE_COLORS: Record<Score, string> = {
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  toastContainer: {
+    position: 'absolute',
+    top: 40,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    zIndex: 20,
+    width: '80%',
+    maxWidth: 320,
+  },
+  toast: {
+    backgroundColor: '#FFD54F',
+    color: '#3E2723',
+    padding: '8px 12px',
+    borderRadius: 10,
+    fontSize: 13,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+  },
+  toastButton: {
+    backgroundColor: '#3E2723',
+    color: '#FFD54F',
+    border: 'none',
+    borderRadius: 6,
+    padding: '4px 12px',
+    fontWeight: 700,
+    fontSize: 12,
+    cursor: 'pointer',
+  },
+  settingsOverlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  settingsCard: {
+    backgroundColor: '#3E2723',
+    borderRadius: 14,
+    padding: 20,
+    border: '2px solid #5D4037',
+    boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
+    width: '80%',
+    maxWidth: 300,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 4,
+  },
+  debugButton: {
+    flex: 1,
+    backgroundColor: '#5D4037',
+    color: '#FFEFD5',
+    border: '1px solid #8D6E63',
+    borderRadius: 8,
+    padding: '8px 0',
+    fontSize: 12,
+    cursor: 'pointer',
+  },
+  resetButton: {
+    backgroundColor: 'transparent',
+    color: '#F44336',
+    border: '1px solid #F44336',
+    borderRadius: 8,
+    padding: '8px 0',
+    fontSize: 12,
+    cursor: 'pointer',
+    marginBottom: 4,
+  },
+  closeSettingsButton: {
+    backgroundColor: '#5D4037',
+    color: '#FFEFD5',
+    border: 'none',
+    borderRadius: 8,
+    padding: '8px 0',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
   speechOverlay: {
     position: 'absolute',
     top: 0,

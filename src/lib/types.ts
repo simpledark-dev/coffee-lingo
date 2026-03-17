@@ -68,11 +68,11 @@ export interface UpgradeLevel {
 export interface Relationship {
   friendship: number       // 0-100
   timesServed: number
-  lastSeenDay: number
+  lastSeenAt: number       // totalCustomersServed when last seen
 }
 
 export interface PlayerState {
-  currentDay: number
+  totalCustomersServed: number
   coins: number
   reputation: number
   vocabulary: Record<string, VocabularyEntry>
@@ -84,27 +84,11 @@ export interface PlayerState {
 export interface VocabularyEntry {
   masteryLevel: number
   totalSuccessfulUses: number
-  sessionsUsedIn: number
-  lastUsedDay: number
 }
 
-export interface CharacterInteraction {
-  characterId: string
-  bestScore: Score
-}
+// --- World simulation types ---
 
-export interface DaySummary {
-  customersServed: number
-  totalCustomers: number
-  scores: Record<Score, number>
-  coinsEarned: number
-  reputationChange: number
-  wordsPracticed: number
-  wordsLeveledUp: string[]
-  characterInteractions: CharacterInteraction[]
-}
-
-// --- Multi-customer cafe simulation types ---
+export type WorldLocation = 'outside' | 'interior'
 
 export interface GridPos {
   row: number
@@ -140,7 +124,9 @@ export interface CustomerState {
   characterId: string
   spriteVariant: number
   phase: CustPhase
-  worldPos: WorldPos
+  location: WorldLocation
+  worldPos: WorldPos              // position on interior grid
+  outsideWorldPos: WorldPos       // position on outside grid
   path: GridPos[]
   pathIndex: number
   currentPOI: string | null
@@ -150,7 +136,8 @@ export interface CustomerState {
   nextExchangeIndex: number
   exclamationTimer: number | null
   idleTimer: number | null
-  stopsRemaining: number
+  stopsRemaining: number          // POI stops remaining in current location
+  outsideStopsRemaining: number   // outside POI stops before deciding next action
   hasActiveRequest: boolean
 }
 
@@ -164,28 +151,23 @@ export interface ActiveConvo {
   patienceStart: number
 }
 
-export interface CafeState {
-  customers: CustomerState[]
+export interface WorldState {
+  characters: CustomerState[]
   activeConvo: ActiveConvo | null
-  poiOccupancy: Map<string, number[]>
+  interiorPOIOccupancy: Map<string, number[]>
+  outsidePOIOccupancy: Map<string, number[]>
   nextId: number
   spawnTimer: number
   totalSpawned: number
-  maxToSpawn: number
-  dayAccumulator: DayAccumulator
+  maxInWorld: number    // total characters across all locations (e.g. 12)
+  maxInCafe: number     // max characters inside cafe (6 + upgrades)
 }
 
-export interface DayAccumulator {
-  coinsEarned: number
-  reputationChange: number
-  scores: Record<Score, number>
-  wordsPracticed: Set<string>
-  wordsLeveledUp: string[]
-  customersServed: number
-  playerState: PlayerState
-  characterScores: Map<string, Score>  // characterId → best score this day
+// Keep alias for compatibility during migration
+export type CafeState = WorldState
+
+export interface WorldTickResult {
+  shouldSpawn: boolean
 }
 
-export interface CafeTickResult {
-  dayOver: boolean
-}
+export type CafeTickResult = WorldTickResult

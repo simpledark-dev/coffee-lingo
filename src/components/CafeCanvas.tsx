@@ -28,14 +28,17 @@ import {
   DOOR_POS,
   T,
 } from '../lib/tilemap'
-import type { CafeState } from '../lib/types'
+import type { WorldState } from '../lib/types'
 import { getActiveSpriteKey } from '../lib/upgrades'
 
 interface CafeCanvasProps {
-  cafeStateRef: React.RefObject<CafeState | null>
+  cafeStateRef: React.RefObject<WorldState | null>
   onCustomerTap: (customerId: number) => void
   onCharacterTap?: (characterId: string) => void
   onContactsTap?: () => void
+  onUpgradesTap?: () => void
+  onSettingsTap?: () => void
+  onSceneChange?: (scene: 'interior' | 'outside') => void
   upgrades?: Record<string, import('../lib/types').UpgradeLevel>
 }
 
@@ -160,6 +163,9 @@ export default function CafeCanvas({
   onCustomerTap,
   onCharacterTap,
   onContactsTap,
+  onUpgradesTap,
+  onSettingsTap,
+  onSceneChange,
   upgrades,
 }: CafeCanvasProps) {
   // Build dynamic tile→sprite map based on upgrade tiers
@@ -469,6 +475,21 @@ export default function CafeCanvas({
         const bgCamX = Math.max(0, (outsideW - viewWRef.current) / 2)
         const worldX = canvasX + bgCamX
         const worldY = canvasY + camY
+        // Check tap on outside characters (info popup)
+        const outsideState = cafeStateRef.current
+        if (outsideState) {
+          const TAP_R = 60
+          for (const customer of outsideState.characters) {
+            if (customer.location !== 'outside') continue
+            const cx = customer.outsideWorldPos.x + TILE_PX / 2
+            const cy = customer.outsideWorldPos.y + TILE_PX / 2
+            if (Math.sqrt((worldX - cx) ** 2 + (worldY - cy) ** 2) < TAP_R) {
+              onCharacterTap?.(customer.characterId)
+              return
+            }
+          }
+        }
+
         // Café occupies rows 5-8, cols 0-3
         const cafeX0 = 0
         const cafeX1 = 4 * TILE_PX
@@ -477,6 +498,7 @@ export default function CafeCanvas({
         if (worldX >= cafeX0 && worldX <= cafeX1 && worldY >= cafeY0 && worldY <= cafeY1) {
           sceneRef.current = 'interior'
           setScene('interior')
+          onSceneChange?.('interior')
         }
         return
       }
@@ -491,9 +513,18 @@ export default function CafeCanvas({
       if (Math.sqrt((worldX - doorWorldX) ** 2 + (worldY - doorWorldY) ** 2) < 50) {
         sceneRef.current = 'outside'
         setScene('outside')
+        onSceneChange?.('outside')
         // Center camera on the café (rows 5-8, center ~row 6)
         const cafeCenterY = 6 * TILE_PX
         outsideCamYRef.current = Math.max(0, cafeCenterY - viewHRef.current / 2)
+        return
+      }
+
+      // Check upgrade button tap (tile row 28, col 11 — left of first coffee machine)
+      const upgBtnX = 11 * TILE_PX + TILE_PX / 2
+      const upgBtnY = 28 * TILE_PX + TILE_PX / 2
+      if (Math.sqrt((worldX - upgBtnX) ** 2 + (worldY - upgBtnY) ** 2) < TILE_PX * 0.7) {
+        onUpgradesTap?.()
         return
       }
 
@@ -503,8 +534,8 @@ export default function CafeCanvas({
 
       const TAP_RADIUS = 60
       // Priority: exclamation customers first (interactive)
-      for (const customer of state.customers) {
-        if (customer.phase !== 'exclamation') continue
+      for (const customer of state.characters) {
+        if (customer.location !== 'interior' || customer.phase !== 'exclamation') continue
         const cx = customer.worldPos.x + TILE_PX / 2
         const cy = customer.worldPos.y + TILE_PX / 2
         const dist = Math.sqrt((worldX - cx) ** 2 + (worldY - cy) ** 2)
@@ -513,8 +544,9 @@ export default function CafeCanvas({
           return
         }
       }
-      // Then: any non-exclamation customer → show info
-      for (const customer of state.customers) {
+      // Then: any non-exclamation interior customer → show info
+      for (const customer of state.characters) {
+        if (customer.location !== 'interior') continue
         if (customer.phase === 'exclamation' || customer.phase === 'exiting') continue
         const cx = customer.worldPos.x + TILE_PX / 2
         const cy = customer.worldPos.y + TILE_PX / 2
@@ -598,10 +630,33 @@ export default function CafeCanvas({
       drawCached(ctx, spriteCache, baristaSprite, 14 * TILE_PX, 28 * TILE_PX)
       ctx.restore()
 
+      // Draw upgrade button icon (row 28, col 11 — left of first coffee machine)
+      const upgIconX = 11 * TILE_PX + TILE_PX / 2 - camX
+      const upgIconY = 28 * TILE_PX + TILE_PX / 2 - camY
+      if (upgIconX > -TILE_PX && upgIconX < viewW + TILE_PX && upgIconY > -TILE_PX && upgIconY < viewH + TILE_PX) {
+        const pulse = 0.85 + 0.15 * Math.sin(tickRef.current * 0.06)
+        ctx.save()
+        ctx.globalAlpha = pulse
+        // Circle background
+        ctx.beginPath()
+        ctx.arc(upgIconX, upgIconY, TILE_PX * 0.38, 0, Math.PI * 2)
+        ctx.fillStyle = '#5D4037'
+        ctx.fill()
+        ctx.strokeStyle = '#FFD54F'
+        ctx.lineWidth = 2
+        ctx.stroke()
+        // Wrench/hammer emoji
+        ctx.font = `${Math.round(12 * SCALE)}px sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('🔧', upgIconX, upgIconY)
+        ctx.restore()
+      }
+
       // Draw customers sorted by Y for depth
       const state = cafeStateRef.current
       if (state) {
-        const sorted = [...state.customers].sort((a, b) => a.worldPos.y - b.worldPos.y)
+        const sorted = state.characters.filter(c => c.location === 'interior').sort((a, b) => a.worldPos.y - b.worldPos.y)
 
         ctx.save()
         ctx.translate(-camX, -camY)
@@ -658,8 +713,8 @@ export default function CafeCanvas({
         if (alertCheckCounter >= 30) {
           alertCheckCounter = 0
           const room = currentRoomRef.current
-          const hasAlert = state.customers.some(c => {
-            if (c.phase !== 'exclamation') return false
+          const hasAlert = state.characters.some(c => {
+            if (c.location !== 'interior' || c.phase !== 'exclamation') return false
             const customerRoom = c.worldPos.x < ROOM_W ? 0 : 1
             return customerRoom !== room
           })
@@ -929,6 +984,34 @@ export default function CafeCanvas({
         }
       }
 
+      // Draw outside characters
+      const outsideState = cafeStateRef.current
+      if (outsideState) {
+        const outsideChars = outsideState.characters
+          .filter(c => c.location === 'outside')
+          .sort((a, b) => a.outsideWorldPos.y - b.outsideWorldPos.y)
+
+        for (const customer of outsideChars) {
+          const spriteSet = CUSTOMER_SPRITES[customer.spriteVariant % CUSTOMER_SPRITES.length]
+          const sprite = spriteSet[customer.facingDir]
+          const pos = customer.outsideWorldPos
+          drawCached(ctx, spriteCache, sprite, pos.x - bgCamX, pos.y - camY)
+
+          // Name above head
+          const char = getCharacter(customer.characterId)
+          if (char) {
+            const nameX = pos.x - bgCamX + TILE_PX / 2
+            const nameY = pos.y - camY - 4
+            ctx.font = `bold ${Math.round(8 * SCALE)}px sans-serif`
+            ctx.textAlign = 'center'
+            ctx.fillStyle = 'rgba(0,0,0,0.5)'
+            ctx.fillText(char.name, nameX + 1, nameY + 1)
+            ctx.fillStyle = '#FFEFD5'
+            ctx.fillText(char.name, nameX, nameY)
+          }
+        }
+      }
+
       ctx.restore()
     }
 
@@ -1057,6 +1140,12 @@ export default function CafeCanvas({
       )}
       {/* Bottom buttons — always visible */}
       <button
+        style={styles.settingsButton}
+        onClick={() => onSettingsTap?.()}
+      >
+        ⚙️
+      </button>
+      <button
         style={styles.contactsButton}
         onClick={() => onContactsTap?.()}
       >
@@ -1155,6 +1244,23 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     bottom: 10,
     right: 10,
+    width: 36,
+    height: 36,
+    background: 'rgba(93, 64, 55, 0.85)',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: 8,
+    fontSize: 18,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+  },
+  settingsButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 178,
     width: 36,
     height: 36,
     background: 'rgba(93, 64, 55, 0.85)',

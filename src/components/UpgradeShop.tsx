@@ -86,7 +86,7 @@ export default function UpgradeShop({ playerState, onPurchase, onInstall, onFini
         {/* Header */}
         <div style={styles.header}>
           <span style={styles.title}>Upgrades</span>
-          <span style={styles.coins}>{playerState.coins} coins</span>
+          <span style={styles.coins}>{Math.round(playerState.coins)} coins</span>
           <button style={styles.closeBtn} onClick={onClose}>X</button>
         </div>
 
