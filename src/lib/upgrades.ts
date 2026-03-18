@@ -1,4 +1,5 @@
 import type { UpgradeLevel } from './types'
+import { T } from './tilemap'
 
 export interface UpgradeTier {
   tier: number
@@ -30,7 +31,7 @@ export interface UpgradeCatalogEntry {
 }
 
 // Debug: set to 0 for instant upgrades, or e.g. 0.01 for ~100x faster timers
-export const UPGRADE_TIME_SCALE = 0
+export const UPGRADE_TIME_SCALE = 1
 
 const MIN = 60_000 * UPGRADE_TIME_SCALE
 const HOUR = 3_600_000 * UPGRADE_TIME_SCALE
@@ -100,6 +101,15 @@ export const UPGRADE_CATALOG: UpgradeCatalogEntry[] = [
     ],
   },
   {
+    id: 'BENCH',
+    displayName: 'Bench',
+    defaultSpriteKey: 'BENCH',
+    tiers: [
+      { tier: 1, name: 'Cushioned Iron Bench', description: 'Iron frame with soft cushion', bonusDescription: '+3s response time', cost: 150, requiredReputation: 15, durationMs: 45 * MIN, spriteKey: 'BENCH_T1' },
+      { tier: 2, name: 'Ornate Garden Bench', description: 'Gold filigree, velvet seat', bonusDescription: '+6s response time', cost: 400, requiredReputation: 35, durationMs: 2.5 * HOUR, spriteKey: 'BENCH_T2' },
+    ],
+  },
+  {
     id: 'FLOOR',
     displayName: 'Floor',
     defaultSpriteKey: 'FLOOR_WOOD',
@@ -113,6 +123,16 @@ export const UPGRADE_CATALOG: UpgradeCatalogEntry[] = [
 export function getUpgradeCatalogEntry(upgradeId: string): UpgradeCatalogEntry | undefined {
   return UPGRADE_CATALOG.find((e) => e.id === upgradeId)
 }
+
+// Furnishing tile types → upgrade catalog ID
+export const TILE_TO_UPGRADE_ID: Record<string, string> = {
+  [T.PLANT]: 'PLANT', [T.LAMP]: 'LAMP', [T.TABLE]: 'TABLE',
+  [T.CHAIR_U]: 'CHAIR', [T.CHAIR_D]: 'CHAIR',
+  [T.SHELF]: 'SHELF', [T.BOOKSHELF]: 'SHELF', [T.BENCH]: 'BENCH',
+}
+
+// Infrastructure upgrades (not per-item, stay as category upgrades)
+export const INFRASTRUCTURE_IDS = ['FLOOR', 'COFFEE_MACHINE', 'COUNTER']
 
 export function getActiveSpriteKey(
   upgradeId: string,
@@ -135,11 +155,19 @@ export function getUpgradeTimeRemaining(upgrade: UpgradeLevel): number {
 // Returns IDs of upgrades whose timers have elapsed but haven't been claimed yet
 export function getReadyToInstallIds(
   upgrades: Record<string, UpgradeLevel>,
+  furnishingUpgrades?: Record<string, UpgradeLevel>,
 ): string[] {
   const ready: string[] = []
   for (const [id, level] of Object.entries(upgrades)) {
     if (level.upgrading && getUpgradeTimeRemaining(level) === 0) {
       ready.push(id)
+    }
+  }
+  if (furnishingUpgrades) {
+    for (const [id, level] of Object.entries(furnishingUpgrades)) {
+      if (level.upgrading && getUpgradeTimeRemaining(level) === 0) {
+        ready.push(id)
+      }
     }
   }
   return ready
@@ -158,7 +186,7 @@ export function installUpgrade(
   }
 }
 
-const BONUS_TABLE: Record<string, Record<number, Partial<UpgradeBonuses>>> = {
+export const BONUS_TABLE: Record<string, Record<number, Partial<UpgradeBonuses>>> = {
   COFFEE_MACHINE: { 1: { tipMultiplier: 1.10 }, 2: { tipMultiplier: 1.25 } },
   COUNTER:        { 1: { repBonusPerCustomer: 1 }, 2: { repBonusPerCustomer: 2 } },
   TABLE:          { 1: { maxInShopBonus: 1 },       2: { maxInShopBonus: 2 } },
@@ -166,6 +194,7 @@ const BONUS_TABLE: Record<string, Record<number, Partial<UpgradeBonuses>>> = {
   PLANT:          { 1: { bonusCoinChance: 0.10 }, 2: { bonusCoinChance: 0.20 } },
   LAMP:           { 1: { hintPenaltyReduction: 0.15 }, 2: { hintPenaltyReduction: 0.30 } },
   SHELF:          { 1: { masteryXpMultiplier: 1.20 },  2: { masteryXpMultiplier: 1.40 } },
+  BENCH:          { 1: { patienceBonus: 3000 },   2: { patienceBonus: 6000 } },
   FLOOR:          { 1: { coinMultiplier: 1.05 },  2: { coinMultiplier: 1.10 } },
 }
 
@@ -180,12 +209,25 @@ const DEFAULT_BONUSES: UpgradeBonuses = {
   coinMultiplier: 1,
 }
 
-export function getUpgradeBonuses(upgrades?: Record<string, UpgradeLevel>): UpgradeBonuses {
-  if (!upgrades) return { ...DEFAULT_BONUSES }
+export function getUpgradeBonuses(
+  upgrades?: Record<string, UpgradeLevel>,
+  furnishingBonuses?: Record<string, number>,
+): UpgradeBonuses {
+  if (!upgrades && !furnishingBonuses) return { ...DEFAULT_BONUSES }
   const bonuses = { ...DEFAULT_BONUSES }
-  for (const [id, level] of Object.entries(upgrades)) {
-    const tierBonuses = BONUS_TABLE[id]?.[level.tier]
-    if (tierBonuses) Object.assign(bonuses, tierBonuses)
+  if (upgrades) {
+    for (const [id, level] of Object.entries(upgrades)) {
+      const tierBonuses = BONUS_TABLE[id]?.[level.tier]
+      if (tierBonuses) Object.assign(bonuses, tierBonuses)
+    }
+  }
+  // Apply furnishing bonuses (additive)
+  if (furnishingBonuses) {
+    for (const [key, value] of Object.entries(furnishingBonuses)) {
+      if (key in bonuses) {
+        (bonuses as Record<string, number>)[key] += value
+      }
+    }
   }
   return bonuses
 }

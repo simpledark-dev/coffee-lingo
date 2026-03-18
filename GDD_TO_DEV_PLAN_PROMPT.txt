@@ -1,3 +1,5 @@
+(old, not up to date)
+
 You are acting as my lead game engineer, technical architect, and implementation planner.
 
 We are building the MVP of a mobile-first web game called Coffee Lingo.

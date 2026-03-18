@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { PlayerState, Expression, DialogueTemplate } from '../src/lib/types'
 import { createInitialState, loadState, saveState } from '../src/lib/state'
-import { installUpgrade, getUpgradeBonuses, getReadyToInstallIds } from '../src/lib/upgrades'
+import { installUpgrade, getUpgradeBonuses, getReadyToInstallIds, getUpgradeTimeRemaining } from '../src/lib/upgrades'
+import { getFurnishingBonuses } from '../src/lib/furnishing'
 import { FRIENDSHIP_GAIN } from '../src/lib/characters'
 import GameplayView from '../src/components/GameplayView'
 import expressionsData from '../data/expressions.json'
@@ -29,7 +30,14 @@ export default function Home() {
     }
   }, [])
 
-  const bonuses = useMemo(() => getUpgradeBonuses(playerState?.upgrades), [playerState?.upgrades])
+  const furnishingBonuses = useMemo(
+    () => getFurnishingBonuses(playerState?.placedFurnishings ?? {}, playerState?.furnishingUpgrades),
+    [playerState?.placedFurnishings, playerState?.furnishingUpgrades]
+  )
+  const bonuses = useMemo(
+    () => getUpgradeBonuses(playerState?.upgrades, furnishingBonuses),
+    [playerState?.upgrades, furnishingBonuses]
+  )
 
   if (!playerState) {
     return (
@@ -119,6 +127,60 @@ export default function Home() {
     })
   }
 
+  function handleFurnishingPurchase(itemId: string, tier: number, cost: number, durationMs: number) {
+    setPlayerState((prev) => {
+      if (!prev || prev.coins < cost) return prev
+      const currentLevel = prev.furnishingUpgrades?.[itemId]
+      const updated: PlayerState = {
+        ...prev,
+        coins: prev.coins - cost,
+        furnishingUpgrades: {
+          ...(prev.furnishingUpgrades ?? {}),
+          [itemId]: {
+            tier: currentLevel?.tier ?? 0,
+            upgrading: { toTier: tier, startedAt: Date.now(), durationMs },
+          },
+        },
+      }
+      saveState(updated)
+      return updated
+    })
+  }
+
+  function handleFurnishingInstall(itemId: string) {
+    setPlayerState((prev) => {
+      if (!prev?.furnishingUpgrades?.[itemId]) return prev
+      const level = prev.furnishingUpgrades[itemId]
+      if (!level.upgrading || getUpgradeTimeRemaining(level) > 0) return prev
+      const updated: PlayerState = {
+        ...prev,
+        furnishingUpgrades: {
+          ...prev.furnishingUpgrades,
+          [itemId]: { tier: level.upgrading.toTier },
+        },
+      }
+      saveState(updated)
+      return updated
+    })
+    setReadyToInstallIds((prev) => prev.filter((id) => id !== itemId))
+  }
+
+  function handleFurnishingFinish(itemId: string) {
+    setPlayerState((prev) => {
+      if (!prev?.furnishingUpgrades?.[itemId]?.upgrading) return prev
+      const level = prev.furnishingUpgrades[itemId]
+      const updated: PlayerState = {
+        ...prev,
+        furnishingUpgrades: {
+          ...prev.furnishingUpgrades,
+          [itemId]: { ...level, upgrading: { ...level.upgrading!, startedAt: 0, durationMs: 0 } },
+        },
+      }
+      saveState(updated)
+      return updated
+    })
+  }
+
   function handleDebugSet(field: 'coins' | 'reputation', value: number) {
     setPlayerState((prev) => {
       if (!prev) return prev
@@ -148,6 +210,9 @@ export default function Home() {
         onPurchase={handlePurchase}
         onInstall={handleInstall}
         onFinishUpgrade={handleFinishUpgrade}
+        onFurnishingPurchase={handleFurnishingPurchase}
+        onFurnishingInstall={handleFurnishingInstall}
+        onFurnishingFinish={handleFurnishingFinish}
         onDebugSet={handleDebugSet}
         onReset={handleReset}
       />

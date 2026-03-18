@@ -34,7 +34,12 @@ function randomBetween(min: number, max: number): number {
   return min + Math.random() * (max - min)
 }
 
-export function createWorldState(maxInCafeBonus: number = 0): WorldState {
+export function createWorldState(
+  maxInCafeBonus: number = 0,
+  patioUnlocked: boolean = false,
+  tileOverrides: Map<string, string> = new Map(),
+  patioPOIs: import('./types').PointOfInterest[] = [],
+): WorldState {
   return {
     characters: [],
     activeConvo: null,
@@ -45,6 +50,9 @@ export function createWorldState(maxInCafeBonus: number = 0): WorldState {
     totalSpawned: 0,
     maxInWorld: DEFAULT_MAX_IN_WORLD,
     maxInCafe: DEFAULT_MAX_IN_CAFE + maxInCafeBonus,
+    patioUnlocked,
+    tileOverrides,
+    patioPOIs,
   }
 }
 
@@ -338,9 +346,9 @@ function transitionToInterior(customer: CustomerState, state: WorldState): void 
 
   // Find first interior destination
   const blocked = getInteriorBlocked(state, customer.id)
-  const poi = pickNextPOI(null, state.interiorPOIOccupancy, blocked)
+  const poi = pickNextPOI(null, state.interiorPOIOccupancy, blocked, state.patioUnlocked, state.patioPOIs)
   if (poi) {
-    customer.path = findPath(DOOR_ENTRY, poi.pos, blocked)
+    customer.path = findPath(DOOR_ENTRY, poi.pos, blocked, state.patioUnlocked, state.tileOverrides)
     customer.targetPOI = poi.id
     occupyInteriorPOI(state, poi.id, customer.id)
     if (customer.path.length === 0) {
@@ -483,14 +491,14 @@ function moveToNextInteriorPOI(customer: CustomerState, state: WorldState): void
   }
 
   const blocked = getInteriorBlocked(state, customer.id)
-  const poi = pickNextPOI(customer.currentPOI, state.interiorPOIOccupancy, blocked)
+  const poi = pickNextPOI(customer.currentPOI, state.interiorPOIOccupancy, blocked, state.patioUnlocked, state.patioPOIs)
   if (!poi) {
     startInteriorExiting(customer, state)
     return
   }
 
   const currentGrid = worldToGrid(customer.worldPos)
-  const path = findPath(currentGrid, poi.pos, blocked)
+  const path = findPath(currentGrid, poi.pos, blocked, state.patioUnlocked, state.tileOverrides)
 
   if (path.length === 0) {
     startInteriorExiting(customer, state)
@@ -511,7 +519,7 @@ function startInteriorExiting(customer: CustomerState, state: WorldState): void 
 
   const currentGrid = worldToGrid(customer.worldPos)
   const blocked = getInteriorBlocked(state, customer.id)
-  const path = findPath(currentGrid, DOOR_ENTRY, blocked)
+  const path = findPath(currentGrid, DOOR_ENTRY, blocked, state.patioUnlocked, state.tileOverrides)
   if (path.length === 0) {
     customer.phase = 'idle'
     customer.idleTimer = 1000

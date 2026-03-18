@@ -1,5 +1,6 @@
 import { Expression, PlayerState, VocabularyEntry } from './types'
-import { getReadyToInstallIds } from './upgrades'
+import { getReadyToInstallIds, TILE_TO_UPGRADE_ID, INFRASTRUCTURE_IDS } from './upgrades'
+import { getDefaultPlacements, READING_ROOM_FURNISHINGS, CAFE_ROOM_FURNISHINGS, PATIO_FURNISHINGS, ALL_FURNISHINGS } from './furnishing'
 
 const STORAGE_KEY = 'coffee-lingo-state'
 
@@ -13,12 +14,15 @@ export function createInitialState(expressions: Expression[]): PlayerState {
   }
   return {
     totalCustomersServed: 0,
-    coins: 0,
-    reputation: 0,
+    coins: 3000,
+    reputation: 3000,
     vocabulary,
     recencyBuffer: [],
     upgrades: {},
     relationships: {},
+    unlockedRooms: [],
+    placedFurnishings: {},
+    furnishingUpgrades: {},
   }
 }
 
@@ -66,8 +70,76 @@ export function loadState(): { state: PlayerState; readyToInstall: string[] } | 
     const state = data as PlayerState
     state.upgrades = state.upgrades ?? {}
     state.relationships = state.relationships ?? {}
+    state.unlockedRooms = state.unlockedRooms ?? []
+    state.placedFurnishings = state.placedFurnishings ?? {}
+    state.furnishingUpgrades = state.furnishingUpgrades ?? {}
 
-    const readyToInstall = getReadyToInstallIds(state.upgrades)
+    // One-time migration: patio changed from auto-unlock to purchasable
+    if (!localStorage.getItem('coffee-lingo-m1')) {
+      state.unlockedRooms = state.unlockedRooms.filter(r => r !== 'patio')
+      localStorage.setItem('coffee-lingo-m1', '1')
+    }
+
+    // Migration m2: existing patio owners get patio furniture auto-placed
+    if (state.unlockedRooms.includes('patio')) {
+      if (!localStorage.getItem('coffee-lingo-m2')) {
+        for (const item of PATIO_FURNISHINGS) {
+          if (!state.placedFurnishings[item.id]) {
+            state.placedFurnishings[item.id] = item.slots[0]
+          }
+        }
+        localStorage.setItem('coffee-lingo-m2', '1')
+      }
+    }
+
+    // Migration m3: reading room + café furniture now purchasable — auto-place for existing saves
+    if (!localStorage.getItem('coffee-lingo-m3')) {
+      for (const item of [...READING_ROOM_FURNISHINGS, ...CAFE_ROOM_FURNISHINGS]) {
+        if (!state.placedFurnishings[item.id]) {
+          state.placedFurnishings[item.id] = item.slots[0]
+        }
+      }
+      localStorage.setItem('coffee-lingo-m3', '1')
+    }
+
+    // Migration m4: convert category furnishing upgrades to per-item upgrades
+    if (!localStorage.getItem('coffee-lingo-m4')) {
+      // Build map: which placed items belong to which upgrade category
+      const categoryItems: Record<string, string[]> = {}
+      for (const itemId of Object.keys(state.placedFurnishings)) {
+        const item = ALL_FURNISHINGS.find(f => f.id === itemId)
+        if (!item) continue
+        const upgradeId = TILE_TO_UPGRADE_ID[item.tileId]
+        if (upgradeId && state.upgrades?.[upgradeId]) {
+          if (!categoryItems[upgradeId]) categoryItems[upgradeId] = []
+          categoryItems[upgradeId].push(itemId)
+        }
+      }
+      // Apply category tier to all items of that category
+      for (const [upgradeId, itemIds] of Object.entries(categoryItems)) {
+        const level = state.upgrades![upgradeId]
+        for (let i = 0; i < itemIds.length; i++) {
+          state.furnishingUpgrades![itemIds[i]] = { tier: level.tier }
+          // If upgrading was in progress, give it to the first item only
+          if (level.upgrading && i === 0) {
+            state.furnishingUpgrades![itemIds[i]].upgrading = level.upgrading
+          }
+        }
+        // Remove category entry (unless it's infrastructure)
+        if (!INFRASTRUCTURE_IDS.includes(upgradeId)) {
+          delete state.upgrades![upgradeId]
+        }
+      }
+      // Also clean up non-infrastructure category upgrades that had no placed items
+      for (const upgradeId of Object.keys(state.upgrades!)) {
+        if (!INFRASTRUCTURE_IDS.includes(upgradeId)) {
+          delete state.upgrades![upgradeId]
+        }
+      }
+      localStorage.setItem('coffee-lingo-m4', '1')
+    }
+
+    const readyToInstall = getReadyToInstallIds(state.upgrades!, state.furnishingUpgrades)
     return { state, readyToInstall }
   } catch {
     return null

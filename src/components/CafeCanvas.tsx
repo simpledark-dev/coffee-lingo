@@ -28,8 +28,9 @@ import {
   DOOR_POS,
   T,
 } from '../lib/tilemap'
-import type { WorldState } from '../lib/types'
+import type { WorldState, FurnishingItem, GridPos } from '../lib/types'
 import { getActiveSpriteKey } from '../lib/upgrades'
+import { getEffectiveTile, buildFurnishingSpriteMap } from '../lib/furnishing'
 
 interface CafeCanvasProps {
   cafeStateRef: React.RefObject<WorldState | null>
@@ -40,6 +41,14 @@ interface CafeCanvasProps {
   onSettingsTap?: () => void
   onSceneChange?: (scene: 'interior' | 'outside') => void
   upgrades?: Record<string, import('../lib/types').UpgradeLevel>
+  patioUnlocked?: boolean
+  onPatioLockTap?: () => void
+  placingItem?: FurnishingItem | null
+  placingSlots?: GridPos[]
+  onPlace?: (pos: GridPos) => void
+  onCancelPlace?: () => void
+  placedFurnishings?: Record<string, import('../lib/types').GridPos>
+  furnishingUpgrades?: Record<string, import('../lib/types').UpgradeLevel>
 }
 
 const TILE_PX = TILE_SIZE * SCALE
@@ -167,35 +176,54 @@ export default function CafeCanvas({
   onSettingsTap,
   onSceneChange,
   upgrades,
+  patioUnlocked = false,
+  onPatioLockTap,
+  placingItem,
+  placingSlots,
+  onPlace,
+  onCancelPlace,
+  placedFurnishings,
+  furnishingUpgrades,
 }: CafeCanvasProps) {
-  // Build dynamic tile→sprite map based on upgrade tiers
+  // Build dynamic tile→sprite map based on upgrade tiers (infrastructure only)
   const resolvedTileSprite: Record<string, string> = useMemo(() => ({
     ...TILE_ID_TO_SPRITE,
     [T.MACHINE]: getActiveSpriteKey('COFFEE_MACHINE', upgrades),
-    [T.TABLE]: getActiveSpriteKey('TABLE', upgrades),
-    [T.CHAIR_U]: getActiveSpriteKey('CHAIR', upgrades),
-    [T.CHAIR_D]: getActiveSpriteKey('CHAIR', upgrades),
-    [T.PLANT]: getActiveSpriteKey('PLANT', upgrades),
-    [T.SHELF]: getActiveSpriteKey('SHELF', upgrades),
-    [T.LAMP]: getActiveSpriteKey('LAMP', upgrades),
     [T.COUNTER]: getActiveSpriteKey('COUNTER', upgrades),
     [T.COUNTER_L]: getActiveSpriteKey('COUNTER', upgrades),
   }), [upgrades])
+
+  // Position-based sprite map for per-item furnishing upgrades
+  const furnishingSpriteMap = useMemo(
+    () => buildFurnishingSpriteMap(placedFurnishings ?? {}, furnishingUpgrades),
+    [placedFurnishings, furnishingUpgrades]
+  )
+  const furnishingSpriteMapRef = useRef(furnishingSpriteMap)
+  furnishingSpriteMapRef.current = furnishingSpriteMap
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const animRef = useRef<number>(0)
 
   // Camera
-  const cameraXRef = useRef(ROOM_W) // start in cafe (room 1)
+  const cameraXRef = useRef(ROOM_W * 2) // start in cafe (room 2)
   const cameraYRef = useRef(0)
-  const targetCamXRef = useRef(ROOM_W) // smooth animation target
+  const targetCamXRef = useRef(ROOM_W * 2) // smooth animation target
+  const targetCamYRef = useRef<number | null>(null) // smooth Y animation (null = no target)
   const viewWRef = useRef(390)
   const viewHRef = useRef(500)
 
-  // Current room (0 = reading, 1 = cafe)
-  const currentRoomRef = useRef(1)
-  const [currentRoom, setCurrentRoom] = useState(1)
+  // Current room (0 = patio, 1 = reading, 2 = cafe)
+  const currentRoomRef = useRef(2)
+  const [currentRoom, setCurrentRoom] = useState(2)
+  const patioUnlockedRef = useRef(patioUnlocked)
+  patioUnlockedRef.current = patioUnlocked
+  const placingSlotsRef = useRef(placingSlots)
+  placingSlotsRef.current = placingSlots
+  const placingItemRef = useRef(placingItem)
+  placingItemRef.current = placingItem
+  const onPlaceRef = useRef(onPlace)
+  onPlaceRef.current = onPlace
 
   // Floor style — derived from upgrade tier
   const unlockedFloors = useMemo<FloorStyleKey[]>(() => {
@@ -255,6 +283,24 @@ export default function CafeCanvas({
     targetCamXRef.current = getRoomCamX(room)
   }
 
+  // Auto-navigate to the item's room when entering placement mode
+  useEffect(() => {
+    if (!placingItem) return
+    const targetRoom = placingItem.room === 'patio' ? 0 : placingItem.room === 'reading' ? 1 : 2
+    if (currentRoomRef.current !== targetRoom) {
+      switchToRoom(targetRoom)
+    }
+    // Smooth-scroll Y to center on the placement slots
+    const slots = placingSlotsRef.current
+    if (slots && slots.length > 0) {
+      const avgRow = slots.reduce((sum, s) => sum + s.row, 0) / slots.length
+      const targetY = avgRow * TILE_PX - viewHRef.current / 2
+      const maxY = Math.max(0, WORLD_H - viewHRef.current)
+      targetCamYRef.current = Math.max(0, Math.min(maxY, targetY))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placingItem])
+
   const drawScene = useCallback((ctx: CanvasRenderingContext2D, cache: SpriteCache, camX: number, camY: number, viewW: number, viewH: number) => {
     ctx.clearRect(0, 0, viewW, viewH)
     const floor = floorSpriteRef.current
@@ -267,9 +313,10 @@ export default function CafeCanvas({
     ctx.save()
     ctx.translate(-camX, -camY)
 
+    const tileOverrides = cafeStateRef.current?.tileOverrides
     for (let row = startRow; row <= endRow; row++) {
       for (let col = startCol; col <= endCol; col++) {
-        const tileId = CAFE_LAYOUT[row]?.[col] ?? T.EMPTY
+        const tileId = tileOverrides?.size ? getEffectiveTile(row, col, tileOverrides) : (CAFE_LAYOUT[row]?.[col] ?? T.EMPTY)
         const px = col * TILE_PX
         const py = row * TILE_PX
 
@@ -307,7 +354,9 @@ export default function CafeCanvas({
           continue
         }
 
-        const spriteName = resolvedTileSprite[tileId]
+        // Per-item furnishing sprite takes priority, then category fallback
+        const posKey = `${row},${col}`
+        const spriteName = furnishingSpriteMapRef.current.get(posKey) ?? resolvedTileSprite[tileId]
         if (spriteName && SPRITE_MAP[spriteName]) {
           drawCached(ctx, cache, SPRITE_MAP[spriteName], px, py)
         }
@@ -382,6 +431,7 @@ export default function CafeCanvas({
         } else {
           const maxY = Math.max(0, WORLD_H - viewHRef.current)
           cameraYRef.current = Math.max(0, Math.min(maxY, cameraStartYRef.current + dy))
+          targetCamYRef.current = null // cancel smooth scroll on manual drag
         }
       } else if (gestureDirRef.current === 'horizontal') {
         swipeDxRef.current = dx
@@ -395,10 +445,11 @@ export default function CafeCanvas({
           if (touch) handleTap(touch.clientX, touch.clientY)
         } else if (gestureDirRef.current === 'horizontal') {
           // Check for room switch
-          if (swipeDxRef.current > SWIPE_THRESHOLD && currentRoomRef.current === 0) {
-            switchToRoom(1)
-          } else if (swipeDxRef.current < -SWIPE_THRESHOLD && currentRoomRef.current === 1) {
-            switchToRoom(0)
+          const minRoom = patioUnlockedRef.current ? 0 : 1
+          if (swipeDxRef.current > SWIPE_THRESHOLD && currentRoomRef.current > minRoom) {
+            switchToRoom(currentRoomRef.current - 1)
+          } else if (swipeDxRef.current < -SWIPE_THRESHOLD && currentRoomRef.current < 2) {
+            switchToRoom(currentRoomRef.current + 1)
           }
         }
       }
@@ -437,6 +488,7 @@ export default function CafeCanvas({
         } else {
           const maxY = Math.max(0, WORLD_H - viewHRef.current)
           cameraYRef.current = Math.max(0, Math.min(maxY, cameraStartYRef.current + dy))
+          targetCamYRef.current = null // cancel smooth scroll on manual drag
         }
       } else if (gestureDirRef.current === 'horizontal') {
         swipeDxRef.current = dx
@@ -448,10 +500,11 @@ export default function CafeCanvas({
         if (touchMovedRef.current < 10) {
           handleTap(e.clientX, e.clientY)
         } else if (gestureDirRef.current === 'horizontal') {
-          if (swipeDxRef.current > SWIPE_THRESHOLD && currentRoomRef.current === 0) {
-            switchToRoom(1)
-          } else if (swipeDxRef.current < -SWIPE_THRESHOLD && currentRoomRef.current === 1) {
-            switchToRoom(0)
+          const minRoom = patioUnlockedRef.current ? 0 : 1
+          if (swipeDxRef.current > SWIPE_THRESHOLD && currentRoomRef.current > minRoom) {
+            switchToRoom(currentRoomRef.current - 1)
+          } else if (swipeDxRef.current < -SWIPE_THRESHOLD && currentRoomRef.current < 2) {
+            switchToRoom(currentRoomRef.current + 1)
           }
         }
       }
@@ -499,6 +552,8 @@ export default function CafeCanvas({
           sceneRef.current = 'interior'
           setScene('interior')
           onSceneChange?.('interior')
+          // Ensure camera is on the café room (room 2)
+          switchToRoom(2)
         }
         return
       }
@@ -520,12 +575,27 @@ export default function CafeCanvas({
         return
       }
 
-      // Check upgrade button tap (tile row 28, col 11 — left of first coffee machine)
-      const upgBtnX = 11 * TILE_PX + TILE_PX / 2
-      const upgBtnY = 28 * TILE_PX + TILE_PX / 2
-      if (Math.sqrt((worldX - upgBtnX) ** 2 + (worldY - upgBtnY) ** 2) < TILE_PX * 0.7) {
-        onUpgradesTap?.()
-        return
+      // Check placement slot tap
+      if (placingSlotsRef.current && placingSlotsRef.current.length > 0) {
+        const tappedCol = Math.floor(worldX / TILE_PX)
+        const tappedRow = Math.floor(worldY / TILE_PX)
+        for (const slot of placingSlotsRef.current) {
+          if (slot.row === tappedRow && slot.col === tappedCol) {
+            onPlaceRef.current?.(slot)
+            return
+          }
+        }
+        return // in placement mode, ignore other taps
+      }
+
+      // Check patio lock tap (border col 10-11, rows 21-22 center)
+      if (!patioUnlockedRef.current) {
+        const lockX = 11 * TILE_PX
+        const lockY = 21.5 * TILE_PX
+        if (Math.sqrt((worldX - lockX) ** 2 + (worldY - lockY) ** 2) < TILE_PX * 0.7) {
+          onPatioLockTap?.()
+          return
+        }
       }
 
       const state = cafeStateRef.current
@@ -615,6 +685,16 @@ export default function CafeCanvas({
         cameraXRef.current = targetX
       }
 
+      // Smooth camera Y toward target (if set)
+      if (targetCamYRef.current !== null) {
+        const diffY = targetCamYRef.current - cameraYRef.current
+        if (Math.abs(diffY) > 0.5) {
+          cameraYRef.current += diffY * ROOM_SWITCH_SPEED
+        } else {
+          cameraYRef.current = targetCamYRef.current
+          targetCamYRef.current = null
+        }
+      }
       cameraYRef.current = Math.max(0, Math.min(WORLD_H - viewH, cameraYRef.current))
 
       const camX = Math.round(cameraXRef.current)
@@ -623,35 +703,14 @@ export default function CafeCanvas({
       ctx.imageSmoothingEnabled = false
       drawScene(ctx, spriteCache, camX, camY, viewW, viewH)
 
-      // Draw barista behind counter (row 20, col 14 in cafe room)
+      // Draw barista behind counter (row 28, col 24 in cafe room)
       ctx.save()
       ctx.translate(-camX, -camY)
       const baristaSprite = CUSTOMER_SPRITES[0].up
-      drawCached(ctx, spriteCache, baristaSprite, 14 * TILE_PX, 28 * TILE_PX)
+      drawCached(ctx, spriteCache, baristaSprite, 24 * TILE_PX, 28 * TILE_PX)
       ctx.restore()
 
-      // Draw upgrade button icon (row 28, col 11 — left of first coffee machine)
-      const upgIconX = 11 * TILE_PX + TILE_PX / 2 - camX
-      const upgIconY = 28 * TILE_PX + TILE_PX / 2 - camY
-      if (upgIconX > -TILE_PX && upgIconX < viewW + TILE_PX && upgIconY > -TILE_PX && upgIconY < viewH + TILE_PX) {
-        const pulse = 0.85 + 0.15 * Math.sin(tickRef.current * 0.06)
-        ctx.save()
-        ctx.globalAlpha = pulse
-        // Circle background
-        ctx.beginPath()
-        ctx.arc(upgIconX, upgIconY, TILE_PX * 0.38, 0, Math.PI * 2)
-        ctx.fillStyle = '#5D4037'
-        ctx.fill()
-        ctx.strokeStyle = '#FFD54F'
-        ctx.lineWidth = 2
-        ctx.stroke()
-        // Wrench/hammer emoji
-        ctx.font = `${Math.round(12 * SCALE)}px sans-serif`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillText('🔧', upgIconX, upgIconY)
-        ctx.restore()
-      }
+      // Upgrade button moved to HTML overlay (bottom bar)
 
       // Draw customers sorted by Y for depth
       const state = cafeStateRef.current
@@ -715,10 +774,76 @@ export default function CafeCanvas({
           const room = currentRoomRef.current
           const hasAlert = state.characters.some(c => {
             if (c.location !== 'interior' || c.phase !== 'exclamation') return false
-            const customerRoom = c.worldPos.x < ROOM_W ? 0 : 1
+            const customerRoom = Math.floor(c.worldPos.x / ROOM_W)
             return customerRoom !== room
           })
           setOtherRoomAlert(hasAlert)
+        }
+      }
+
+      // When patio is locked, draw wall over the doorway tiles (col 10, rows 21-22)
+      if (!patioUnlockedRef.current) {
+        for (const dr of [21, 22]) {
+          const wallPx = 10 * TILE_PX - camX
+          const wallPy = dr * TILE_PX - camY
+          if (wallPx > -TILE_PX && wallPx < viewW + TILE_PX && wallPy > -TILE_PX && wallPy < viewH + TILE_PX) {
+            drawCached(ctx, spriteCache, WALL, wallPx, wallPy)
+          }
+        }
+      }
+
+      // Draw patio lock centered on the wall/floor border (between col 10 and col 11)
+      if (!patioUnlockedRef.current) {
+        const lockWorldX = 11 * TILE_PX                   // border between col 10 (wall) and col 11 (floor)
+        const lockWorldY = 21.5 * TILE_PX                // center between rows 21-22
+        const lockScreenX = lockWorldX - camX
+        const lockScreenY = lockWorldY - camY
+        if (lockScreenX > -TILE_PX && lockScreenX < viewW + TILE_PX &&
+            lockScreenY > -TILE_PX && lockScreenY < viewH + TILE_PX) {
+          ctx.save()
+          // Lock background circle
+          ctx.beginPath()
+          ctx.arc(lockScreenX, lockScreenY, TILE_PX * 0.42, 0, Math.PI * 2)
+          ctx.fillStyle = 'rgba(62, 39, 35, 0.85)'
+          ctx.fill()
+          ctx.strokeStyle = '#FFD54F'
+          ctx.lineWidth = 2
+          ctx.stroke()
+          // Lock emoji
+          ctx.font = `${Math.round(12 * SCALE)}px sans-serif`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText('🔒', lockScreenX, lockScreenY)
+          ctx.restore()
+        }
+      }
+
+      // Draw placement mode glowing slots (including group tiles)
+      if (placingSlotsRef.current && placingSlotsRef.current.length > 0) {
+        const pulse = 0.4 + 0.3 * Math.sin(tickRef.current * 0.08)
+        const group = placingItemRef.current?.group
+        for (const slot of placingSlotsRef.current) {
+          // Collect all tiles to highlight: base slot + group offsets
+          const tiles = [{ row: slot.row, col: slot.col }]
+          if (group) {
+            for (const g of group) {
+              tiles.push({ row: slot.row + g.dr, col: slot.col + g.dc })
+            }
+          }
+          for (const tile of tiles) {
+            const sx = tile.col * TILE_PX - camX
+            const sy = tile.row * TILE_PX - camY
+            if (sx > -TILE_PX && sx < viewW + TILE_PX && sy > -TILE_PX && sy < viewH + TILE_PX) {
+              ctx.save()
+              ctx.globalAlpha = pulse
+              ctx.fillStyle = '#FFD54F'
+              ctx.fillRect(sx + 2, sy + 2, TILE_PX - 4, TILE_PX - 4)
+              ctx.restore()
+              ctx.strokeStyle = '#FFD54F'
+              ctx.lineWidth = 2
+              ctx.strokeRect(sx + 1, sy + 1, TILE_PX - 2, TILE_PX - 2)
+            }
+          }
         }
       }
 
@@ -1095,7 +1220,8 @@ export default function CafeCanvas({
           continue
         }
 
-        const spriteName = resolvedTileSprite[tileId]
+        const posKey = `${row},${col}`
+        const spriteName = furnishingSpriteMapRef.current.get(posKey) ?? resolvedTileSprite[tileId]
         if (spriteName && SPRITE_MAP[spriteName]) {
           drawCached(ctx, cache, SPRITE_MAP[spriteName], px, py)
         }
@@ -1108,20 +1234,29 @@ export default function CafeCanvas({
       <canvas ref={canvasRef} style={styles.canvas} />
       {scene === 'interior' && (
         <>
-          {/* Room switch arrow button */}
-          <button
-            style={{
-              ...styles.roomArrow,
-              ...(currentRoom === 1 ? styles.roomArrowLeft : styles.roomArrowRight),
-            }}
-            onClick={() => switchToRoom(currentRoom === 1 ? 0 : 1)}
-          >
-            {currentRoom === 1 ? '◀' : '▶'}
-            {otherRoomAlert && <span style={styles.alertDot} />}
-          </button>
+          {/* Room switch arrow buttons */}
+          {currentRoom > (patioUnlocked ? 0 : 1) && (
+            <button
+              style={{ ...styles.roomArrow, ...styles.roomArrowLeft }}
+              onClick={() => switchToRoom(currentRoom - 1)}
+            >
+              {'◀'}
+            </button>
+          )}
+          {currentRoom < 2 && (
+            <button
+              style={{ ...styles.roomArrow, ...styles.roomArrowRight }}
+              onClick={() => switchToRoom(currentRoom + 1)}
+            >
+              {'▶'}
+              {otherRoomAlert && <span style={styles.alertDot} />}
+            </button>
+          )}
           {/* Room label */}
           <div style={styles.roomLabel}>
-            {currentRoom === 0 ? 'Reading Room' : 'Café'}
+            {placingItem
+              ? `Tap to place: ${placingItem.name}`
+              : currentRoom === 0 ? 'Patio' : currentRoom === 1 ? 'Reading Room' : 'Café'}
           </div>
           {/* Floor style toggle */}
           <button
@@ -1138,7 +1273,7 @@ export default function CafeCanvas({
       {scene === 'outside' && (
         <div style={styles.roomLabel}>Outside</div>
       )}
-      {/* Bottom buttons — always visible */}
+      {/* Bottom buttons */}
       <button
         style={styles.settingsButton}
         onClick={() => onSettingsTap?.()}
@@ -1157,6 +1292,22 @@ export default function CafeCanvas({
       >
         🗺
       </button>
+      {scene === 'interior' && !placingItem && (
+        <button
+          style={styles.upgradeButton}
+          onClick={() => onUpgradesTap?.()}
+        >
+          🔧
+        </button>
+      )}
+      {placingItem && (
+        <button
+          style={styles.cancelPlaceButton}
+          onClick={() => onCancelPlace?.()}
+        >
+          ✕ Cancel
+        </button>
+      )}
       {/* Full map popup */}
       {showMap && (
         <div style={styles.mapOverlay} onClick={() => setShowMap(false)}>
@@ -1305,6 +1456,39 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 5,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+  },
+  upgradeButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 136,
+    width: 36,
+    height: 36,
+    background: 'rgba(93, 64, 55, 0.85)',
+    border: '2px solid rgba(255, 213, 79, 0.6)',
+    borderRadius: 8,
+    fontSize: 18,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+  },
+  cancelPlaceButton: {
+    position: 'absolute',
+    bottom: 10,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    padding: '8px 20px',
+    background: 'rgba(183, 28, 28, 0.9)',
+    border: '2px solid rgba(255, 138, 128, 0.7)',
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 'bold' as const,
+    color: '#FFF',
+    cursor: 'pointer',
     zIndex: 5,
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
   },

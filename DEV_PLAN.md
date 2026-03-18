@@ -1,3 +1,5 @@
+(old, not up to date)
+
 # Coffee Lingo — Development Plan
 
 ## 1. MVP Slice Definition

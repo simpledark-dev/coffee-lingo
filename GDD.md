@@ -1,3 +1,5 @@
+(old, not up to date)
+
 # Coffee Lingo — Game Design Document
 
 ## 1. Game Overview

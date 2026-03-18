@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   AnswerChoice, ResolvedExchange, Score,
   EvaluationResult, PlayerState, WorldState,
-  DialogueTemplate, Expression,
+  DialogueTemplate, Expression, FurnishingItem, GridPos,
 } from '../lib/types'
 import { evaluateChoice, generateSingleConversation } from '../lib/game'
 import { updateMastery } from '../lib/state'
 import type { UpgradeBonuses } from '../lib/upgrades'
 import { createWorldState, tickWorld, startConversation, endConversation, spawnCharacter } from '../lib/cafe-sim'
+import { PATIO_UNLOCK_REP, PATIO_UNLOCK_COST } from '../lib/tilemap'
+import { buildPlacedTileMap, buildFurnishingPOIs, getAvailableSlots } from '../lib/furnishing'
 import { getCharacter, getFriendshipLevel, FRIENDSHIP_GAIN, pickNextCharacter, VoiceProfile } from '../lib/characters'
 import { CUSTOMER_SPRITES, PALETTE } from '../lib/sprites'
 import HUD from './HUD'
@@ -28,6 +30,9 @@ interface GameplayViewProps {
   onPurchase: (upgradeId: string, tier: number, cost: number, durationMs: number) => void
   onInstall: (upgradeId: string) => void
   onFinishUpgrade: (upgradeId: string) => void
+  onFurnishingPurchase: (itemId: string, tier: number, cost: number, durationMs: number) => void
+  onFurnishingInstall: (itemId: string) => void
+  onFurnishingFinish: (itemId: string) => void
   onDebugSet: (field: 'coins' | 'reputation', value: number) => void
   onReset: () => void
 }
@@ -134,6 +139,9 @@ export default function GameplayView({
   onPurchase,
   onInstall,
   onFinishUpgrade,
+  onFurnishingPurchase,
+  onFurnishingInstall,
+  onFurnishingFinish,
   onDebugSet,
   onReset,
 }: GameplayViewProps) {
@@ -160,6 +168,7 @@ export default function GameplayView({
   const [inspectedCharacterId, setInspectedCharacterId] = useState<string | null>(null)
   const [showContacts, setShowContacts] = useState(false)
   const [showUpgradeShop, setShowUpgradeShop] = useState(false)
+  const [showPatioPrompt, setShowPatioPrompt] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [sessionServed, setSessionServed] = useState(0)
   const [musicVolume, setMusicVolume] = useState(() => {
@@ -178,9 +187,56 @@ export default function GameplayView({
   const patienceStartRef = useRef(0)
   const patienceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const patioUnlocked = playerState.unlockedRooms?.includes('patio') ?? false
+  const [patioUnlockToast, setPatioUnlockToast] = useState(false)
+  const [placingItem, setPlacingItem] = useState<FurnishingItem | null>(null)
+
+  // Build tile overrides and patio POIs from placed furnishings
+  const placedFurnishings = playerState.placedFurnishings ?? {}
+  const tileOverrides = useMemo(() => buildPlacedTileMap(placedFurnishings), [placedFurnishings])
+  const patioPOIs = useMemo(() => buildFurnishingPOIs(tileOverrides), [tileOverrides])
+
+  // Compute available placement slots for current item
+  const placingSlots = useMemo(() => {
+    if (!placingItem) return []
+    return getAvailableSlots(placingItem, placedFurnishings)
+  }, [placingItem, placedFurnishings])
+
+  // Keep simulation state in sync with player state
+  useEffect(() => {
+    if (cafeStateRef.current) {
+      cafeStateRef.current.patioUnlocked = patioUnlocked
+      cafeStateRef.current.tileOverrides = tileOverrides
+      cafeStateRef.current.patioPOIs = patioPOIs
+    }
+  }, [patioUnlocked, tileOverrides, patioPOIs])
+
+  const handlePatioUnlock = useCallback(() => {
+    onStateUpdate({
+      unlockedRooms: [...(playerState.unlockedRooms ?? []), 'patio'],
+      coins: Math.round(playerState.coins - PATIO_UNLOCK_COST),
+    })
+    setPatioUnlockToast(true)
+    setTimeout(() => setPatioUnlockToast(false), 3000)
+  }, [onStateUpdate, playerState.unlockedRooms, playerState.coins])
+
+  const handleFurnishingBuy = useCallback((item: FurnishingItem) => {
+    setPlacingItem(item)
+    setShowUpgradeShop(false)
+  }, [])
+
+  const handleFurnishingPlace = useCallback((pos: GridPos) => {
+    if (!placingItem) return
+    onStateUpdate({
+      coins: Math.round(playerState.coins - placingItem.cost),
+      placedFurnishings: { ...placedFurnishings, [placingItem.id]: pos },
+    })
+    setPlacingItem(null)
+  }, [placingItem, placedFurnishings, playerState.coins, onStateUpdate])
+
   // Initialize simulation once on mount
   useEffect(() => {
-    const state = createWorldState(bonuses.maxInShopBonus)
+    const state = createWorldState(bonuses.maxInShopBonus, patioUnlocked, tileOverrides, patioPOIs)
     cafeStateRef.current = state
     lastFrameRef.current = performance.now()
 
@@ -446,6 +502,14 @@ export default function GameplayView({
         onSettingsTap={() => setShowSettings(true)}
         onSceneChange={handleSceneChange}
         upgrades={playerState.upgrades}
+        patioUnlocked={patioUnlocked}
+        onPatioLockTap={() => setShowPatioPrompt(true)}
+        placingItem={placingItem}
+        placingSlots={placingSlots}
+        onPlace={handleFurnishingPlace}
+        onCancelPlace={() => setPlacingItem(null)}
+        placedFurnishings={placedFurnishings}
+        furnishingUpgrades={playerState.furnishingUpgrades}
       />
 
       {/* Upgrade install toasts */}
@@ -457,6 +521,50 @@ export default function GameplayView({
               <button style={styles.toastButton} onClick={() => onInstall(id)}>Install</button>
             </div>
           ))}
+        </div>
+      )}
+
+      {patioUnlockToast && (
+        <div style={styles.toastContainer}>
+          <div style={styles.toast}>
+            <span style={{ flex: 1, fontWeight: 600 }}>Patio unlocked!</span>
+          </div>
+        </div>
+      )}
+
+      {/* Patio purchase prompt */}
+      {showPatioPrompt && (
+        <div style={styles.settingsOverlay} onClick={() => setShowPatioPrompt(false)}>
+          <div style={styles.settingsCard} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 22, textAlign: 'center' as const, marginBottom: 4 }}>🌿</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#FFEFD5', textAlign: 'center' as const, marginBottom: 4 }}>
+              Patio Terrace
+            </div>
+            <div style={{ fontSize: 12, color: '#BCAAA4', textAlign: 'center' as const, marginBottom: 12 }}>
+              A cozy outdoor area with bistro seating
+            </div>
+            {playerState.reputation < PATIO_UNLOCK_REP ? (
+              <div style={{ backgroundColor: '#3E2723', borderRadius: 8, padding: '8px 12px', textAlign: 'center' as const, fontSize: 13, color: '#EF5350', fontWeight: 600 }}>
+                Requires {PATIO_UNLOCK_REP} reputation (you have {Math.round(playerState.reputation)})
+              </div>
+            ) : (
+              <button
+                style={{
+                  display: 'block', width: '100%', padding: '10px 0',
+                  backgroundColor: '#FFD54F', color: '#3E2723', border: 'none',
+                  borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer',
+                  opacity: playerState.coins >= PATIO_UNLOCK_COST ? 1 : 0.4,
+                }}
+                disabled={playerState.coins < PATIO_UNLOCK_COST}
+                onClick={() => { handlePatioUnlock(); setShowPatioPrompt(false) }}
+              >
+                Unlock — {PATIO_UNLOCK_COST} coins
+              </button>
+            )}
+            <button style={{ ...styles.closeSettingsButton, marginTop: 8 }} onClick={() => setShowPatioPrompt(false)}>
+              Close
+            </button>
+          </div>
         </div>
       )}
 
@@ -475,6 +583,14 @@ export default function GameplayView({
           onInstall={onInstall}
           onFinishUpgrade={onFinishUpgrade}
           onClose={() => setShowUpgradeShop(false)}
+          patioUnlocked={patioUnlocked}
+          onPatioUnlock={handlePatioUnlock}
+          placedFurnishings={placedFurnishings}
+          onFurnishingBuy={handleFurnishingBuy}
+          furnishingUpgrades={playerState.furnishingUpgrades ?? {}}
+          onFurnishingPurchase={onFurnishingPurchase}
+          onFurnishingInstall={onFurnishingInstall}
+          onFurnishingFinish={onFurnishingFinish}
         />
       )}
 

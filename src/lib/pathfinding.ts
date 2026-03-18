@@ -38,9 +38,11 @@ const DIRS = [
 export function findPath(
   from: GridPos,
   to: GridPos,
-  blocked?: Set<string>
+  blocked?: Set<string>,
+  patioUnlocked: boolean = true,
+  tileOverrides?: Map<string, string>,
 ): GridPos[] {
-  return findPathGeneric(from, to, isWalkable, blocked)
+  return findPathGeneric(from, to, (r, c) => isWalkable(r, c, patioUnlocked, tileOverrides), blocked)
 }
 
 /**

@@ -8,17 +8,24 @@
 export const TILE_SIZE = 32
 export const SCALE = 1.5 // 1.5x → each tile is 48px (same as before, but 2× pixel detail)
 
-// Grid: 20 columns × 30 rows
-// Rows 0–7: garden exterior (above both rooms)
-// Rows 8–29: interior (two 10-col rooms side by side)
-//   Left room (cols 0–9): reading/activity room
-//   Right room (cols 10–19): cafe
-//   Connecting passage at rows 18-19 between col 9 and col 10
-export const GRID_COLS = 20
+// Grid: 30 columns × 30 rows
+// Rows 0–7: garden exterior (above reading room + cafe)
+// Rows 8–29: interior (three 10-col rooms side by side)
+//   Left room (cols 0–9): patio/terrace (rows 18-29 only, rows 0-17 are wall)
+//   Middle room (cols 10–19): reading/activity room
+//   Right room (cols 20–29): cafe
+//   Passage between reading room and cafe at rows 18-19 (cols 19-20)
+//   Doorway between patio and reading room at rows 21-22 (cols 9-10)
+export const GRID_COLS = 30
 export const GRID_ROWS = 30
 
 // Room boundaries (for camera snapping)
 export const ROOM_COLS = 10 // each room is 10 columns wide
+export const ROOM_COUNT = 3 // 0=patio, 1=reading, 2=cafe
+
+// Patio unlock threshold
+export const PATIO_UNLOCK_REP = 30
+export const PATIO_UNLOCK_COST = 50
 
 // Tile IDs
 export const T = {
@@ -69,47 +76,51 @@ export const T = {
   ROOF: 'f',
 } as const
 
-// Full layout: 20 wide × 30 tall
-// Rows 0-7: garden exterior, Rows 8-29: interior
+// Full layout: 30 wide × 30 tall
+// Cols 0-9: patio (rows 18-29 only; rows 0-17 are wall)
+// Cols 10-19: reading/activity room + garden
+// Cols 20-29: cafe + garden
 export const CAFE_LAYOUT: string[][] = [
-  // === GARDEN (rows 0-7) ===
-  ['H','H','H','H','H','H','H','H','H','H',  'H','H','H','H','H','H','H','H','H','H'],  // row 0: hedge border
-  ['H','G','G','Y','E','E','G','G','Y','G',  'G','Y','G','G','O','O','Y','Y','G','H'],  // row 1: trees
-  ['H','G','R','G','G','G','G','R','G','G',  'G','G','R','G','E','E','G','R','G','H'],  // row 2: flowers + benches
-  ['H','G','G','G','G','G','J','J','J','G',  'G','G','G','G','G','G','G','R','G','H'],  // row 3: fountain center
-  ['H','G','G','R','G','G','J','J','J','G',  'G','G','G','G','G','G','G','G','G','H'],  // row 4: flowers + pond
-  ['H','G','G','G','G','G','G','G','G','G',  'G','G','G','G','G','G','G','G','G','H'],  // row 5: pond
-  ['H','G','G','K','A','A','K','G','G','G',  'G','G','G','K','A','A','K','G','G','H'],  // row 6: lanterns flanking paths
-  ['H','H','H','H','A','A','H','H','H','W',  'W','H','H','H','A','A','H','H','H','H'],  // row 7: hedge with path gaps
+  // === GARDEN (rows 0-7) — patio cols are wall ===
+  //  ---- PATIO wall (cols 0-9) ----                          ---- GARDEN (cols 10-29, same as before) ----
+  ['W','W','W','W','W','W','W','W','W','W',  'H','H','H','H','H','H','H','H','H','H',  'H','H','H','H','H','H','H','H','H','H'],  // row 0
+  ['W','W','W','W','W','W','W','W','W','W',  'H','G','G','Y','E','E','G','G','Y','G',  'G','Y','G','G','O','O','Y','Y','G','H'],  // row 1
+  ['W','W','W','W','W','W','W','W','W','W',  'H','G','R','G','G','G','G','R','G','G',  'G','G','R','G','E','E','G','R','G','H'],  // row 2
+  ['W','W','W','W','W','W','W','W','W','W',  'H','G','G','G','G','G','J','J','J','G',  'G','G','G','G','G','G','G','R','G','H'],  // row 3
+  ['W','W','W','W','W','W','W','W','W','W',  'H','G','G','R','G','G','J','J','J','G',  'G','G','G','G','G','G','G','G','G','H'],  // row 4
+  ['W','W','W','W','W','W','W','W','W','W',  'H','G','G','G','G','G','G','G','G','G',  'G','G','G','G','G','G','G','G','G','H'],  // row 5
+  ['W','W','W','W','W','W','W','W','W','W',  'H','G','G','K','A','A','K','G','G','G',  'G','G','G','K','A','A','K','G','G','H'],  // row 6
+  ['W','W','W','W','W','W','W','W','W','W',  'H','H','H','H','A','A','H','H','H','W',  'W','H','H','H','A','A','H','H','H','H'],  // row 7
 
-  // === INTERIOR — north wall with openings at cols 4-5 / 14-15 ===
-  //  ---- READING ROOM (cols 0-9) ----                        ---- CAFE (cols 10-19) ----
-  ['W','N','N','W','F','F','W','N','N','W',  'W','N','N','W','F','F','W','N','N','W'],  // row 8: north wall (openings)
-  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','P','F','F','F','F','W'],  // row 9
-  ['W','F','B','F','F','F','F','B','F','W',  'W','F','d','F','F','F','F','d','F','W'],  // row 10
-  ['W','F','F','F','F','F','F','F','F','W',  'W','F','T','F','F','F','F','T','F','W'],  // row 11
-  ['W','F','d','F','F','F','d','F','F','W',  'W','F','F','u','F','F','u','F','F','W'],  // row 12
-  ['W','F','T','F','P','F','T','F','F','W',  'W','P','F','F','F','F','F','F','P','W'],  // row 13
-  ['W','F','u','F','F','F','u','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 14
-  ['W','F','F','F','F','F','F','F','P','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 15
+  // === INTERIOR — patio wall continues rows 8-17 ===
+  //  ---- PATIO wall (cols 0-9) ----                          ---- READING ROOM (cols 10-19) ----             ---- CAFE (cols 20-29) ----
+  ['W','W','W','W','W','W','W','W','W','W',  'W','N','N','W','F','F','W','N','N','W',  'W','N','N','W','F','F','W','N','N','W'],  // row 8
+  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 9
+  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 10
+  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 11
+  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 12
+  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 13
+  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 14
+  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 15
 
   // === DIVIDER rows 16-17 ===
-  ['W','W','W','W','F','W','W','W','W','W',  'W','W','W','W','F','F','W','W','W','W'],  // row 16
-  ['W','F','B','B','F','F','B','B','F','W',  'W','W','S','S','F','F','M','M','W','W'],  // row 17
+  ['W','W','W','W','W','W','W','W','W','W',  'W','W','W','W','F','W','W','W','W','W',  'W','W','W','W','F','F','W','W','W','W'],  // row 16
+  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','W','F','F','F','F','F','F','W','W'],  // row 17
 
-  // === LOWER AREAS (rows 18-29) — passage at cols 9-10 ===
-  ['W','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W'],  // row 18: PASSAGE
-  ['W','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W'],  // row 19: PASSAGE
-  ['W','F','d','F','F','F','d','F','F','W',  'W','F','d','F','F','F','F','F','F','W'],  // row 20
-  ['W','F','Z','F','L','F','Z','F','P','W',  'W','F','T','F','F','F','d','F','P','W'],  // row 21: chess tables + lamp
-  ['W','F','u','F','F','F','u','F','F','W',  'W','F','F','u','F','F','T','F','F','W'],  // row 22
-  ['W','P','F','F','F','F','F','F','F','W',  'W','P','F','F','F','F','u','F','F','W'],  // row 23
-  ['W','F','F','d','F','F','F','F','F','W',  'W','F','u','F','F','F','F','F','F','W'],  // row 24
-  ['W','F','d','Z','d','F','F','F','F','W',  'W','u','T','F','F','F','F','F','F','D'],  // row 25: chess table + door
-  ['W','F','F','u','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 26
-  ['W','W','W','W','W','W','W','W','W','W',  'c','C','C','C','C','C','C','C','C','C'],  // row 27: counter
-  ['W','W','W','W','W','W','W','W','W','W',  'W','F','X','Q','F','F','X','Q','F','W'],  // row 28: behind counter
-  ['W','W','W','W','W','W','W','W','W','W',  'W','W','W','W','W','W','W','W','W','W'],  // row 29: back wall
+  // === LOWER AREAS (rows 18-29) — patio + passage ===
+  //  ---- PATIO (cols 0-9) ----                               ---- READING ROOM lower (cols 10-19) ----      ---- CAFE lower (cols 20-29) ----
+  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W'],  // row 18: PASSAGE (reading↔cafe)
+  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W'],  // row 19: patio empty
+  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 20
+  ['W','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 21: patio doorway cols 9-10
+  ['W','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 22: patio doorway cols 9-10
+  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 23
+  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 24
+  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','D'],  // row 25: door
+  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 26
+  ['W','F','F','F','F','F','F','F','F','W',  'W','W','W','W','W','W','W','W','W','W',  'c','C','C','C','C','C','C','C','C','C'],  // row 27: counter
+  ['W','F','F','F','F','F','F','F','F','W',  'W','W','W','W','W','W','W','W','W','W',  'W','F','X','Q','F','F','X','Q','F','W'],  // row 28: benches
+  ['W','W','W','W','W','W','W','W','W','W',  'W','W','W','W','W','W','W','W','W','W',  'W','W','W','W','W','W','W','W','W','W'],  // row 29: back wall
 ]
 
 // Outside scene: 8 cols × 20 rows — a clean Parisian street
@@ -161,19 +172,33 @@ export const OUTSIDE_LAYOUT: string[][] = [
 ]
 
 // Legacy single-customer positions (kept for backward compat)
-export const CUSTOMER_POS = { row: 26, col: 15 }
-export const DOOR_POS = { row: 25, col: 19 }
+export const CUSTOMER_POS = { row: 26, col: 25 }
+export const DOOR_POS = { row: 25, col: 29 }
 
 // Multi-customer entry/exit points
-export const DOOR_ENTRY = { row: 25, col: 19 } // door tile — customers walk in/out here
-export const DOOR_EXIT = { row: 25, col: 19 }
+export const DOOR_ENTRY = { row: 25, col: 29 } // door tile — customers walk in/out here
+export const DOOR_EXIT = { row: 25, col: 29 }
+
+// Patio doorway tiles (col 9-10, rows 21-22 — blocked when patio locked)
+export const PATIO_DOOR_COLS = [9, 10] as const
+export const PATIO_DOOR_ROWS = [21, 22] as const
 
 // Walkable tile check — interior
 const WALKABLE_TILES: Set<string> = new Set([T.FLOOR, T.DOOR, T.CHAIR_U, T.CHAIR_D, T.GRASS, T.PATH, T.BENCH])
 
-export function isWalkable(row: number, col: number): boolean {
+/** Check if a tile is in the patio zone (cols 0-9) */
+export function isPatioTile(_row: number, col: number): boolean {
+  return col < 10
+}
+
+export function isWalkable(
+  row: number, col: number,
+  patioUnlocked: boolean = true,
+  tileOverrides?: Map<string, string>
+): boolean {
   if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) return false
-  const tile = CAFE_LAYOUT[row]?.[col]
+  if (!patioUnlocked && isPatioTile(row, col)) return false
+  const tile = tileOverrides?.get(`${row},${col}`) ?? CAFE_LAYOUT[row]?.[col]
   return tile !== undefined && WALKABLE_TILES.has(tile)
 }
 

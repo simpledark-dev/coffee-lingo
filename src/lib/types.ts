@@ -79,6 +79,27 @@ export interface PlayerState {
   recencyBuffer: string[]
   upgrades?: Record<string, UpgradeLevel>
   relationships?: Record<string, Relationship>
+  unlockedRooms?: string[]
+  placedFurnishings?: Record<string, GridPos>
+  furnishingUpgrades?: Record<string, UpgradeLevel>
+}
+
+export interface FurnishingBonus {
+  description: string
+  effects: Partial<Record<string, number>>
+}
+
+export interface FurnishingItem {
+  id: string
+  name: string
+  description: string
+  cost: number
+  tileId: string
+  spriteKey: string
+  slots: GridPos[]
+  room: string
+  group?: { dr: number; dc: number; tileId: string }[]
+  bonus: FurnishingBonus
 }
 
 export interface VocabularyEntry {
@@ -161,6 +182,9 @@ export interface WorldState {
   totalSpawned: number
   maxInWorld: number    // total characters across all locations (e.g. 12)
   maxInCafe: number     // max characters inside cafe (6 + upgrades)
+  patioUnlocked: boolean
+  tileOverrides: Map<string, string>
+  patioPOIs: PointOfInterest[]
 }
 
 // Keep alias for compatibility during migration

@@ -985,6 +985,56 @@ export const BENCH: Sprite = (() => {
   return s
 })()
 
+// Bench Tier 1 — Cushioned Iron Bench (iron frame with red cushion)
+export const BENCH_T1: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  for (let r = 0; r < 32; r++) for (let c = 0; c < 32; c++) s[r][c] = 13
+  // Iron frame seat — rows 10-21, cols 4-27
+  for (let r = 10; r <= 21; r++) {
+    for (let c = 4; c <= 27; c++) s[r][c] = 10 // dark gray iron
+  }
+  // Red cushion on top — rows 11-19, cols 6-25
+  for (let r = 11; r <= 19; r++) {
+    for (let c = 6; c <= 25; c++) s[r][c] = 20 // red
+  }
+  // Cushion highlight
+  for (let c = 9; c <= 22; c++) s[14][c] = 15 // coral highlight
+  // Iron legs
+  for (let r = 10; r <= 21; r++) {
+    s[r][4] = 9; s[r][5] = 9; s[r][26] = 9; s[r][27] = 9
+  }
+  // Iron backrest — rows 8-9
+  for (let c = 4; c <= 27; c++) { s[8][c] = 10; s[9][c] = 10 }
+  // Decorative scrollwork on backrest
+  for (let c = 10; c <= 21; c += 4) { s[8][c] = 11; s[9][c] = 11 }
+  return s
+})()
+
+// Bench Tier 2 — Ornate Garden Bench (gold accents, velvet cushion)
+export const BENCH_T2: Sprite = (() => {
+  const s: Sprite = Array.from({length: 32}, () => Array(32).fill(0))
+  for (let r = 0; r < 32; r++) for (let c = 0; c < 32; c++) s[r][c] = 13
+  // Ornate gold frame — rows 10-21, cols 4-27
+  for (let r = 10; r <= 21; r++) {
+    for (let c = 4; c <= 27; c++) s[r][c] = 17 // gold
+  }
+  // Purple velvet cushion — rows 11-19, cols 6-25
+  for (let r = 11; r <= 19; r++) {
+    for (let c = 6; c <= 25; c++) s[r][c] = 21 // purple/lavender
+  }
+  // Cushion highlight
+  for (let c = 9; c <= 22; c++) s[14][c] = 29 // peach highlight
+  // Gold legs with dark outline
+  for (let r = 10; r <= 21; r++) {
+    s[r][4] = 1; s[r][5] = 17; s[r][26] = 17; s[r][27] = 1
+  }
+  // Ornate backrest — rows 7-9
+  for (let c = 4; c <= 27; c++) { s[7][c] = 17; s[8][c] = 17; s[9][c] = 17 }
+  // Filigree pattern on backrest
+  for (let c = 8; c <= 23; c += 3) { s[7][c] = 16; s[8][c] = 16 }
+  return s
+})()
+
 // Fountain is split into FOUNTAIN_L / FOUNTAIN_R (defined below POND)
 
 // 32x32 tree — leafy canopy with brown trunk on grass
@@ -2221,6 +2271,8 @@ export const SPRITE_MAP: Record<string, Sprite> = {
   PATH_TILE,
   FLOWER,
   BENCH,
+  BENCH_T1,
+  BENCH_T2,
   FOUNTAIN,
   TREE,
   LANTERN,

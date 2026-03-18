@@ -1,4 +1,4 @@
-import { CAFE_LAYOUT, GRID_COLS, GRID_ROWS, T, isWalkable, isOutsideWalkable } from './tilemap'
+import { CAFE_LAYOUT, GRID_COLS, GRID_ROWS, T, isWalkable, isOutsideWalkable, isPatioTile } from './tilemap'
 import type { PointOfInterest, CustomerDirection } from './types'
 
 function buildPOIs(): PointOfInterest[] {
@@ -14,8 +14,8 @@ function buildPOIs(): PointOfInterest[] {
         // Counter: the floor tile in front of counter (row 15, the row above counter row 16)
         // We check row 15 specifically for counter slots
         case T.FLOOR: {
-          // Counter slots: row 26 (floor in front of counter at row 27), cols 13/15/17 (cafe room)
-          if (row === 26 && (col === 13 || col === 15 || col === 17)) {
+          // Counter slots: row 26 (floor in front of counter at row 27), cols 23/25/27 (cafe room)
+          if (row === 26 && (col === 23 || col === 25 || col === 27)) {
             pois.push({
               id: `counter_${id++}`,
               type: 'counter',
@@ -215,19 +215,23 @@ function buildPOIs(): PointOfInterest[] {
 
   // Add a few open floor spots for variety (hand-picked central areas)
   const floorSpots = [
-    // Reading room (interior)
-    { row: 11, col: 5 },  // reading room upper area
-    { row: 19, col: 5 },  // reading room passage area
-    { row: 24, col: 4 },  // reading room lower area
-    // Cafe (interior)
-    { row: 14, col: 15 }, // cafe upper room center
-    { row: 19, col: 15 }, // cafe below divider
-    { row: 24, col: 14 }, // cafe lower area
-    // Garden
-    { row: 3, col: 5 },   // left garden
-    { row: 3, col: 15 },  // right garden
-    { row: 5, col: 8 },   // left garden lower
-    { row: 5, col: 12 },  // right garden lower
+    // Patio
+    { row: 21, col: 5 },  // patio center
+    { row: 24, col: 5 },  // patio lower
+    { row: 27, col: 5 },  // patio open floor
+    // Reading room (interior — cols shifted +10)
+    { row: 11, col: 15 },  // reading room upper area
+    { row: 19, col: 15 },  // reading room passage area
+    { row: 24, col: 14 },  // reading room lower area
+    // Cafe (interior — cols shifted +10)
+    { row: 14, col: 25 }, // cafe upper room center
+    { row: 19, col: 25 }, // cafe below divider
+    { row: 24, col: 24 }, // cafe lower area
+    // Garden (cols shifted +10)
+    { row: 3, col: 15 },   // left garden
+    { row: 3, col: 25 },   // right garden
+    { row: 5, col: 18 },   // left garden lower
+    { row: 5, col: 22 },   // right garden lower
   ]
   for (const pos of floorSpots) {
     if (isWalkable(pos.row, pos.col)) {
@@ -254,9 +258,13 @@ export function pickNextPOI(
   currentPOI: string | null,
   occupancy: Map<string, number[]>,
   occupiedPositions?: Set<string>,
+  patioUnlocked: boolean = true,
+  extraPOIs?: PointOfInterest[],
 ): PointOfInterest | null {
-  const available = POINTS_OF_INTEREST.filter(poi => {
+  const allPOIs = extraPOIs ? [...POINTS_OF_INTEREST, ...extraPOIs] : POINTS_OF_INTEREST
+  const available = allPOIs.filter(poi => {
     if (poi.id === currentPOI) return false
+    if (!patioUnlocked && isPatioTile(poi.pos.row, poi.pos.col)) return false
     const occupants = occupancy.get(poi.id) ?? []
     if (occupants.length >= poi.maxOccupants) return false
     if (occupiedPositions && occupiedPositions.has(`${poi.pos.row},${poi.pos.col}`)) return false

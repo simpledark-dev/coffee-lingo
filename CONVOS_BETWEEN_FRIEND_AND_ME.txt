@@ -1,3 +1,4 @@
+(old, not up to date)
 **FRIEND:
 You can give Claude something like this:
 
