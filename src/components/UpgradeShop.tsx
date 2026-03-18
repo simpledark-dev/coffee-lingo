@@ -62,6 +62,7 @@ export default function UpgradeShop({
 }: UpgradeShopProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [, setTick] = useState(0)
+  const [activeTab, setActiveTab] = useState<string>('cafe')
   const upgrades = playerState.upgrades ?? {}
 
   // Tick every second to update countdowns
@@ -127,12 +128,14 @@ export default function UpgradeShop({
     return tierData?.spriteKey ?? item.spriteKey
   }
 
-  // Unified room sections: all items (buy + upgrade in one list)
-  const roomSections = [
-    { label: 'Café', items: CAFE_ROOM_FURNISHINGS, visible: true },
-    { label: 'Reading Room', items: READING_ROOM_FURNISHINGS, visible: true },
-    { label: 'Patio', items: PATIO_FURNISHINGS, visible: patioUnlocked },
+  const tabs = [
+    { id: 'cafe', label: 'Café', items: CAFE_ROOM_FURNISHINGS },
+    { id: 'reading', label: 'Reading', items: READING_ROOM_FURNISHINGS },
+    ...(patioUnlocked ? [{ id: 'patio', label: 'Patio', items: PATIO_FURNISHINGS }] : []),
+    { id: 'infra', label: 'Infra', items: [] as FurnishingItem[] },
   ]
+
+  const activeItems = tabs.find(t => t.id === activeTab)?.items ?? []
 
   return (
     <div style={styles.overlay} onClick={onClose}>
@@ -144,10 +147,26 @@ export default function UpgradeShop({
           <button style={styles.closeBtn} onClick={onClose}>X</button>
         </div>
 
+        {/* Tabs */}
+        <div style={styles.tabBar}>
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              style={{
+                ...styles.tab,
+                ...(activeTab === tab.id ? styles.tabActive : {}),
+              }}
+              onClick={() => { setActiveTab(tab.id); setExpandedId(null) }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {/* Scrollable list */}
         <div style={styles.list}>
-          {/* Infrastructure upgrades */}
-          <div style={styles.sectionHeader}>Infrastructure</div>
+          {/* Infrastructure upgrades (only on infra tab) */}
+          {activeTab === 'infra' && (<>
           {INFRA_CATALOG.map(entry => {
             const state = getItemState(entry)
             const currentTier = getCurrentTier(entry)
@@ -261,8 +280,10 @@ export default function UpgradeShop({
             )
           })}
 
-          {/* Patio room unlock */}
-          {!patioUnlocked && (
+          </>)}
+
+          {/* Patio room unlock (shown on infra tab when patio not unlocked) */}
+          {activeTab === 'infra' && !patioUnlocked && (
             <div style={styles.card}>
               <div style={styles.cardHeader}>
                 <div style={{ width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🌿</div>
@@ -288,13 +309,8 @@ export default function UpgradeShop({
             </div>
           )}
 
-          {/* Unified room sections: buy + upgrade in one list */}
-          {roomSections.map(({ label, items, visible }) => {
-            if (!visible) return null
-            return (
-              <div key={label}>
-                <div style={styles.sectionHeader}>{label}</div>
-                {items.map(item => {
+          {/* Room furnishing items for active tab */}
+          {activeTab !== 'infra' && activeItems.map(item => {
                   const isPlaced = !!placedFurnishings[item.id]
                   const isExpanded = expandedId === `furn_${item.id}`
                   const catalogId = TILE_TO_UPGRADE_ID[item.tileId]
@@ -428,9 +444,6 @@ export default function UpgradeShop({
                     </div>
                   )
                 })}
-              </div>
-            )
-          })}
         </div>
       </div>
     </div>
@@ -484,6 +497,31 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     cursor: 'pointer',
     padding: '4px 8px',
+  },
+  tabBar: {
+    display: 'flex',
+    borderBottom: '2px solid #5D4037',
+    padding: '0 8px',
+    gap: 0,
+  },
+  tab: {
+    flex: 1,
+    padding: '10px 0',
+    background: 'none',
+    border: 'none',
+    borderBottomWidth: 2,
+    borderBottomStyle: 'solid' as const,
+    borderBottomColor: 'transparent',
+    marginBottom: -2,
+    color: '#8D6E63',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    textAlign: 'center' as const,
+  },
+  tabActive: {
+    color: '#FFD54F',
+    borderBottomColor: '#FFD54F',
   },
   list: {
     overflowY: 'auto',

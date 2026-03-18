@@ -461,10 +461,10 @@ export default function CafeCanvas({
         } else if (gestureDirRef.current === 'horizontal') {
           // Check for room switch
           const minRoom = patioUnlockedRef.current ? 0 : 1
-          if (swipeDxRef.current > SWIPE_THRESHOLD && currentRoomRef.current > minRoom) {
-            switchToRoom(currentRoomRef.current - 1)
-          } else if (swipeDxRef.current < -SWIPE_THRESHOLD && currentRoomRef.current < 2) {
+          if (swipeDxRef.current > SWIPE_THRESHOLD && currentRoomRef.current < 2) {
             switchToRoom(currentRoomRef.current + 1)
+          } else if (swipeDxRef.current < -SWIPE_THRESHOLD && currentRoomRef.current > minRoom) {
+            switchToRoom(currentRoomRef.current - 1)
           }
         }
       }
@@ -516,10 +516,10 @@ export default function CafeCanvas({
           handleTap(e.clientX, e.clientY)
         } else if (gestureDirRef.current === 'horizontal') {
           const minRoom = patioUnlockedRef.current ? 0 : 1
-          if (swipeDxRef.current > SWIPE_THRESHOLD && currentRoomRef.current > minRoom) {
-            switchToRoom(currentRoomRef.current - 1)
-          } else if (swipeDxRef.current < -SWIPE_THRESHOLD && currentRoomRef.current < 2) {
+          if (swipeDxRef.current > SWIPE_THRESHOLD && currentRoomRef.current < 2) {
             switchToRoom(currentRoomRef.current + 1)
+          } else if (swipeDxRef.current < -SWIPE_THRESHOLD && currentRoomRef.current > minRoom) {
+            switchToRoom(currentRoomRef.current - 1)
           }
         }
       }
@@ -641,7 +641,7 @@ export default function CafeCanvas({
       // Then: any non-exclamation interior customer → show info
       for (const customer of state.characters) {
         if (customer.location !== 'interior') continue
-        if (customer.phase === 'exclamation' || customer.phase === 'exiting') continue
+        if (customer.phase === 'exclamation') continue
         const left = customer.worldPos.x + PAD
         const top = customer.worldPos.y + PAD
         const size = TILE_PX - PAD * 2

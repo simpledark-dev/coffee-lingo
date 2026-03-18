@@ -255,7 +255,15 @@ export default function GameplayView({
     audio.loop = true
     audio.volume = musicVolume
     audioRef.current = audio
-    return () => { audio.pause(); audio.src = '' }
+
+    // Autoplay is blocked by browsers until first user interaction
+    function startAudio() {
+      if (audio.volume > 0) audio.play().catch(() => {})
+      document.removeEventListener('pointerdown', startAudio)
+    }
+    document.addEventListener('pointerdown', startAudio)
+
+    return () => { audio.pause(); audio.src = ''; document.removeEventListener('pointerdown', startAudio) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
