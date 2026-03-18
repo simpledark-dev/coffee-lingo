@@ -60,6 +60,82 @@ function playCoinSound() {
   }
 }
 
+export function playTapSound() {
+  if (typeof window === 'undefined') return
+  if (!_audioCtx) _audioCtx = new AudioContext()
+  const ctx = _audioCtx
+  const now = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.type = 'sine'
+  osc.frequency.value = 660 // E5
+  gain.gain.setValueAtTime(0.06, now)
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1)
+  osc.connect(gain).connect(ctx.destination)
+  osc.start(now)
+  osc.stop(now + 0.1)
+}
+
+export function playUpgradeStartSound() {
+  if (typeof window === 'undefined') return
+  if (!_audioCtx) _audioCtx = new AudioContext()
+  const ctx = _audioCtx
+  const now = ctx.currentTime
+  // Rising three-note arpeggio
+  const freqs = [523, 659, 784] // C5, E5, G5
+  for (let i = 0; i < 3; i++) {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'triangle'
+    osc.frequency.value = freqs[i]
+    gain.gain.setValueAtTime(0.07, now + i * 0.08)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.15)
+    osc.connect(gain).connect(ctx.destination)
+    osc.start(now + i * 0.08)
+    osc.stop(now + i * 0.08 + 0.15)
+  }
+}
+
+function playUpgradeReadySound() {
+  if (typeof window === 'undefined') return
+  if (!_audioCtx) _audioCtx = new AudioContext()
+  const ctx = _audioCtx
+  const now = ctx.currentTime
+  // Bright notification chime — two notes
+  const freqs = [784, 1047] // G5, C6
+  for (let i = 0; i < 2; i++) {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = freqs[i]
+    gain.gain.setValueAtTime(0.1, now + i * 0.12)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.25)
+    osc.connect(gain).connect(ctx.destination)
+    osc.start(now + i * 0.12)
+    osc.stop(now + i * 0.12 + 0.25)
+  }
+}
+
+export function playInstallSound() {
+  if (typeof window === 'undefined') return
+  if (!_audioCtx) _audioCtx = new AudioContext()
+  const ctx = _audioCtx
+  const now = ctx.currentTime
+  // Satisfying descending sparkle — four quick notes
+  const freqs = [1319, 1047, 784, 1047] // E6, C6, G5, C6
+  for (let i = 0; i < 4; i++) {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = freqs[i]
+    gain.gain.setValueAtTime(0.08, now + i * 0.07)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.18)
+    osc.connect(gain).connect(ctx.destination)
+    osc.start(now + i * 0.07)
+    osc.stop(now + i * 0.07 + 0.18)
+  }
+}
+
 function spriteToDataURL(spriteVariant: number, size: number): string {
   const sprites = CUSTOMER_SPRITES[spriteVariant % CUSTOMER_SPRITES.length]
   const sprite = sprites.down
@@ -211,6 +287,15 @@ export default function GameplayView({
     if (!placingItem) return []
     return getAvailableSlots(placingItem, placedFurnishings)
   }, [placingItem, placedFurnishings])
+
+  // Play sound when a new upgrade becomes ready
+  const prevReadyCountRef = useRef(readyToInstallIds.length)
+  useEffect(() => {
+    if (readyToInstallIds.length > prevReadyCountRef.current) {
+      playUpgradeReadySound()
+    }
+    prevReadyCountRef.current = readyToInstallIds.length
+  }, [readyToInstallIds])
 
   // Keep simulation state in sync with player state
   useEffect(() => {
@@ -528,7 +613,7 @@ export default function GameplayView({
         onCancelPlace={() => setPlacingItem(null)}
         placedFurnishings={placedFurnishings}
         furnishingUpgrades={playerState.furnishingUpgrades}
-        onFurnishingTap={(itemId) => setInspectedFurnishingId(itemId)}
+        onFurnishingTap={(itemId) => { playTapSound(); setInspectedFurnishingId(itemId) }}
       />
 
       {/* Upgrade install toasts */}
@@ -537,7 +622,7 @@ export default function GameplayView({
           {readyToInstallIds.map((id) => (
             <div key={id} style={styles.toast}>
               <span style={{ flex: 1, fontWeight: 600 }}>Upgrade ready!</span>
-              <button style={styles.toastButton} onClick={() => onInstall(id)}>Install</button>
+              <button style={styles.toastButton} onClick={() => { playInstallSound(); onInstall(id) }}>Install</button>
             </div>
           ))}
         </div>
@@ -735,7 +820,7 @@ export default function GameplayView({
                     backgroundColor: '#4CAF50', color: '#fff', border: 'none',
                     borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer',
                   }}
-                  onClick={() => { onFurnishingInstall(inspectedFurnishingId); setInspectedFurnishingId(null) }}
+                  onClick={() => { playInstallSound(); onFurnishingInstall(inspectedFurnishingId); setInspectedFurnishingId(null) }}
                 >
                   Install Upgrade
                 </button>
@@ -753,6 +838,7 @@ export default function GameplayView({
                   }}
                   disabled={!canAfford || !hasRep}
                   onClick={() => {
+                    playUpgradeStartSound()
                     onFurnishingPurchase(inspectedFurnishingId, nextTier.tier, nextTier.cost, nextTier.durationMs)
                     setInspectedFurnishingId(null)
                   }}

@@ -861,6 +861,24 @@ export const CUSTOMER_SPRITES: CustomerSprites[] = [
   makeCustomerSprites(20, 33, 37, 38, 1, 9),     // 10: red shirt, dark skin, dark brown hair
   makeCustomerSprites(13, 34, 4, 3, 17, 16),     // 11: green shirt, tan skin, blonde hair
   makeCustomerSprites(21, 35, 49, 50, 47, 36),   // 12: purple shirt, light skin, ginger hair
+  makeCustomerSprites(39, 40, 49, 50, 17, 16),   // 13: teal shirt, light skin, blonde hair
+  makeCustomerSprites(43, 44, 37, 38, 1, 9),     // 14: yellow shirt, dark skin, dark brown hair
+  makeCustomerSprites(41, 42, 4, 3, 9, 9),       // 15: pink shirt, tan skin, black hair
+  makeCustomerSprites(15, 36, 37, 38, 47, 36),   // 16: coral shirt, dark skin, ginger hair
+  makeCustomerSprites(45, 46, 29, 16, 2, 1),     // 17: gray shirt, peach skin, brown hair
+  makeCustomerSprites(18, 32, 37, 38, 17, 16),   // 18: blue shirt, dark skin, blonde hair
+  makeCustomerSprites(43, 44, 49, 50, 48, 11),   // 19: yellow shirt, light skin, gray hair
+  makeCustomerSprites(20, 33, 29, 16, 47, 36),   // 20: red shirt, peach skin, ginger hair
+  makeCustomerSprites(39, 40, 4, 3, 2, 1),       // 21: teal shirt, tan skin, brown hair
+  makeCustomerSprites(41, 42, 37, 38, 17, 16),   // 22: pink shirt, dark skin, blonde hair
+  makeCustomerSprites(21, 35, 37, 38, 48, 11),   // 23: purple shirt, dark skin, gray hair
+  makeCustomerSprites(13, 34, 49, 50, 9, 9),     // 24: green shirt, light skin, black hair
+  makeCustomerSprites(15, 36, 4, 3, 1, 9),       // 25: coral shirt, tan skin, dark brown hair
+  makeCustomerSprites(45, 46, 49, 50, 47, 36),   // 26: gray shirt, light skin, ginger hair
+  makeCustomerSprites(43, 44, 29, 16, 9, 9),     // 27: yellow shirt, peach skin, black hair
+  makeCustomerSprites(18, 32, 4, 3, 48, 11),     // 28: blue shirt, tan skin, gray hair
+  makeCustomerSprites(20, 33, 49, 50, 2, 1),     // 29: red shirt, light skin, brown hair
+  makeCustomerSprites(39, 40, 29, 16, 1, 9),     // 30: teal shirt, peach skin, dark brown hair
 ]
 
 export const CUSTOMERS = CUSTOMER_SPRITES.map(s => s.down)

@@ -47,26 +47,41 @@ export const FRIENDSHIP_GAIN: Record<string, number> = {
 
 export const CHARACTER_ROSTER: Character[] = [
   // Always available (unlockRep: 0)
-  { id: 'marie',    name: 'Marie',    bio: 'A cheerful regular who loves croissants', gender: 'female', spriteVariant: 0,  unlockRep: 0,   voice: { pitch: 1.15, rate: 0.95, volume: 1.0 } },
-  { id: 'jean',     name: 'Jean',     bio: 'Retired teacher, always reads the paper', gender: 'male',   spriteVariant: 1,  unlockRep: 0,   voice: { pitch: 0.85, rate: 0.80, volume: 0.9 } },
-  { id: 'camille',  name: 'Camille',  bio: 'Art student sketching in the corner',     gender: 'female', spriteVariant: 2,  unlockRep: 0,   voice: { pitch: 1.20, rate: 0.90, volume: 0.85 } },
-  { id: 'lucas',    name: 'Lucas',    bio: 'Tech worker, needs his espresso fix',     gender: 'male',   spriteVariant: 3,  unlockRep: 0,   voice: { pitch: 0.95, rate: 1.00, volume: 1.0 } },
-  { id: 'sophie',   name: 'Sophie',   bio: 'Florist from next door',                  gender: 'female', spriteVariant: 4,  unlockRep: 0,   voice: { pitch: 1.10, rate: 0.90, volume: 0.95 } },
-  { id: 'pierre',   name: 'Pierre',   bio: 'Local chef, very picky about coffee',     gender: 'male',   spriteVariant: 5,  unlockRep: 0,   voice: { pitch: 0.80, rate: 0.85, volume: 1.0 } },
-  // Unlock at rep 10
-  { id: 'amelie',   name: 'Amélie',   bio: 'Bookworm with a sweet tooth',             gender: 'female', spriteVariant: 6,  unlockRep: 10,  voice: { pitch: 1.25, rate: 0.85, volume: 0.85 } },
-  { id: 'hugo',     name: 'Hugo',     bio: 'Musician, always humming a tune',          gender: 'male',   spriteVariant: 7,  unlockRep: 10,  voice: { pitch: 1.00, rate: 0.95, volume: 1.0 } },
-  { id: 'claire',   name: 'Claire',   bio: 'Journalist chasing her next story',        gender: 'female', spriteVariant: 8,  unlockRep: 15,  voice: { pitch: 1.05, rate: 1.00, volume: 1.0 } },
-  // Unlock at rep 25+
-  { id: 'nicolas',  name: 'Nicolas',  bio: 'Wine merchant with refined taste',         gender: 'male',   spriteVariant: 9,  unlockRep: 25,  voice: { pitch: 0.75, rate: 0.80, volume: 0.95 } },
-  { id: 'isabelle', name: 'Isabelle', bio: 'Fashion designer, always stylish',         gender: 'female', spriteVariant: 10, unlockRep: 30,  voice: { pitch: 1.15, rate: 0.95, volume: 1.0 } },
-  { id: 'remi',     name: 'Rémi',     bio: 'Pastry chef, your friendly rival',         gender: 'male',   spriteVariant: 11, unlockRep: 40,  voice: { pitch: 0.90, rate: 0.90, volume: 0.95 } },
-  // Unlock at rep 60+
-  { id: 'colette',  name: 'Colette',  bio: 'Mystery novelist, observes everything',    gender: 'female', spriteVariant: 12, unlockRep: 60,  voice: { pitch: 0.85, rate: 0.75, volume: 0.9 } },
-  { id: 'antoine',  name: 'Antoine',  bio: 'Professor of philosophy at the Sorbonne',  gender: 'male',   spriteVariant: 0,  unlockRep: 80,  voice: { pitch: 0.70, rate: 0.75, volume: 0.95 } },
-  { id: 'juliette', name: 'Juliette', bio: 'Opera singer, dramatic flair',             gender: 'female', spriteVariant: 4,  unlockRep: 100, voice: { pitch: 1.30, rate: 0.85, volume: 1.0 } },
-  { id: 'marcel',   name: 'Marcel',   bio: 'Retired diplomat, speaks many languages',  gender: 'male',   spriteVariant: 9,  unlockRep: 140, voice: { pitch: 0.75, rate: 0.80, volume: 0.9 } },
-  { id: 'eloise',   name: 'Éloïse',   bio: 'Famous food critic — impress her!',        gender: 'female', spriteVariant: 10, unlockRep: 200, voice: { pitch: 1.10, rate: 0.90, volume: 1.0 } },
+  { id: 'marie',    name: 'Marie',    bio: 'A cheerful regular who loves croissants',  gender: 'female', spriteVariant: 0,  unlockRep: 0,   voice: { pitch: 1.15, rate: 0.95, volume: 1.0 } },
+  { id: 'jean',     name: 'Jean',     bio: 'Retired teacher, always reads the paper',  gender: 'male',   spriteVariant: 1,  unlockRep: 0,   voice: { pitch: 0.85, rate: 0.80, volume: 0.9 } },
+  { id: 'camille',  name: 'Camille',  bio: 'Art student sketching in the corner',      gender: 'female', spriteVariant: 2,  unlockRep: 0,   voice: { pitch: 1.20, rate: 0.90, volume: 0.85 } },
+  { id: 'lucas',    name: 'Lucas',    bio: 'Tech worker, needs his espresso fix',      gender: 'male',   spriteVariant: 3,  unlockRep: 0,   voice: { pitch: 0.95, rate: 1.00, volume: 1.0 } },
+  { id: 'sophie',   name: 'Sophie',   bio: 'Florist from next door',                   gender: 'female', spriteVariant: 4,  unlockRep: 0,   voice: { pitch: 1.10, rate: 0.90, volume: 0.95 } },
+  { id: 'pierre',   name: 'Pierre',   bio: 'Local chef, very picky about coffee',      gender: 'male',   spriteVariant: 5,  unlockRep: 0,   voice: { pitch: 0.80, rate: 0.85, volume: 1.0 } },
+  { id: 'manon',    name: 'Manon',    bio: 'Yoga instructor, orders herbal tea',        gender: 'female', spriteVariant: 13, unlockRep: 0,   voice: { pitch: 1.18, rate: 0.88, volume: 0.9 } },
+  { id: 'theo',     name: 'Théo',     bio: 'Bike courier, always in a hurry',           gender: 'male',   spriteVariant: 14, unlockRep: 0,   voice: { pitch: 1.05, rate: 1.05, volume: 1.0 } },
+  // Unlock at rep 10–20
+  { id: 'amelie',   name: 'Amélie',   bio: 'Bookworm with a sweet tooth',              gender: 'female', spriteVariant: 6,  unlockRep: 10,  voice: { pitch: 1.25, rate: 0.85, volume: 0.85 } },
+  { id: 'hugo',     name: 'Hugo',     bio: 'Musician, always humming a tune',           gender: 'male',   spriteVariant: 7,  unlockRep: 10,  voice: { pitch: 1.00, rate: 0.95, volume: 1.0 } },
+  { id: 'claire',   name: 'Claire',   bio: 'Journalist chasing her next story',         gender: 'female', spriteVariant: 8,  unlockRep: 15,  voice: { pitch: 1.05, rate: 1.00, volume: 1.0 } },
+  { id: 'adrien',   name: 'Adrien',   bio: 'Law student cramming for exams',            gender: 'male',   spriteVariant: 15, unlockRep: 15,  voice: { pitch: 0.90, rate: 0.95, volume: 0.95 } },
+  { id: 'lea',      name: 'Léa',      bio: 'Kindergarten teacher, endlessly patient',   gender: 'female', spriteVariant: 16, unlockRep: 20,  voice: { pitch: 1.22, rate: 0.85, volume: 0.9 } },
+  { id: 'louis',    name: 'Louis',    bio: 'Antique dealer, tells long stories',        gender: 'male',   spriteVariant: 17, unlockRep: 20,  voice: { pitch: 0.78, rate: 0.78, volume: 0.95 } },
+  // Unlock at rep 25–45
+  { id: 'nicolas',  name: 'Nicolas',  bio: 'Wine merchant with refined taste',          gender: 'male',   spriteVariant: 9,  unlockRep: 25,  voice: { pitch: 0.75, rate: 0.80, volume: 0.95 } },
+  { id: 'isabelle', name: 'Isabelle', bio: 'Fashion designer, always stylish',          gender: 'female', spriteVariant: 10, unlockRep: 30,  voice: { pitch: 1.15, rate: 0.95, volume: 1.0 } },
+  { id: 'remi',     name: 'Rémi',     bio: 'Pastry chef, your friendly rival',          gender: 'male',   spriteVariant: 11, unlockRep: 35,  voice: { pitch: 0.90, rate: 0.90, volume: 0.95 } },
+  { id: 'nadia',    name: 'Nadia',    bio: 'Photographer, captures café moments',       gender: 'female', spriteVariant: 18, unlockRep: 35,  voice: { pitch: 1.12, rate: 0.92, volume: 0.95 } },
+  { id: 'vincent',  name: 'Vincent',  bio: 'Architect, admires the café decor',         gender: 'male',   spriteVariant: 19, unlockRep: 40,  voice: { pitch: 0.88, rate: 0.88, volume: 1.0 } },
+  { id: 'chloe',    name: 'Chloé',    bio: 'Dancer at the opera, graceful even seated', gender: 'female', spriteVariant: 20, unlockRep: 45,  voice: { pitch: 1.28, rate: 0.90, volume: 0.9 } },
+  // Unlock at rep 50–80
+  { id: 'colette',  name: 'Colette',  bio: 'Mystery novelist, observes everything',     gender: 'female', spriteVariant: 12, unlockRep: 50,  voice: { pitch: 0.85, rate: 0.75, volume: 0.9 } },
+  { id: 'gabriel',  name: 'Gabriel',  bio: 'Sommelier, pairs coffee like wine',         gender: 'male',   spriteVariant: 21, unlockRep: 55,  voice: { pitch: 0.82, rate: 0.82, volume: 1.0 } },
+  { id: 'margot',   name: 'Margot',   bio: 'Vintage shop owner, loves nostalgia',       gender: 'female', spriteVariant: 22, unlockRep: 60,  voice: { pitch: 1.08, rate: 0.88, volume: 0.95 } },
+  { id: 'antoine',  name: 'Antoine',  bio: 'Professor of philosophy at the Sorbonne',   gender: 'male',   spriteVariant: 23, unlockRep: 70,  voice: { pitch: 0.70, rate: 0.75, volume: 0.95 } },
+  { id: 'valerie',  name: 'Valérie',  bio: 'Retired ballerina, elegant and poised',     gender: 'female', spriteVariant: 24, unlockRep: 80,  voice: { pitch: 1.05, rate: 0.78, volume: 0.9 } },
+  // Unlock at rep 100+
+  { id: 'juliette', name: 'Juliette', bio: 'Opera singer, dramatic flair',              gender: 'female', spriteVariant: 25, unlockRep: 100, voice: { pitch: 1.30, rate: 0.85, volume: 1.0 } },
+  { id: 'marcel',   name: 'Marcel',   bio: 'Retired diplomat, speaks many languages',   gender: 'male',   spriteVariant: 26, unlockRep: 120, voice: { pitch: 0.75, rate: 0.80, volume: 0.9 } },
+  { id: 'fleur',    name: 'Fleur',    bio: 'Perfumer, can describe any aroma',          gender: 'female', spriteVariant: 27, unlockRep: 140, voice: { pitch: 1.20, rate: 0.82, volume: 0.85 } },
+  { id: 'olivier',  name: 'Olivier',  bio: 'Film director, always scouting locations',  gender: 'male',   spriteVariant: 28, unlockRep: 160, voice: { pitch: 0.85, rate: 0.90, volume: 1.0 } },
+  { id: 'eloise',   name: 'Éloïse',   bio: 'Famous food critic — impress her!',         gender: 'female', spriteVariant: 29, unlockRep: 200, voice: { pitch: 1.10, rate: 0.90, volume: 1.0 } },
+  { id: 'raphael',  name: 'Raphaël',  bio: 'Michelin-star chef, the ultimate regular',  gender: 'male',   spriteVariant: 30, unlockRep: 250, voice: { pitch: 0.72, rate: 0.78, volume: 1.0 } },
 ]
 
 /**

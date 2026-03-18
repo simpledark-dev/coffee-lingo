@@ -12,6 +12,7 @@ import {
   type UpgradeCatalogEntry,
 } from '../lib/upgrades'
 import { PALETTE, SPRITE_MAP } from '../lib/sprites'
+import { playUpgradeStartSound, playInstallSound } from './GameplayView'
 import { PATIO_UNLOCK_REP, PATIO_UNLOCK_COST } from '../lib/tilemap'
 import { PATIO_FURNISHINGS, READING_ROOM_FURNISHINGS, CAFE_ROOM_FURNISHINGS, ALL_FURNISHINGS } from '../lib/furnishing'
 
@@ -225,7 +226,7 @@ export default function UpgradeShop({
                       <button
                         style={{ ...styles.buyBtn, opacity: playerState.coins >= nextTier.cost ? 1 : 0.4 }}
                         disabled={playerState.coins < nextTier.cost}
-                        onClick={e => { e.stopPropagation(); onPurchase(entry.id, nextTier.tier, nextTier.cost, nextTier.durationMs); setExpandedId(null) }}
+                        onClick={e => { e.stopPropagation(); playUpgradeStartSound(); onPurchase(entry.id, nextTier.tier, nextTier.cost, nextTier.durationMs); setExpandedId(null) }}
                       >
                         Buy — {nextTier.cost} coins
                       </button>
@@ -266,7 +267,7 @@ export default function UpgradeShop({
                         </>
                       ) : null
                     })()}
-                    <button style={styles.installBtn} onClick={e => { e.stopPropagation(); onInstall(entry.id) }}>Install</button>
+                    <button style={styles.installBtn} onClick={e => { e.stopPropagation(); playInstallSound(); onInstall(entry.id) }}>Install</button>
                   </div>
                 )}
 
@@ -390,7 +391,7 @@ export default function UpgradeShop({
                             <button
                               style={{ ...styles.buyBtn, opacity: playerState.coins >= nextTier.cost ? 1 : 0.4 }}
                               disabled={playerState.coins < nextTier.cost}
-                              onClick={e => { e.stopPropagation(); onFurnishingPurchase(item.id, nextTier.tier, nextTier.cost, nextTier.durationMs); setExpandedId(null) }}
+                              onClick={e => { e.stopPropagation(); playUpgradeStartSound(); onFurnishingPurchase(item.id, nextTier.tier, nextTier.cost, nextTier.durationMs); setExpandedId(null) }}
                             >
                               Upgrade — {nextTier.cost} coins
                             </button>
@@ -431,7 +432,7 @@ export default function UpgradeShop({
                               </>
                             ) : null
                           })()}
-                          <button style={styles.installBtn} onClick={e => { e.stopPropagation(); onFurnishingInstall(item.id) }}>Install</button>
+                          <button style={styles.installBtn} onClick={e => { e.stopPropagation(); playInstallSound(); onFurnishingInstall(item.id) }}>Install</button>
                         </div>
                       )}
 
@@ -463,6 +464,7 @@ const styles: Record<string, React.CSSProperties> = {
   panel: {
     width: '100%',
     maxWidth: 400,
+    minHeight: '85vh',
     maxHeight: '85vh',
     backgroundColor: '#3E2723',
     borderRadius: 16,
