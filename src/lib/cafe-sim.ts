@@ -15,20 +15,20 @@ const TILE_PX = TILE_SIZE * SCALE
 const DEFAULT_MAX_IN_CAFE = 6
 const DEFAULT_MAX_IN_WORLD = 12
 const WALK_SPEED = 1.5 // pixels per frame
-const SPAWN_MIN = 3000 // ms
-const SPAWN_MAX = 6000
-const IDLE_MIN = 5000
-const IDLE_MAX = 12000
-const OUTSIDE_IDLE_MIN = 3000
-const OUTSIDE_IDLE_MAX = 8000
+const SPAWN_MIN = 1000 // ms
+const SPAWN_MAX = 2500
+const IDLE_MIN = 1500
+const IDLE_MAX = 3000
+const OUTSIDE_IDLE_MIN = 1000
+const OUTSIDE_IDLE_MAX = 2500
 const EXCLAMATION_TIMEOUT = 15000 // ms
-const EXCLAMATION_CHANCE = 0.6
-const POST_CONVO_PAUSE = 500
-const INTERIOR_STOPS_MIN = 2
-const INTERIOR_STOPS_MAX = 5
-const OUTSIDE_STOPS_MIN = 1
-const OUTSIDE_STOPS_MAX = 3
-const CAFE_ENTRY_CHANCE = 0.6 // chance to enter cafe after outside stops
+const EXCLAMATION_CHANCE = 0.9
+const POST_CONVO_PAUSE = 300
+const INTERIOR_STOPS_MIN = 1
+const INTERIOR_STOPS_MAX = 3
+const OUTSIDE_STOPS_MIN = 0
+const OUTSIDE_STOPS_MAX = 1
+const CAFE_ENTRY_CHANCE = 0.85 // chance to enter cafe after outside stops
 
 function randomBetween(min: number, max: number): number {
   return min + Math.random() * (max - min)
@@ -168,6 +168,7 @@ export function spawnCharacter(
   state: WorldState,
   conversation: CustomerConversation,
   characterId: string,
+  roundsTarget: number = 1,
 ): void {
   const character = getCharacter(characterId)
 
@@ -195,6 +196,7 @@ export function spawnCharacter(
     stopsRemaining: Math.floor(randomBetween(INTERIOR_STOPS_MIN, INTERIOR_STOPS_MAX + 1)),
     outsideStopsRemaining: Math.floor(randomBetween(OUTSIDE_STOPS_MIN, OUTSIDE_STOPS_MAX + 1)),
     hasActiveRequest: false,
+    roundsTarget,
   }
 
   // Path to first outside POI

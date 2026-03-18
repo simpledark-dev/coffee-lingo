@@ -4,6 +4,8 @@ export interface Expression {
   nativeText: string
   ideaTags: string[]
   stage: number
+  definition?: string
+  examples?: string[]
 }
 
 export interface ResponseOption {
@@ -82,6 +84,7 @@ export interface PlayerState {
   unlockedRooms?: string[]
   placedFurnishings?: Record<string, GridPos>
   furnishingUpgrades?: Record<string, UpgradeLevel>
+  wrongQueue?: WrongQueueEntry[]
 }
 
 export interface FurnishingBonus {
@@ -102,9 +105,20 @@ export interface FurnishingItem {
   bonus: FurnishingBonus
 }
 
+export interface WrongQueueEntry {
+  wordId: string
+  streak: number
+}
+
 export interface VocabularyEntry {
   masteryLevel: number
   totalSuccessfulUses: number
+  totalWrong: number             // lifetime wrong answer count
+  successfulDays: number
+  lastSuccessDay: string | null  // ISO date string e.g. "2026-03-19"
+  todayRight: number
+  todayWrong: number
+  todayDate: string | null       // tracks which day todayRight/todayWrong belong to
 }
 
 // --- World simulation types ---
@@ -160,6 +174,7 @@ export interface CustomerState {
   stopsRemaining: number          // POI stops remaining in current location
   outsideStopsRemaining: number   // outside POI stops before deciding next action
   hasActiveRequest: boolean
+  roundsTarget: number
 }
 
 export interface ActiveConvo {

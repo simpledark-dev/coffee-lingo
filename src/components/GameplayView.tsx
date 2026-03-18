@@ -4,9 +4,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   AnswerChoice, ResolvedExchange, Score,
   EvaluationResult, PlayerState, WorldState,
-  DialogueTemplate, Expression, FurnishingItem, GridPos,
+  Expression, FurnishingItem, GridPos,
 } from '../lib/types'
-import { evaluateChoice, generateSingleConversation } from '../lib/game'
+import { evaluateChoice, generateSingleConversation, generateWordQuiz } from '../lib/game'
 import { updateMastery } from '../lib/state'
 import type { UpgradeBonuses } from '../lib/upgrades'
 import { TILE_TO_UPGRADE_ID, getUpgradeCatalogEntry, getUpgradeTimeRemaining, formatTimeRemaining } from '../lib/upgrades'
@@ -19,9 +19,9 @@ import HUD from './HUD'
 import CafeCanvas from './CafeCanvas'
 import ContactsView from './ContactsView'
 import UpgradeShop from './UpgradeShop'
+import DictionaryView from './DictionaryView'
 
 interface GameplayViewProps {
-  templates: DialogueTemplate[]
   expressions: Expression[]
   playerState: PlayerState
   bonuses: UpgradeBonuses
@@ -58,6 +58,14 @@ function playCoinSound() {
     osc.start(now + i * 0.08)
     osc.stop(now + i * 0.08 + 0.12)
   }
+}
+
+let _awwAudio: HTMLAudioElement | null = null
+function playAwwSound() {
+  if (typeof window === 'undefined') return
+  if (!_awwAudio) _awwAudio = new Audio('/aww.mp3')
+  _awwAudio.currentTime = 0
+  _awwAudio.play().catch(() => {})
 }
 
 export function playTapSound() {
@@ -166,16 +174,16 @@ function loadVoices() {
   const voices = window.speechSynthesis.getVoices()
   if (voices.length === 0) return
   voicesLoaded = true
-  const frenchVoices = voices.filter(v => v.lang.startsWith('fr'))
+  const germanVoices = voices.filter(v => v.lang.startsWith('de'))
   cachedMaleVoice =
-    frenchVoices.find(v => /thomas|male|homme/i.test(v.name)) ??
-    frenchVoices.find(v => !/female|femme|amélie|audrey|marie|sophie|julie/i.test(v.name)) ??
-    frenchVoices[0] ??
+    germanVoices.find(v => /martin|male|mann/i.test(v.name)) ??
+    germanVoices.find(v => !/female|frau|anna|petra|marlene|helena|vicki/i.test(v.name)) ??
+    germanVoices[0] ??
     null
   cachedFemaleVoice =
-    frenchVoices.find(v => /amélie|audrey|marie|female|femme|sophie|julie/i.test(v.name)) ??
-    frenchVoices.find(v => v !== cachedMaleVoice) ??
-    frenchVoices[0] ??
+    germanVoices.find(v => /anna|petra|female|frau|marlene|helena|vicki/i.test(v.name)) ??
+    germanVoices.find(v => v !== cachedMaleVoice) ??
+    germanVoices[0] ??
     null
 }
 
@@ -190,7 +198,7 @@ function speakFrench(text: string, gender: 'male' | 'female' = 'male', profile?:
     if (!voicesLoaded) loadVoices()
     window.speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'fr-FR'
+    utterance.lang = 'de-DE'
     // Apply voice profile with slight random jitter per utterance
     const jitterP = (Math.random() - 0.5) * 0.06 // ±0.03
     const jitterR = (Math.random() - 0.5) * 0.04 // ±0.02
@@ -206,7 +214,6 @@ function speakFrench(text: string, gender: 'male' | 'female' = 'male', profile?:
 }
 
 export default function GameplayView({
-  templates,
   expressions,
   playerState,
   bonuses,
@@ -245,6 +252,7 @@ export default function GameplayView({
   const [inspectedCharacterId, setInspectedCharacterId] = useState<string | null>(null)
   const [showContacts, setShowContacts] = useState(false)
   const [showUpgradeShop, setShowUpgradeShop] = useState(false)
+  const [showDictionary, setShowDictionary] = useState(false)
   const [showPatioPrompt, setShowPatioPrompt] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [sessionServed, setSessionServed] = useState(0)
@@ -268,6 +276,7 @@ export default function GameplayView({
   const [patioUnlockToast, setPatioUnlockToast] = useState(false)
   const [placingItem, setPlacingItem] = useState<FurnishingItem | null>(null)
   const [inspectedFurnishingId, setInspectedFurnishingId] = useState<string | null>(null)
+  const [wordDetailExpr, setWordDetailExpr] = useState<Expression | null>(null)
   const [, setTickInspect] = useState(0)
 
   // Live timer tick for furnishing inspection popup
@@ -403,15 +412,14 @@ export default function GameplayView({
         )
         // Empty string means all unlocked characters are already in the world
         if (!characterId) { requestAnimationFrame(loop); return }
-        const { conversation, usedTemplateIds } = generateSingleConversation(
-          templates, expressions, ps.vocabulary, ps.recencyBuffer
+        const { conversation, usedWordId, roundsTarget } = generateSingleConversation(
+          expressions, ps.vocabulary, ps.recencyBuffer, ps.wrongQueue ?? []
         )
-        spawnCharacter(state, conversation, characterId)
+        spawnCharacter(state, conversation, characterId, roundsTarget)
 
         // Update recency buffers
         recentCharacterIdsRef.current = [...recentCharacterIdsRef.current, characterId].slice(-5)
-        // Update template recency in state
-        const newRecency = [...ps.recencyBuffer, ...usedTemplateIds].slice(-6)
+        const newRecency = [...ps.recencyBuffer, usedWordId].slice(-10)
         if (newRecency.join() !== ps.recencyBuffer.join()) {
           onStateUpdate({ recencyBuffer: newRecency })
         }
@@ -443,6 +451,7 @@ export default function GameplayView({
       if (remaining <= 0) {
         if (patienceTimerRef.current) clearInterval(patienceTimerRef.current)
         if (respondingRef.current && !processingRef.current) {
+          setSelectedChoiceId('timeout')
           processResult(null)
         }
       }
@@ -480,7 +489,7 @@ export default function GameplayView({
     respondingRef.current = true
     processingRef.current = false
     setPatiencePercent(100)
-    speakFrench(exchange.customerLine, activeGenderRef.current, activeVoiceRef.current)
+    // customerLine is now English — don't speak it in French
   }, [])
 
   const processResult = useCallback((choice: AnswerChoice | null) => {
@@ -505,6 +514,7 @@ export default function GameplayView({
     setLastResult(result)
 
     if (result.score === 'PERFECT' || result.score === 'GOOD') playCoinSound()
+    if (result.score === 'MISSED') playAwwSound()
 
     // Show friendship gain + update immediately
     const gain = FRIENDSHIP_GAIN[result.score] ?? 0
@@ -518,12 +528,36 @@ export default function GameplayView({
 
     // Apply state updates immediately (coins, rep, vocabulary)
     const ps = playerStateRef.current
-    const words = choice?.expressions ?? []
+    const isCorrect = result.score === 'PERFECT' || result.score === 'GOOD'
+    const targetWordId = exchange.templateId // templateId stores the target word id
     const updatedState = updateMastery(
-      ps, words,
-      exchange.requiredIdeas, exchange.bonusIdeas,
+      ps, targetWordId, isCorrect,
       bonuses.masteryXpMultiplier
     )
+
+    // Update wrong queue
+    const MAX_WRONG_QUEUE = 10
+    const REDEMPTION_THRESHOLD = 5
+    let wrongQueue = [...(ps.wrongQueue ?? [])]
+    if (isCorrect) {
+      const idx = wrongQueue.findIndex(e => e.wordId === targetWordId)
+      if (idx !== -1) {
+        wrongQueue[idx] = { ...wrongQueue[idx], streak: wrongQueue[idx].streak + 1 }
+        if (wrongQueue[idx].streak >= REDEMPTION_THRESHOLD) {
+          wrongQueue.splice(idx, 1)
+        }
+      }
+    } else {
+      const idx = wrongQueue.findIndex(e => e.wordId === targetWordId)
+      if (idx !== -1) {
+        wrongQueue[idx] = { wordId: targetWordId, streak: 0 }
+      } else {
+        wrongQueue.push({ wordId: targetWordId, streak: 0 })
+        if (wrongQueue.length > MAX_WRONG_QUEUE) {
+          wrongQueue = wrongQueue.slice(-MAX_WRONG_QUEUE)
+        }
+      }
+    }
 
     // Compute rep change for this exchange
     let repChange = bonuses.repBonusPerCustomer
@@ -535,37 +569,61 @@ export default function GameplayView({
       reputation: Math.max(0, Math.round(updatedState.reputation + repChange)),
       vocabulary: updatedState.vocabulary,
       totalCustomersServed: updatedState.totalCustomersServed + 1,
+      wrongQueue,
     })
 
     setSessionServed(prev => prev + 1)
 
-    // Show score briefly, then advance to next exchange or end conversation
-    setTimeout(() => {
-      const nextIndex = state.activeConvo!.exchangeIndex + 1
-      const nextExchange = customer.conversation.exchanges[nextIndex]
-
-      if (nextExchange) {
-        state.activeConvo!.exchangeIndex = nextIndex
-        customer.nextExchangeIndex = nextIndex
-        setActiveExchange(nextExchange)
-        setLastResult(null)
-        setSelectedChoiceId(null)
-        setHintLevel(0)
-        hintLevelRef.current = 0
-        setResponding(true)
-        respondingRef.current = true
-        processingRef.current = false
-        setPatiencePercent(100)
-        speakFrench(nextExchange.customerLine, activeGenderRef.current, activeVoiceRef.current)
-      } else {
-        endConversation(state)
-        setActiveExchange(null)
-        setLastResult(null)
-        setSelectedChoiceId(null)
-        processingRef.current = false
-      }
-    }, 1000)
+    // Correct: auto-advance after 1s. Wrong: wait for manual "Next" tap.
+    if (isCorrect) {
+      setTimeout(() => advanceConversation(state, customer), 1000)
+    }
+    // If wrong, advanceConversation is called by the "Next" button
   }, [bonuses, onFriendshipGain, onStateUpdate])
+
+  function advanceConversation(state: WorldState, customer: import('../lib/types').CustomerState) {
+    const roundsDone = state.activeConvo!.exchangeIndex + 1
+    const roundsTarget = customer.roundsTarget ?? 1
+
+    if (roundsDone < roundsTarget) {
+      // Generate next exchange dynamically using latest state
+      const ps = playerStateRef.current
+      // Build recency from global buffer + words already used in this conversation
+      const convoWordIds = customer.conversation.exchanges.map(e => e.templateId)
+      const combinedRecency = [...ps.recencyBuffer, ...convoWordIds].slice(-10)
+      const { exchange } = generateWordQuiz(
+        expressions, ps.vocabulary, combinedRecency, ps.wrongQueue ?? []
+      )
+      // Append to conversation and advance
+      customer.conversation.exchanges.push(exchange)
+      const nextIndex = roundsDone
+      state.activeConvo!.exchangeIndex = nextIndex
+      customer.nextExchangeIndex = nextIndex
+      setActiveExchange(exchange)
+      setLastResult(null)
+      setSelectedChoiceId(null)
+      setHintLevel(0)
+      hintLevelRef.current = 0
+      setResponding(true)
+      respondingRef.current = true
+      processingRef.current = false
+      setPatiencePercent(100)
+    } else {
+      endConversation(state)
+      setActiveExchange(null)
+      setLastResult(null)
+      setSelectedChoiceId(null)
+      processingRef.current = false
+    }
+  }
+
+  function handleDismissWrong() {
+    const state = cafeStateRef.current
+    if (!state || !state.activeConvo) return
+    const customer = state.characters.find(c => c.id === state.activeConvo!.customerId)
+    if (!customer) return
+    advanceConversation(state, customer)
+  }
 
   function handleChoiceTap(choice: AnswerChoice) {
     if (!responding || processingRef.current) return
@@ -602,6 +660,7 @@ export default function GameplayView({
         onCharacterTap={setInspectedCharacterId}
         onContactsTap={() => setShowContacts(true)}
         onUpgradesTap={() => setShowUpgradeShop(true)}
+        onDictionaryTap={() => setShowDictionary(true)}
         onSettingsTap={() => setShowSettings(true)}
         onSceneChange={handleSceneChange}
         upgrades={playerState.upgrades}
@@ -614,6 +673,7 @@ export default function GameplayView({
         placedFurnishings={placedFurnishings}
         furnishingUpgrades={playerState.furnishingUpgrades}
         onFurnishingTap={(itemId) => { playTapSound(); setInspectedFurnishingId(itemId) }}
+        hideBottomButtons={!!activeExchange}
       />
 
       {/* Upgrade install toasts */}
@@ -677,6 +737,14 @@ export default function GameplayView({
           relationships={playerState.relationships ?? {}}
           reputation={playerState.reputation}
           onClose={() => setShowContacts(false)}
+        />
+      )}
+
+      {showDictionary && (
+        <DictionaryView
+          expressions={expressions}
+          vocabulary={playerState.vocabulary ?? {}}
+          onClose={() => setShowDictionary(false)}
         />
       )}
 
@@ -920,20 +988,54 @@ export default function GameplayView({
       {/* Conversation overlay */}
       {activeExchange && (
         <>
+          <button style={styles.abortButton} onClick={() => {
+            const state = cafeStateRef.current
+            // Penalize current word as MISSED if not already answered
+            if (!selectedChoiceId && activeExchange) {
+              const targetWordId = activeExchange.templateId
+              const ps = playerStateRef.current
+              const updatedState = updateMastery(ps, targetWordId, false)
+              // Update wrong queue
+              const MAX_WRONG_QUEUE = 10
+              let wq = [...(ps.wrongQueue ?? [])]
+              const idx = wq.findIndex(e => e.wordId === targetWordId)
+              if (idx !== -1) {
+                wq[idx] = { wordId: targetWordId, streak: 0 }
+              } else {
+                wq.push({ wordId: targetWordId, streak: 0 })
+                if (wq.length > MAX_WRONG_QUEUE) wq = wq.slice(-MAX_WRONG_QUEUE)
+              }
+              onStateUpdate({
+                vocabulary: updatedState.vocabulary,
+                wrongQueue: wq,
+              })
+            }
+            if (state) {
+              endConversation(state)
+            }
+            setActiveExchange(null)
+            setLastResult(null)
+            setSelectedChoiceId(null)
+            setResponding(false)
+            respondingRef.current = false
+            processingRef.current = false
+          }}>✕ Leave</button>
           <div style={styles.speechOverlay}>
-            <div style={styles.speechBubble}>
-              {activeCharacterName && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  <div style={styles.characterName}>{activeCharacterName}</div>
-                  {friendshipGain !== null && (
-                    <span style={styles.friendshipGain}>+{friendshipGain} ♥</span>
-                  )}
+            {lastResult && (
+              <div style={styles.scoreContainer}>
+                <div style={{ ...styles.scoreText, color: SCORE_COLORS[lastResult.score] }}>
+                  {lastResult.score}
                 </div>
-              )}
-              <div style={styles.speechText}>{activeExchange.customerLine}</div>
-              {hintLevel >= 1 && <div style={styles.hintText}>{activeExchange.hintIdea}</div>}
-              {hintLevel >= 2 && <div style={styles.hintTranslation}>{activeExchange.hintTranslation}</div>}
-            </div>
+                {lastResult.tipAmount > 0 && (
+                  <div style={styles.tipText}>+{lastResult.tipAmount} coins</div>
+                )}
+                {lastResult.score === 'MISSED' && (
+                  <button style={styles.nextButton} onClick={handleDismissWrong}>
+                    Next
+                  </button>
+                )}
+              </div>
+            )}
 
             <div style={styles.patienceContainer}>
               <div style={{
@@ -943,18 +1045,31 @@ export default function GameplayView({
               }} />
             </div>
 
-            <button style={styles.hintButton} onClick={handleHint}>?</button>
-
-            {lastResult && (
-              <div style={styles.scoreContainer}>
-                <div style={{ ...styles.scoreText, color: SCORE_COLORS[lastResult.score] }}>
-                  {lastResult.score}
-                </div>
-                {lastResult.tipAmount > 0 && (
-                  <div style={styles.tipText}>+{lastResult.tipAmount} coins</div>
+            <div style={styles.speechRow}>
+              {!selectedChoiceId ? (
+                <button style={styles.iDontKnowButton} onClick={() => {
+                  if (!responding || processingRef.current) return
+                  setSelectedChoiceId('skip')
+                  processResult(null)
+                }}>✕</button>
+              ) : (
+                <div style={{ width: 32, flexShrink: 0 }} />
+              )}
+              <div style={styles.speechBubble}>
+                {activeCharacterName && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <div style={styles.characterName}>{activeCharacterName}</div>
+                    {friendshipGain !== null && (
+                      <span style={styles.friendshipGain}>+{friendshipGain} ♥</span>
+                    )}
+                  </div>
                 )}
+                <div style={styles.speechText}>{activeExchange.customerLine}</div>
+                {hintLevel >= 1 && <div style={styles.hintText}>{activeExchange.hintIdea}</div>}
+                {hintLevel >= 2 && <div style={styles.hintTranslation}>{activeExchange.hintTranslation}</div>}
               </div>
-            )}
+              <button style={styles.hintButton} onClick={handleHint}>?</button>
+            </div>
           </div>
         </>
       )}
@@ -973,17 +1088,69 @@ export default function GameplayView({
               }
               const isBest = showResult && !isSelected &&
                 (choice.score === 'PERFECT' || choice.score === 'GOOD')
+              const isCorrectAnswer = choice.score === 'PERFECT' || choice.score === 'GOOD'
               return (
                 <button
                   key={choice.id}
                   className={`choice-button ${isSelected ? 'selected' : ''} ${resultClass} ${isBest ? 'choice-hint' : ''} ${showResult && !isSelected && !isBest ? 'faded' : ''}`}
-                  onClick={() => handleChoiceTap(choice)}
-                  disabled={showResult}
+                  style={showResult && isCorrectAnswer ? { position: 'relative' as const } : undefined}
+                  onClick={() => {
+                    if (showResult && isCorrectAnswer) {
+                      speakFrench(choice.displayText)
+                    } else {
+                      handleChoiceTap(choice)
+                    }
+                  }}
+                  disabled={showResult && !isCorrectAnswer}
                 >
                   {choice.displayText}
+                  {showResult && isCorrectAnswer && (
+                    <span
+                      style={styles.infoIcon}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const expr = expressions.find(ex => ex.id === activeExchange?.templateId)
+                        if (expr) setWordDetailExpr(expr)
+                      }}
+                    >
+                      ℹ
+                    </span>
+                  )}
                 </button>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Word detail popup */}
+      {wordDetailExpr && (
+        <div style={styles.wordDetailOverlay} onClick={() => setWordDetailExpr(null)}>
+          <div style={styles.wordDetailPanel} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={styles.wordDetailTitle}>{wordDetailExpr.text}</div>
+                <button style={styles.wordDetailAudio} onClick={() => speakFrench(wordDetailExpr.text)}>🔊</button>
+              </div>
+              <button style={styles.wordDetailClose} onClick={() => setWordDetailExpr(null)}>✕</button>
+            </div>
+            <div style={styles.wordDetailNative}>{wordDetailExpr.nativeText}</div>
+            {wordDetailExpr.definition && (
+              <div style={styles.wordDetailDef}>{wordDetailExpr.definition}</div>
+            )}
+            {wordDetailExpr.examples && wordDetailExpr.examples.length > 0 && (
+              <div style={styles.wordDetailExamples}>
+                {wordDetailExpr.examples.map((ex, i) => (
+                  <div key={i} style={styles.wordDetailExample}>
+                    {ex.split(/(\{[^}]+\})/).map((part, j) =>
+                      part.startsWith('{') && part.endsWith('}')
+                        ? <span key={j} style={{ color: '#FFD54F', fontWeight: 700 }}>{part.slice(1, -1)}</span>
+                        : <span key={j}>{part}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1092,11 +1259,17 @@ const styles: Record<string, React.CSSProperties> = {
     pointerEvents: 'none',
     zIndex: 10,
   },
-  speechBubble: {
+  speechRow: {
     position: 'absolute',
-    top: '15%',
+    bottom: '28%',
     left: '50%',
     transform: 'translateX(-50%)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    pointerEvents: 'auto',
+  },
+  speechBubble: {
     background: '#FFFEF7',
     borderRadius: 12,
     padding: '10px 16px',
@@ -1104,7 +1277,6 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: 280,
     boxShadow: '0 3px 12px rgba(0,0,0,0.25)',
     textAlign: 'center',
-    pointerEvents: 'auto',
     border: '2px solid #5D4037',
   },
   characterName: {
@@ -1144,7 +1316,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   patienceContainer: {
     position: 'absolute',
-    top: '12%',
+    bottom: '36%',
     left: '50%',
     transform: 'translateX(-50%)',
     width: 100,
@@ -1160,9 +1332,7 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'width 0.5s linear, background 0.3s',
   },
   hintButton: {
-    position: 'absolute',
-    top: '16%',
-    right: '8%',
+    flexShrink: 0,
     width: 32,
     height: 32,
     borderRadius: '50%',
@@ -1178,15 +1348,33 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
   },
+  iDontKnowButton: {
+    flexShrink: 0,
+    width: 32,
+    height: 32,
+    borderRadius: '50%',
+    border: '2px solid rgba(244,67,54,0.5)',
+    background: 'rgba(93,64,55,0.85)',
+    color: '#F44336',
+    fontSize: 16,
+    fontWeight: 700,
+    cursor: 'pointer',
+    pointerEvents: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+  },
   scoreContainer: {
     position: 'absolute',
-    top: '30%',
+    bottom: '42%',
     left: '50%',
     transform: 'translateX(-50%)',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     gap: 4,
+    pointerEvents: 'auto',
   },
   scoreText: {
     fontSize: 28,
@@ -1199,6 +1387,38 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: '#FFD700',
     textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+  },
+  correctAnswer: {
+    fontSize: 18,
+    textAlign: 'center' as const,
+    marginTop: 6,
+    textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+  },
+  nextButton: {
+    marginTop: 10,
+    padding: '8px 24px',
+    background: 'rgba(93, 64, 55, 0.9)',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: 8,
+    color: '#FFEFD5',
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  abortButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    padding: '4px 12px',
+    background: 'rgba(93, 64, 55, 0.85)',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: 8,
+    color: '#FFEFD5',
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+    zIndex: 15,
+    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
   },
   charInfoOverlay: {
     position: 'absolute',
@@ -1262,5 +1482,89 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     cursor: 'pointer',
     padding: '2px 6px',
+  },
+  infoIcon: {
+    position: 'absolute' as const,
+    right: 8,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: 24,
+    height: 24,
+    borderRadius: '50%',
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    border: '1.5px solid rgba(255,255,255,0.6)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  wordDetailOverlay: {
+    position: 'fixed' as const,
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+  },
+  wordDetailPanel: {
+    backgroundColor: '#3E2723',
+    borderRadius: 14,
+    padding: 16,
+    border: '2px solid #5D4037',
+    boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
+    maxWidth: 320,
+    width: '85%',
+  },
+  wordDetailTitle: {
+    fontSize: 22,
+    fontWeight: 700,
+    color: '#FFEFD5',
+  },
+  wordDetailAudio: {
+    background: 'none',
+    border: 'none',
+    fontSize: 20,
+    cursor: 'pointer',
+    padding: 0,
+    lineHeight: 1,
+  },
+  wordDetailClose: {
+    background: 'none',
+    border: 'none',
+    color: '#8D6E63',
+    fontSize: 18,
+    fontWeight: 700,
+    cursor: 'pointer',
+    padding: '2px 6px',
+  },
+  wordDetailNative: {
+    fontSize: 14,
+    color: '#BCAAA4',
+    marginTop: 2,
+  },
+  wordDetailDef: {
+    fontSize: 13,
+    color: '#FFEFD5',
+    lineHeight: 1.5,
+    marginTop: 10,
+    padding: '8px 10px',
+    backgroundColor: '#4E342E',
+    borderRadius: 8,
+  },
+  wordDetailExamples: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 6,
+    marginTop: 10,
+  },
+  wordDetailExample: {
+    fontSize: 13,
+    color: '#BCAAA4',
+    lineHeight: 1.5,
+    paddingLeft: 10,
+    borderLeft: '2px solid #6D4C41',
   },
 }

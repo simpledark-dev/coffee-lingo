@@ -154,7 +154,9 @@ html, body {
 
 .choice-button.choice-hint {
   border-color: var(--green);
-  opacity: 0.7;
+  background: #4CAF50;
+  color: #fff;
+  opacity: 1;
 }
 
 .choice-button.faded {
@@ -268,4 +270,23 @@ html, body {
 
 .continue-button:active {
   background: var(--brown-medium);
+}
+
+/* Dictionary scrollbar */
+.dictionary-list::-webkit-scrollbar {
+  width: 6px;
+}
+.dictionary-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dictionary-list::-webkit-scrollbar-thumb {
+  background: #6D4C41;
+  border-radius: 3px;
+}
+.dictionary-list::-webkit-scrollbar-thumb:hover {
+  background: #8D6E63;
+}
+.dictionary-list {
+  scrollbar-width: thin;
+  scrollbar-color: #6D4C41 transparent;
 }

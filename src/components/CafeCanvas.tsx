@@ -38,6 +38,7 @@ interface CafeCanvasProps {
   onCharacterTap?: (characterId: string) => void
   onContactsTap?: () => void
   onUpgradesTap?: () => void
+  onDictionaryTap?: () => void
   onSettingsTap?: () => void
   onSceneChange?: (scene: 'interior' | 'outside') => void
   upgrades?: Record<string, import('../lib/types').UpgradeLevel>
@@ -50,6 +51,7 @@ interface CafeCanvasProps {
   placedFurnishings?: Record<string, import('../lib/types').GridPos>
   furnishingUpgrades?: Record<string, import('../lib/types').UpgradeLevel>
   onFurnishingTap?: (itemId: string) => void
+  hideBottomButtons?: boolean
 }
 
 const TILE_PX = TILE_SIZE * SCALE
@@ -173,6 +175,7 @@ export default function CafeCanvas({
   onCustomerTap,
   onCharacterTap,
   onContactsTap,
+  onDictionaryTap,
   onUpgradesTap,
   onSettingsTap,
   onSceneChange,
@@ -186,6 +189,7 @@ export default function CafeCanvas({
   placedFurnishings,
   furnishingUpgrades,
   onFurnishingTap,
+  hideBottomButtons,
 }: CafeCanvasProps) {
   // Build dynamic tile→sprite map based on upgrade tiers (infrastructure only)
   const resolvedTileSprite: Record<string, string> = useMemo(() => ({
@@ -618,13 +622,15 @@ export default function CafeCanvas({
       if (state.activeConvo) return
 
       // Priority: exclamation customers first (interactive)
+      // Hitbox includes the exclamation mark above the character
       const PAD = TILE_PX * 0.2 // shrink hitbox to ~60% of tile
       for (const customer of state.characters) {
         if (customer.location !== 'interior' || customer.phase !== 'exclamation') continue
         const left = customer.worldPos.x + PAD
-        const top = customer.worldPos.y + PAD
-        const size = TILE_PX - PAD * 2
-        if (worldX >= left && worldX < left + size && worldY >= top && worldY < top + size) {
+        const top = customer.worldPos.y - TILE_PX * 0.6 // extend upward for exclamation
+        const width = TILE_PX - PAD * 2
+        const height = TILE_PX * 1.6 - PAD // body + exclamation area
+        if (worldX >= left && worldX < left + width && worldY >= top && worldY < top + height) {
           onCustomerTap(customer.id)
           return
         }
@@ -1362,31 +1368,41 @@ export default function CafeCanvas({
         <div style={styles.roomLabel}>Outside</div>
       )}
       {/* Bottom buttons */}
-      <button
-        style={styles.settingsButton}
-        onClick={() => onSettingsTap?.()}
-      >
-        ⚙️
-      </button>
-      <button
-        style={styles.contactsButton}
-        onClick={() => onContactsTap?.()}
-      >
-        👥
-      </button>
-      <button
-        style={styles.mapButton}
-        onClick={() => setShowMap(true)}
-      >
-        🗺
-      </button>
-      {scene === 'interior' && !placingItem && (
-        <button
-          style={styles.upgradeButton}
-          onClick={() => onUpgradesTap?.()}
-        >
-          🔧
-        </button>
+      {!hideBottomButtons && (
+        <>
+          <button
+            style={styles.settingsButton}
+            onClick={() => onSettingsTap?.()}
+          >
+            ⚙️
+          </button>
+          <button
+            style={styles.contactsButton}
+            onClick={() => onContactsTap?.()}
+          >
+            👥
+          </button>
+          <button
+            style={styles.dictionaryButton}
+            onClick={() => onDictionaryTap?.()}
+          >
+            📖
+          </button>
+          <button
+            style={styles.mapButton}
+            onClick={() => setShowMap(true)}
+          >
+            🗺
+          </button>
+          {scene === 'interior' && !placingItem && (
+            <button
+              style={styles.upgradeButton}
+              onClick={() => onUpgradesTap?.()}
+            >
+              🔧
+            </button>
+          )}
+        </>
       )}
       {placingItem && (
         <button
@@ -1499,7 +1515,7 @@ const styles: Record<string, React.CSSProperties> = {
   settingsButton: {
     position: 'absolute',
     bottom: 10,
-    right: 178,
+    right: 220,
     width: 36,
     height: 36,
     background: 'rgba(93, 64, 55, 0.85)',
@@ -1516,7 +1532,7 @@ const styles: Record<string, React.CSSProperties> = {
   contactsButton: {
     position: 'absolute',
     bottom: 10,
-    right: 94,
+    right: 136,
     width: 36,
     height: 36,
     background: 'rgba(93, 64, 55, 0.85)',
@@ -1547,10 +1563,27 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 5,
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
   },
+  dictionaryButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 94,
+    width: 36,
+    height: 36,
+    background: 'rgba(93, 64, 55, 0.85)',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: 8,
+    fontSize: 18,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+  },
   upgradeButton: {
     position: 'absolute',
     bottom: 10,
-    right: 136,
+    right: 178,
     width: 36,
     height: 36,
     background: 'rgba(93, 64, 55, 0.85)',

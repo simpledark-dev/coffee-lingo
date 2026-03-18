@@ -1,17 +1,15 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { PlayerState, Expression, DialogueTemplate } from '../src/lib/types'
+import { PlayerState, Expression } from '../src/lib/types'
 import { createInitialState, loadState, saveState } from '../src/lib/state'
 import { installUpgrade, getUpgradeBonuses, getReadyToInstallIds, getUpgradeTimeRemaining } from '../src/lib/upgrades'
 import { getFurnishingBonuses } from '../src/lib/furnishing'
 import { FRIENDSHIP_GAIN } from '../src/lib/characters'
 import GameplayView from '../src/components/GameplayView'
 import expressionsData from '../data/expressions.json'
-import templatesData from '../data/templates.json'
 
 const expressions = expressionsData as Expression[]
-const templates = templatesData as DialogueTemplate[]
 
 export default function Home() {
   const [playerState, setPlayerState] = useState<PlayerState | null>(null)
@@ -200,7 +198,6 @@ export default function Home() {
   return (
     <div id="game-container">
       <GameplayView
-        templates={templates}
         expressions={expressions}
         playerState={playerState}
         bonuses={bonuses}

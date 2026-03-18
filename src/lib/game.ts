@@ -1,33 +1,14 @@
 import {
   Expression,
-  DialogueTemplate,
   ResolvedExchange,
   AnswerChoice,
   CustomerConversation,
   Score,
   EvaluationResult,
   VocabularyEntry,
+  WrongQueueEntry,
 } from './types'
 import type { UpgradeBonuses } from './upgrades'
-
-const IDEA_HINT_MAP: Record<string, string> = {
-  greeting: 'Greet the customer',
-  confirmation: 'Confirm or answer yes',
-  ordering: 'Confirm the order',
-  quantity: 'Say the quantity',
-  politeness: 'Be polite',
-  farewell: 'Say goodbye',
-  agreement: 'Agree with the customer',
-  negation: 'Decline politely',
-  quality: 'Comment on quality',
-  item: 'Name the item',
-  wifi: 'Help with the Wi-Fi',
-  compliment: 'Respond to the compliment',
-  weather: 'Talk about the weather',
-  recommendation: 'Recommend something',
-  location: 'Give directions',
-  casual: 'Chat with the customer',
-}
 
 function pickRandom<T>(arr: T[]): T {
   if (arr.length === 0) throw new Error('Cannot pick from empty array')
@@ -43,129 +24,146 @@ function shuffle<T>(arr: T[]): T[] {
   return result
 }
 
-export function resolveTemplate(
-  template: DialogueTemplate,
-  allExpressions: Expression[]
-): ResolvedExchange {
-  const line = pickRandom(template.customerLines)
+/**
+ * Generate a word quiz: NPC says an English word, player picks the correct French translation.
+ * Returns 1 correct choice + 3 distractors.
+ */
+export function generateWordQuiz(
+  expressions: Expression[],
+  vocabulary: Record<string, VocabularyEntry>,
+  recencyBuffer: string[],
+  wrongQueue: WrongQueueEntry[] = [],
+): { exchange: ResolvedExchange; targetWordId: string } {
+  const recentSet = new Set(recencyBuffer)
+  let target: Expression | undefined
 
-  // Pick random values for each variable
-  const chosenVariables: Record<string, string> = {}
-  for (const [varName, options] of Object.entries(line.variables)) {
-    chosenVariables[varName] = pickRandom(options)
-  }
-
-  // Fill variables into customer line text
-  let customerLine = line.text
-  for (const [varName, value] of Object.entries(chosenVariables)) {
-    customerLine = customerLine.replace(new RegExp(`\\{${varName}\\}`, 'g'), value)
-  }
-
-  // Resolve requiredIdeas: {variable} references → look up expression's ideaTags
-  const requiredIdeas = template.requiredIdeas.map((idea) => {
-    const varMatch = idea.match(/^\{(.+)\}$/)
-    if (!varMatch) return idea
-
-    const varName = varMatch[1]
-    const chosenValue = chosenVariables[varName]
-    if (!chosenValue) return idea
-
-    const expr = allExpressions.find((e) => e.text === chosenValue)
-    if (!expr) return idea
-
-    return expr.ideaTags[0]
-  })
-
-  // Generate hint
-  const hintIdea = IDEA_HINT_MAP[template.ideaCategory] ?? 'Respond appropriately'
-
-  let hintTranslation = line.text
-  for (const [varName, value] of Object.entries(chosenVariables)) {
-    const expr = allExpressions.find((e) => e.text === value)
-    const nativeValue = expr?.nativeText ?? value
-    hintTranslation = hintTranslation.replace(
-      new RegExp(`\\{${varName}\\}`, 'g'),
-      nativeValue
-    )
-  }
-
-  // Resolve response choices — fill variables and look up expressions
-  const choices: AnswerChoice[] = template.responses.map((resp, idx) => {
-    // Fill variables in response text
-    let displayText = resp.text
-    for (const [varName, value] of Object.entries(chosenVariables)) {
-      displayText = displayText.replace(new RegExp(`\\{${varName}\\}`, 'g'), value)
+  // Queue priority scales with queue size to avoid predictable alternation
+  const queueChance = wrongQueue.length <= 2 ? 0.5 : wrongQueue.length <= 4 ? 0.7 : 0.9
+  if (wrongQueue.length > 0 && Math.random() < queueChance) {
+    // Pick from queue — try to avoid recency but ignore it if needed
+    const queueIds = new Set(wrongQueue.map(e => e.wordId))
+    const nonRecent = expressions.filter(e => queueIds.has(e.id) && !recentSet.has(e.id))
+    const queuePool = nonRecent.length > 0
+      ? nonRecent
+      : expressions.filter(e => queueIds.has(e.id))
+    if (queuePool.length > 0) {
+      target = pickRandom(queuePool)
     }
-
-    // Resolve expressionIds — {variable} refs → actual expression IDs
-    const expressions: Expression[] = []
-    for (const eid of resp.expressionIds) {
-      const varMatch = eid.match(/^\{(.+)\}$/)
-      if (varMatch) {
-        const varName = varMatch[1]
-        const chosenValue = chosenVariables[varName]
-        if (chosenValue) {
-          const expr = allExpressions.find((e) => e.text === chosenValue)
-          if (expr) expressions.push(expr)
-        }
-      } else {
-        const expr = allExpressions.find((e) => e.id === eid)
-        if (expr) expressions.push(expr)
-      }
-    }
-
-    return {
-      id: `choice_${idx}`,
-      expressions,
-      displayText,
-      score: resp.score as Score,
-    }
-  })
-
-  return {
-    customerLine,
-    requiredIdeas,
-    bonusIdeas: template.bonusIdeas,
-    choices: shuffle(choices),
-    templateId: template.id,
-    hintIdea,
-    hintTranslation,
   }
+
+  // Fallback: weighted random toward lower mastery
+  if (!target) {
+    const candidates = expressions.filter(e => !recentSet.has(e.id))
+    const pool = candidates.length >= 4 ? candidates : expressions
+
+    const weighted: { expr: Expression; weight: number }[] = pool.map(expr => {
+      const entry = vocabulary[expr.id]
+      const level = entry?.masteryLevel ?? 0
+      const neverSeen = !entry || entry.totalSuccessfulUses === 0
+      // Unseen words get boosted weight to ensure all words eventually appear
+      return { expr, weight: neverSeen ? 6 : (4 - level) }
+    })
+    const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0)
+    let roll = Math.random() * totalWeight
+    target = weighted[0].expr
+    for (const w of weighted) {
+      roll -= w.weight
+      if (roll <= 0) { target = w.expr; break }
+    }
+  }
+
+  // Pick 3 distractors — prefer same category, fall back to random
+  const sameCategory = expressions.filter(
+    e => e.id !== target.id && e.ideaTags[0] === target.ideaTags[0]
+  )
+  const otherCategory = expressions.filter(
+    e => e.id !== target.id && e.ideaTags[0] !== target.ideaTags[0]
+  )
+
+  const distractors: Expression[] = []
+  const shuffledSame = shuffle(sameCategory)
+  const shuffledOther = shuffle(otherCategory)
+
+  // Try to get 1-2 from same category, rest from other
+  const sameCategoryCount = Math.min(shuffledSame.length, Math.random() < 0.5 ? 1 : 2)
+  for (let i = 0; i < sameCategoryCount && distractors.length < 3; i++) {
+    distractors.push(shuffledSame[i])
+  }
+  for (let i = 0; distractors.length < 3 && i < shuffledOther.length; i++) {
+    distractors.push(shuffledOther[i])
+  }
+  // If still not enough, fill from same category
+  for (let i = sameCategoryCount; distractors.length < 3 && i < shuffledSame.length; i++) {
+    distractors.push(shuffledSame[i])
+  }
+
+  // Build choices
+  const correctChoice: AnswerChoice = {
+    id: 'correct',
+    expressions: [target],
+    displayText: target.text,
+    score: 'PERFECT',
+  }
+
+  const wrongChoices: AnswerChoice[] = distractors.map((d, i) => ({
+    id: `wrong_${i}`,
+    expressions: [d],
+    displayText: d.text,
+    score: 'MISSED',
+  }))
+
+  const choices = shuffle([correctChoice, ...wrongChoices])
+
+  // Category label for hint
+  const categoryLabels: Record<string, string> = {
+    greeting: 'Greeting',
+    common: 'Common word',
+    number: 'Number',
+    color: 'Color',
+    food: 'Food & Drink',
+    animal: 'Animal',
+    place: 'Place',
+    family: 'Family & People',
+    adjective: 'Adjective',
+    verb: 'Verb',
+    weather: 'Weather',
+    time: 'Time',
+    body: 'Body',
+    thing: 'Thing',
+  }
+
+  const exchange: ResolvedExchange = {
+    customerLine: target.nativeText,
+    requiredIdeas: target.ideaTags,
+    bonusIdeas: [],
+    choices,
+    templateId: target.id,
+    hintIdea: categoryLabels[target.ideaTags[0]] ?? 'Word',
+    hintTranslation: target.text,
+  }
+
+  return { exchange, targetWordId: target.id }
 }
 
-export function evaluate(
-  selectedWords: Expression[],
-  requiredIdeas: string[],
-  bonusIdeas: string[],
-  hintLevel: number,
-  bonuses?: UpgradeBonuses
-): EvaluationResult {
-  const selectedTags = new Set<string>()
-  for (const word of selectedWords) {
-    for (const tag of word.ideaTags) {
-      selectedTags.add(tag)
-    }
+/**
+ * Generate a single conversation (1 word quiz exchange).
+ */
+/**
+ * Generate initial conversation with 1 exchange. Additional exchanges are added
+ * dynamically during the conversation using generateWordQuiz.
+ */
+export function generateSingleConversation(
+  expressions: Expression[],
+  vocabulary: Record<string, VocabularyEntry>,
+  recencyBuffer: string[],
+  wrongQueue: WrongQueueEntry[] = [],
+): { conversation: CustomerConversation; usedWordId: string; roundsTarget: number } {
+  const { exchange, targetWordId } = generateWordQuiz(expressions, vocabulary, recencyBuffer, wrongQueue)
+  return {
+    conversation: { exchanges: [exchange] },
+    usedWordId: targetWordId,
+    roundsTarget: 5 + Math.floor(Math.random() * 4), // 5-8
   }
-
-  const coveredRequired = requiredIdeas.filter((idea) => selectedTags.has(idea))
-  const coveredBonus = bonusIdeas.filter((idea) => selectedTags.has(idea))
-
-  const requiredRatio = requiredIdeas.length > 0 ? coveredRequired.length / requiredIdeas.length : 0
-
-  let score: Score
-  if (coveredRequired.length === requiredIdeas.length && coveredBonus.length > 0) {
-    score = 'PERFECT'
-  } else if (coveredRequired.length === requiredIdeas.length) {
-    score = 'GOOD'
-  } else if (requiredRatio >= 0.5) {
-    score = 'UNDERSTOOD'
-  } else {
-    score = 'MISSED'
-  }
-
-  const tipAmount = computeTip(score, hintLevel, bonuses)
-
-  return { score, coveredRequired, coveredBonus, tipAmount }
 }
 
 // Shared tip calculation with upgrade bonuses
@@ -215,153 +213,4 @@ export function evaluateChoice(
     coveredBonus: [],
     tipAmount,
   }
-}
-
-// Conversation patterns: natural multi-turn flows
-// Categories are always in a sensible order:
-//   openers (greeting, weather, compliment) → inquiries (wifi, recommendation, location, casual, confirmation)
-//   → action (ordering) → closers (politeness, farewell)
-const CONVERSATION_PATTERNS: string[][] = [
-  // 1-turn
-  ['ordering'],
-  ['greeting'],
-  ['compliment'],
-  ['casual'],
-  // 2-turn
-  ['greeting', 'ordering'],
-  ['greeting', 'wifi'],
-  ['greeting', 'location'],
-  ['weather', 'ordering'],
-  ['compliment', 'politeness'],
-  ['ordering', 'politeness'],
-  ['greeting', 'casual'],
-  // 3-turn
-  ['greeting', 'ordering', 'politeness'],
-  ['greeting', 'recommendation', 'ordering'],
-  ['weather', 'ordering', 'politeness'],
-  ['greeting', 'wifi', 'politeness'],
-  ['compliment', 'ordering', 'politeness'],
-  ['greeting', 'location', 'politeness'],
-  // 4-turn
-  ['greeting', 'recommendation', 'ordering', 'politeness'],
-  ['greeting', 'weather', 'ordering', 'farewell'],
-  ['greeting', 'casual', 'ordering', 'politeness'],
-]
-
-export function generateConversations(
-  templates: DialogueTemplate[],
-  expressions: Expression[],
-  _playerVocabulary: Record<string, VocabularyEntry>,
-  recencyBuffer: string[],
-  extraCustomers: number = 0
-): CustomerConversation[] {
-  const TARGET_CUSTOMERS = 10 + extraCustomers
-  const conversations: CustomerConversation[] = []
-  const usedTemplateIds = new Set<string>()
-
-  // Group templates by category
-  const recentSet = new Set(recencyBuffer)
-  const byCategory: Record<string, DialogueTemplate[]> = {}
-  for (const t of templates) {
-    if (!byCategory[t.ideaCategory]) byCategory[t.ideaCategory] = []
-    byCategory[t.ideaCategory].push(t)
-  }
-  // Shuffle within each category, non-recent first
-  for (const cat of Object.keys(byCategory)) {
-    const nonRecent = byCategory[cat].filter((t) => !recentSet.has(t.id))
-    const recent = byCategory[cat].filter((t) => recentSet.has(t.id))
-    byCategory[cat] = [...shuffle(nonRecent), ...shuffle(recent)]
-  }
-
-  const patterns = shuffle([...CONVERSATION_PATTERNS])
-
-  for (let i = 0; i < TARGET_CUSTOMERS; i++) {
-    const pattern = patterns[i % patterns.length]
-    const exchanges: ResolvedExchange[] = []
-
-    for (const category of pattern) {
-      const pool = byCategory[category]
-      if (!pool) continue
-
-      let template: DialogueTemplate | undefined
-      for (const t of pool) {
-        if (!usedTemplateIds.has(t.id)) {
-          template = t
-          break
-        }
-      }
-      if (!template) template = pickRandom(pool)
-
-      try {
-        const exchange = resolveTemplate(template, expressions)
-        exchanges.push(exchange)
-        usedTemplateIds.add(template.id)
-      } catch {
-        continue
-      }
-    }
-
-    if (exchanges.length > 0) {
-      conversations.push({ exchanges })
-    }
-  }
-
-  return conversations
-}
-
-/**
- * Generate a single conversation on demand (for continuous gameplay).
- * Returns the conversation and the template IDs used (for recency tracking).
- */
-export function generateSingleConversation(
-  templates: DialogueTemplate[],
-  expressions: Expression[],
-  _playerVocabulary: Record<string, VocabularyEntry>,
-  recencyBuffer: string[],
-): { conversation: CustomerConversation; usedTemplateIds: string[] } {
-  const recentSet = new Set(recencyBuffer)
-  const byCategory: Record<string, DialogueTemplate[]> = {}
-  for (const t of templates) {
-    if (!byCategory[t.ideaCategory]) byCategory[t.ideaCategory] = []
-    byCategory[t.ideaCategory].push(t)
-  }
-  for (const cat of Object.keys(byCategory)) {
-    const nonRecent = byCategory[cat].filter((t) => !recentSet.has(t.id))
-    const recent = byCategory[cat].filter((t) => recentSet.has(t.id))
-    byCategory[cat] = [...shuffle(nonRecent), ...shuffle(recent)]
-  }
-
-  const pattern = pickRandom(CONVERSATION_PATTERNS)
-  const exchanges: ResolvedExchange[] = []
-  const usedTemplateIds: string[] = []
-
-  for (const category of pattern) {
-    const pool = byCategory[category]
-    if (!pool) continue
-    // Prefer non-recent template
-    const template = pool.find((t) => !recentSet.has(t.id)) ?? pickRandom(pool)
-    try {
-      const exchange = resolveTemplate(template, expressions)
-      exchanges.push(exchange)
-      usedTemplateIds.push(template.id)
-    } catch {
-      continue
-    }
-  }
-
-  return {
-    conversation: { exchanges: exchanges.length > 0 ? exchanges : [resolveTemplate(pickRandom(templates), expressions)] },
-    usedTemplateIds,
-  }
-}
-
-// Backward compat for tests
-export function generateDay(
-  templates: DialogueTemplate[],
-  expressions: Expression[],
-  playerVocabulary: Record<string, VocabularyEntry>,
-  recencyBuffer: string[]
-): ResolvedExchange[] {
-  const conversations = generateConversations(templates, expressions, playerVocabulary, recencyBuffer)
-  return conversations.flatMap((c) => c.exchanges)
 }
