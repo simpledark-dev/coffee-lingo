@@ -9,9 +9,10 @@ import {
 import { evaluateChoice, generateSingleConversation } from '../lib/game'
 import { updateMastery } from '../lib/state'
 import type { UpgradeBonuses } from '../lib/upgrades'
+import { TILE_TO_UPGRADE_ID, getUpgradeCatalogEntry, getUpgradeTimeRemaining, formatTimeRemaining } from '../lib/upgrades'
 import { createWorldState, tickWorld, startConversation, endConversation, spawnCharacter } from '../lib/cafe-sim'
 import { PATIO_UNLOCK_REP, PATIO_UNLOCK_COST } from '../lib/tilemap'
-import { buildPlacedTileMap, buildFurnishingPOIs, getAvailableSlots } from '../lib/furnishing'
+import { buildPlacedTileMap, buildFurnishingPOIs, getAvailableSlots, ALL_FURNISHINGS } from '../lib/furnishing'
 import { getCharacter, getFriendshipLevel, FRIENDSHIP_GAIN, pickNextCharacter, VoiceProfile } from '../lib/characters'
 import { CUSTOMER_SPRITES, PALETTE } from '../lib/sprites'
 import HUD from './HUD'
@@ -190,6 +191,15 @@ export default function GameplayView({
   const patioUnlocked = playerState.unlockedRooms?.includes('patio') ?? false
   const [patioUnlockToast, setPatioUnlockToast] = useState(false)
   const [placingItem, setPlacingItem] = useState<FurnishingItem | null>(null)
+  const [inspectedFurnishingId, setInspectedFurnishingId] = useState<string | null>(null)
+  const [, setTickInspect] = useState(0)
+
+  // Live timer tick for furnishing inspection popup
+  useEffect(() => {
+    if (!inspectedFurnishingId) return
+    const id = setInterval(() => setTickInspect(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [inspectedFurnishingId])
 
   // Build tile overrides and patio POIs from placed furnishings
   const placedFurnishings = playerState.placedFurnishings ?? {}
@@ -510,6 +520,7 @@ export default function GameplayView({
         onCancelPlace={() => setPlacingItem(null)}
         placedFurnishings={placedFurnishings}
         furnishingUpgrades={playerState.furnishingUpgrades}
+        onFurnishingTap={(itemId) => setInspectedFurnishingId(itemId)}
       />
 
       {/* Upgrade install toasts */}
@@ -640,6 +651,136 @@ export default function GameplayView({
           </div>
         </div>
       )}
+
+      {/* Furnishing inspection popup */}
+      {inspectedFurnishingId && !activeExchange && (() => {
+        const item = ALL_FURNISHINGS.find(f => f.id === inspectedFurnishingId)
+        if (!item) return null
+        const upgradeId = TILE_TO_UPGRADE_ID[item.tileId]
+        const catalog = upgradeId ? getUpgradeCatalogEntry(upgradeId) : undefined
+        const furnUpgrades = playerState.furnishingUpgrades ?? {}
+        const level = furnUpgrades[inspectedFurnishingId]
+        const currentTier = level?.tier ?? 0
+        const maxTier = catalog?.tiers.length ?? 0
+        const isMaxed = currentTier >= maxTier
+        const hasUpgrading = !!level?.upgrading
+        const timeRemaining = level ? getUpgradeTimeRemaining(level) : 0
+        const isReady = hasUpgrading && timeRemaining === 0
+        const isUpgrading = hasUpgrading && timeRemaining > 0
+        const nextTier = catalog?.tiers.find(t => t.tier === currentTier + 1)
+        const canAfford = nextTier ? playerState.coins >= nextTier.cost : false
+        const hasRep = nextTier ? playerState.reputation >= nextTier.requiredReputation : false
+
+        return (
+          <div style={styles.charInfoOverlay} onClick={() => setInspectedFurnishingId(null)}>
+            <div style={{ ...styles.settingsCard, maxWidth: 280 }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#FFEFD5', marginBottom: 2 }}>{item.name}</div>
+              <div style={{ fontSize: 11, color: '#BCAAA4', marginBottom: 8 }}>{item.description}</div>
+
+              {/* Tier dots (base + upgrade tiers) */}
+              {catalog && maxTier > 0 && (
+                <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                  {[0, ...catalog.tiers.map(t => t.tier)].map((tier) => (
+                    <div key={tier} style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      backgroundColor: currentTier >= tier ? '#FFD54F' : '#5D4037',
+                      border: '1px solid #8D6E63',
+                    }} />
+                  ))}
+                </div>
+              )}
+
+              {/* Current tier info */}
+              {currentTier > 0 && (() => {
+                const curTierData = catalog?.tiers.find(t => t.tier === currentTier)
+                return curTierData ? (
+                  <div style={{ fontSize: 11, color: '#A5D6A7', marginBottom: 6 }}>
+                    {curTierData.name} — {curTierData.bonusDescription}
+                  </div>
+                ) : null
+              })()}
+
+              {/* Upgrading in progress */}
+              {isUpgrading && !isReady && (
+                <div style={{ backgroundColor: '#5D4037', borderRadius: 8, padding: '8px 10px', marginBottom: 6 }}>
+                  <div style={{ fontSize: 11, color: '#FFD54F', fontWeight: 600, marginBottom: 4 }}>
+                    Upgrading to {nextTier?.name ?? `Tier ${currentTier + 1}`}...
+                  </div>
+                  <div style={{ height: 6, backgroundColor: '#3E2723', borderRadius: 3, overflow: 'hidden', marginBottom: 4 }}>
+                    <div style={{
+                      height: '100%', borderRadius: 3, backgroundColor: '#FFD54F',
+                      width: `${level?.upgrading ? Math.max(0, 100 - (timeRemaining / level.upgrading.durationMs) * 100) : 0}%`,
+                      transition: 'width 1s linear',
+                    }} />
+                  </div>
+                  <div style={{ fontSize: 10, color: '#BCAAA4', textAlign: 'center' as const }}>
+                    {formatTimeRemaining(timeRemaining)}
+                  </div>
+                </div>
+              )}
+
+              {/* Ready to install */}
+              {isReady && (
+                <button
+                  style={{
+                    display: 'block', width: '100%', padding: '10px 0', marginBottom: 6,
+                    backgroundColor: '#4CAF50', color: '#fff', border: 'none',
+                    borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  }}
+                  onClick={() => { onFurnishingInstall(inspectedFurnishingId); setInspectedFurnishingId(null) }}
+                >
+                  Install Upgrade
+                </button>
+              )}
+
+              {/* Upgrade button */}
+              {!isUpgrading && !isReady && !isMaxed && nextTier && (
+                <button
+                  style={{
+                    display: 'block', width: '100%', padding: '10px 0', marginBottom: 6,
+                    backgroundColor: canAfford && hasRep ? '#FFD54F' : '#5D4037',
+                    color: canAfford && hasRep ? '#3E2723' : '#8D6E63',
+                    border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    opacity: canAfford && hasRep ? 1 : 0.6,
+                  }}
+                  disabled={!canAfford || !hasRep}
+                  onClick={() => {
+                    onFurnishingPurchase(inspectedFurnishingId, nextTier.tier, nextTier.cost, nextTier.durationMs)
+                    setInspectedFurnishingId(null)
+                  }}
+                >
+                  <div>{nextTier.name}</div>
+                  <div style={{ fontSize: 10, fontWeight: 400, marginTop: 2 }}>
+                    {nextTier.bonusDescription} — {nextTier.cost} coins
+                  </div>
+                </button>
+              )}
+
+              {!hasRep && nextTier && !isUpgrading && !isReady && (
+                <div style={{ fontSize: 10, color: '#EF5350', textAlign: 'center' as const, marginBottom: 4 }}>
+                  Requires {nextTier.requiredReputation} reputation
+                </div>
+              )}
+
+              {isMaxed && !isUpgrading && (
+                <div style={{ fontSize: 12, color: '#FFD54F', fontWeight: 600, textAlign: 'center' as const, marginBottom: 6 }}>
+                  Fully upgraded!
+                </div>
+              )}
+
+              {!catalog && (
+                <div style={{ fontSize: 11, color: '#8D6E63', textAlign: 'center' as const, marginBottom: 6 }}>
+                  This item cannot be upgraded
+                </div>
+              )}
+
+              <button style={styles.closeSettingsButton} onClick={() => setInspectedFurnishingId(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Character info popup */}
       {inspectedCharacterId && !activeExchange && (() => {

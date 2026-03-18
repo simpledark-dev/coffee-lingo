@@ -29,8 +29,8 @@ import {
   T,
 } from '../lib/tilemap'
 import type { WorldState, FurnishingItem, GridPos } from '../lib/types'
-import { getActiveSpriteKey } from '../lib/upgrades'
-import { getEffectiveTile, buildFurnishingSpriteMap } from '../lib/furnishing'
+import { getActiveSpriteKey, getUpgradeTimeRemaining } from '../lib/upgrades'
+import { getEffectiveTile, buildFurnishingSpriteMap, buildPositionToItemMap } from '../lib/furnishing'
 
 interface CafeCanvasProps {
   cafeStateRef: React.RefObject<WorldState | null>
@@ -49,6 +49,7 @@ interface CafeCanvasProps {
   onCancelPlace?: () => void
   placedFurnishings?: Record<string, import('../lib/types').GridPos>
   furnishingUpgrades?: Record<string, import('../lib/types').UpgradeLevel>
+  onFurnishingTap?: (itemId: string) => void
 }
 
 const TILE_PX = TILE_SIZE * SCALE
@@ -184,6 +185,7 @@ export default function CafeCanvas({
   onCancelPlace,
   placedFurnishings,
   furnishingUpgrades,
+  onFurnishingTap,
 }: CafeCanvasProps) {
   // Build dynamic tile→sprite map based on upgrade tiers (infrastructure only)
   const resolvedTileSprite: Record<string, string> = useMemo(() => ({
@@ -200,6 +202,19 @@ export default function CafeCanvas({
   )
   const furnishingSpriteMapRef = useRef(furnishingSpriteMap)
   furnishingSpriteMapRef.current = furnishingSpriteMap
+
+  const posToItemMap = useMemo(
+    () => buildPositionToItemMap(placedFurnishings ?? {}),
+    [placedFurnishings]
+  )
+  const posToItemMapRef = useRef(posToItemMap)
+  posToItemMapRef.current = posToItemMap
+  const onFurnishingTapRef = useRef(onFurnishingTap)
+  onFurnishingTapRef.current = onFurnishingTap
+  const furnishingUpgradesRef = useRef(furnishingUpgrades)
+  furnishingUpgradesRef.current = furnishingUpgrades
+  const placedFurnishingsRef = useRef(placedFurnishings)
+  placedFurnishingsRef.current = placedFurnishings
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -602,30 +617,41 @@ export default function CafeCanvas({
       if (!state) return
       if (state.activeConvo) return
 
-      const TAP_RADIUS = 60
       // Priority: exclamation customers first (interactive)
+      const PAD = TILE_PX * 0.2 // shrink hitbox to ~60% of tile
       for (const customer of state.characters) {
         if (customer.location !== 'interior' || customer.phase !== 'exclamation') continue
-        const cx = customer.worldPos.x + TILE_PX / 2
-        const cy = customer.worldPos.y + TILE_PX / 2
-        const dist = Math.sqrt((worldX - cx) ** 2 + (worldY - cy) ** 2)
-        if (dist < TAP_RADIUS) {
+        const left = customer.worldPos.x + PAD
+        const top = customer.worldPos.y + PAD
+        const size = TILE_PX - PAD * 2
+        if (worldX >= left && worldX < left + size && worldY >= top && worldY < top + size) {
           onCustomerTap(customer.id)
           return
         }
       }
+      // Check if tapped on a placed furnishing tile (before character info, so tables win)
+      const tappedCol = Math.floor(worldX / TILE_PX)
+      const tappedRow = Math.floor(worldY / TILE_PX)
+      const tappedItemId = posToItemMapRef.current.get(`${tappedRow},${tappedCol}`)
+      if (tappedItemId) {
+        onFurnishingTapRef.current?.(tappedItemId)
+        return
+      }
+
       // Then: any non-exclamation interior customer → show info
       for (const customer of state.characters) {
         if (customer.location !== 'interior') continue
         if (customer.phase === 'exclamation' || customer.phase === 'exiting') continue
-        const cx = customer.worldPos.x + TILE_PX / 2
-        const cy = customer.worldPos.y + TILE_PX / 2
-        const dist = Math.sqrt((worldX - cx) ** 2 + (worldY - cy) ** 2)
-        if (dist < TAP_RADIUS) {
+        const left = customer.worldPos.x + PAD
+        const top = customer.worldPos.y + PAD
+        const size = TILE_PX - PAD * 2
+        if (worldX >= left && worldX < left + size && worldY >= top && worldY < top + size) {
           onCharacterTap?.(customer.characterId)
           return
         }
       }
+
+      // (furnishing tap already handled above)
     }
 
     function onWheel(e: WheelEvent) {
@@ -815,6 +841,60 @@ export default function CafeCanvas({
           ctx.textBaseline = 'middle'
           ctx.fillText('🔒', lockScreenX, lockScreenY)
           ctx.restore()
+        }
+      }
+
+      // Draw furnishing upgrade indicators on base tiles
+      const fUpgrades = furnishingUpgradesRef.current
+      const fPlaced = placedFurnishingsRef.current
+      if (fUpgrades && fPlaced) {
+        for (const [itemId, pos] of Object.entries(fPlaced)) {
+          const level = fUpgrades[itemId]
+          if (!level?.upgrading) continue
+          const remaining = getUpgradeTimeRemaining(level)
+          const sx = pos.col * TILE_PX - camX
+          const sy = pos.row * TILE_PX - camY
+          if (sx < -TILE_PX || sx > viewW + TILE_PX || sy < -TILE_PX || sy > viewH + TILE_PX) continue
+
+          const iconSize = 14
+          const ix = sx + TILE_PX - iconSize - 2
+          const iy = sy + 2
+
+          if (remaining === 0) {
+            // Ready to install — green circle with checkmark
+            ctx.save()
+            ctx.beginPath()
+            ctx.arc(ix + iconSize / 2, iy + iconSize / 2, iconSize / 2, 0, Math.PI * 2)
+            const pulse = 0.7 + 0.3 * Math.sin(tickRef.current * 0.1)
+            ctx.fillStyle = `rgba(76, 175, 80, ${pulse})`
+            ctx.fill()
+            ctx.strokeStyle = '#fff'
+            ctx.lineWidth = 1.5
+            ctx.beginPath()
+            ctx.moveTo(ix + 3, iy + iconSize / 2)
+            ctx.lineTo(ix + iconSize / 2 - 1, iy + iconSize - 4)
+            ctx.lineTo(ix + iconSize - 3, iy + 4)
+            ctx.stroke()
+            ctx.restore()
+          } else {
+            // Upgrading — small circular progress indicator
+            const progress = level.upgrading.durationMs > 0
+              ? 1 - remaining / level.upgrading.durationMs : 0
+            ctx.save()
+            ctx.beginPath()
+            ctx.arc(ix + iconSize / 2, iy + iconSize / 2, iconSize / 2, 0, Math.PI * 2)
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+            ctx.fill()
+            // Progress arc
+            ctx.beginPath()
+            ctx.moveTo(ix + iconSize / 2, iy + iconSize / 2)
+            ctx.arc(ix + iconSize / 2, iy + iconSize / 2, iconSize / 2,
+              -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2)
+            ctx.closePath()
+            ctx.fillStyle = '#FFD54F'
+            ctx.fill()
+            ctx.restore()
+          }
         }
       }
 

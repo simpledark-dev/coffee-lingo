@@ -21,7 +21,11 @@ export function createInitialState(expressions: Expression[]): PlayerState {
     upgrades: {},
     relationships: {},
     unlockedRooms: [],
-    placedFurnishings: {},
+    placedFurnishings: {
+      cafe_table_mid_left: { row: 21, col: 22 },
+      cafe_table_mid_right: { row: 22, col: 26 },
+      cafe_accent_plant: { row: 9, col: 24 },
+    },
     furnishingUpgrades: {},
   }
 }

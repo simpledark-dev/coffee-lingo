@@ -351,6 +351,27 @@ export function getEffectiveTile(
 }
 
 /**
+ * Build a reverse map: "row,col" → itemId (including group tile positions).
+ * Used to detect which furnishing was tapped on the map.
+ */
+export function buildPositionToItemMap(
+  placedFurnishings: Record<string, GridPos>
+): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const [itemId, pos] of Object.entries(placedFurnishings)) {
+    const item = FURNISHING_BY_ID.get(itemId)
+    if (!item) continue
+    map.set(`${pos.row},${pos.col}`, itemId)
+    if (item.group) {
+      for (const g of item.group) {
+        map.set(`${pos.row + g.dr},${pos.col + g.dc}`, itemId)
+      }
+    }
+  }
+  return map
+}
+
+/**
  * Get all positions occupied by placed furnishings (for slot availability checks).
  */
 export function getOccupiedPositions(
