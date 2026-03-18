@@ -125,17 +125,36 @@ export const READING_ROOM_FURNISHINGS: FurnishingItem[] = [
     bonus: { description: '+1 max customers', effects: { maxInShopBonus: 1 } },
   },
   {
-    id: 'reading_plants',
-    name: 'Reading Room Plants',
-    description: 'Lush greenery throughout the room',
-    cost: 40, tileId: T.PLANT, spriteKey: 'PLANT',
+    id: 'reading_plant_upper',
+    name: 'Reading Plant (Upper)',
+    description: 'Greenery near the bookshelves',
+    cost: 20, tileId: T.PLANT, spriteKey: 'PLANT',
     slots: [{ row: 13, col: 14 }], room: 'reading',
-    group: [
-      { dr: 2, dc: 4, tileId: T.PLANT },   // (15,18)
-      { dr: 8, dc: 4, tileId: T.PLANT },   // (21,18)
-      { dr: 10, dc: -3, tileId: T.PLANT }, // (23,11)
-    ],
-    bonus: { description: '+6% bonus coin chance', effects: { bonusCoinChance: 0.06 } },
+    bonus: { description: '+3% bonus coin chance', effects: { bonusCoinChance: 0.03 } },
+  },
+  {
+    id: 'reading_plant_mid_right',
+    name: 'Reading Plant (Mid Right)',
+    description: 'A plant by the wall',
+    cost: 20, tileId: T.PLANT, spriteKey: 'PLANT',
+    slots: [{ row: 15, col: 18 }], room: 'reading',
+    bonus: { description: '+3% bonus coin chance', effects: { bonusCoinChance: 0.03 } },
+  },
+  {
+    id: 'reading_plant_lower_right',
+    name: 'Reading Plant (Lower Right)',
+    description: 'Lush corner greenery',
+    cost: 20, tileId: T.PLANT, spriteKey: 'PLANT',
+    slots: [{ row: 21, col: 18 }], room: 'reading',
+    bonus: { description: '+3% bonus coin chance', effects: { bonusCoinChance: 0.03 } },
+  },
+  {
+    id: 'reading_plant_lower_left',
+    name: 'Reading Plant (Lower Left)',
+    description: 'A warm touch of green',
+    cost: 20, tileId: T.PLANT, spriteKey: 'PLANT',
+    slots: [{ row: 23, col: 11 }], room: 'reading',
+    bonus: { description: '+3% bonus coin chance', effects: { bonusCoinChance: 0.03 } },
   },
   {
     id: 'reading_divider_left',
@@ -278,17 +297,36 @@ export const CAFE_ROOM_FURNISHINGS: FurnishingItem[] = [
     bonus: { description: '+3% bonus coin chance', effects: { bonusCoinChance: 0.03 } },
   },
   {
-    id: 'cafe_plants',
-    name: 'Café Plants',
-    description: 'Greenery scattered around the café',
-    cost: 40, tileId: T.PLANT, spriteKey: 'PLANT',
-    slots: [{ row: 13, col: 20 }], room: 'cafe',
-    group: [
-      { dr: 0, dc: 8, tileId: T.PLANT },   // (13,28)
-      { dr: 8, dc: 8, tileId: T.PLANT },   // (21,28)
-      { dr: 10, dc: 0, tileId: T.PLANT },  // (23,20)
-    ],
-    bonus: { description: '+6% bonus coin chance', effects: { bonusCoinChance: 0.06 } },
+    id: 'cafe_plant_upper_left',
+    name: 'Café Plant (Upper Left)',
+    description: 'Greenery near the window',
+    cost: 20, tileId: T.PLANT, spriteKey: 'PLANT',
+    slots: [{ row: 13, col: 21 }], room: 'cafe',
+    bonus: { description: '+3% bonus coin chance', effects: { bonusCoinChance: 0.03 } },
+  },
+  {
+    id: 'cafe_plant_upper_right',
+    name: 'Café Plant (Upper Right)',
+    description: 'A touch of green by the wall',
+    cost: 20, tileId: T.PLANT, spriteKey: 'PLANT',
+    slots: [{ row: 13, col: 28 }], room: 'cafe',
+    bonus: { description: '+3% bonus coin chance', effects: { bonusCoinChance: 0.03 } },
+  },
+  {
+    id: 'cafe_plant_mid_right',
+    name: 'Café Plant (Mid Right)',
+    description: 'Greenery in the seating area',
+    cost: 20, tileId: T.PLANT, spriteKey: 'PLANT',
+    slots: [{ row: 21, col: 28 }], room: 'cafe',
+    bonus: { description: '+3% bonus coin chance', effects: { bonusCoinChance: 0.03 } },
+  },
+  {
+    id: 'cafe_plant_lower_left',
+    name: 'Café Plant (Lower Left)',
+    description: 'Warm greenery near the counter',
+    cost: 20, tileId: T.PLANT, spriteKey: 'PLANT',
+    slots: [{ row: 23, col: 21 }], room: 'cafe',
+    bonus: { description: '+3% bonus coin chance', effects: { bonusCoinChance: 0.03 } },
   },
 ]
 

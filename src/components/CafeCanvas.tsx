@@ -844,36 +844,45 @@ export default function CafeCanvas({
         }
       }
 
-      // Draw furnishing upgrade indicators on base tiles
+      // Draw furnishing upgrade indicators on all tiles belonging to the item
       const fUpgrades = furnishingUpgradesRef.current
       const fPlaced = placedFurnishingsRef.current
       if (fUpgrades && fPlaced) {
-        for (const [itemId, pos] of Object.entries(fPlaced)) {
+        // Build set of positions per upgrading item using posToItemMap
+        const posMap = posToItemMapRef.current
+        const drawnItems = new Set<string>()
+        for (const [posKey, itemId] of posMap.entries()) {
+          if (drawnItems.has(itemId)) continue
           const level = fUpgrades[itemId]
           if (!level?.upgrading) continue
-          const remaining = getUpgradeTimeRemaining(level)
-          const sx = pos.col * TILE_PX - camX
-          const sy = pos.row * TILE_PX - camY
+          // Find the first visible tile for this item
+          const [rowStr, colStr] = posKey.split(',')
+          const tileRow = Number(rowStr)
+          const tileCol = Number(colStr)
+          const sx = tileCol * TILE_PX - camX
+          const sy = tileRow * TILE_PX - camY
           if (sx < -TILE_PX || sx > viewW + TILE_PX || sy < -TILE_PX || sy > viewH + TILE_PX) continue
+          drawnItems.add(itemId)
 
+          const remaining = getUpgradeTimeRemaining(level)
           const iconSize = 14
-          const ix = sx + TILE_PX - iconSize - 2
-          const iy = sy + 2
+          const cx = sx + TILE_PX / 2
+          const cy = sy + TILE_PX / 2
 
           if (remaining === 0) {
             // Ready to install — green circle with checkmark
             ctx.save()
-            ctx.beginPath()
-            ctx.arc(ix + iconSize / 2, iy + iconSize / 2, iconSize / 2, 0, Math.PI * 2)
             const pulse = 0.7 + 0.3 * Math.sin(tickRef.current * 0.1)
+            ctx.beginPath()
+            ctx.arc(cx, cy, iconSize / 2 + 1, 0, Math.PI * 2)
             ctx.fillStyle = `rgba(76, 175, 80, ${pulse})`
             ctx.fill()
             ctx.strokeStyle = '#fff'
             ctx.lineWidth = 1.5
             ctx.beginPath()
-            ctx.moveTo(ix + 3, iy + iconSize / 2)
-            ctx.lineTo(ix + iconSize / 2 - 1, iy + iconSize - 4)
-            ctx.lineTo(ix + iconSize - 3, iy + 4)
+            ctx.moveTo(cx - 4, cy)
+            ctx.lineTo(cx - 1, cy + 3)
+            ctx.lineTo(cx + 4, cy - 3)
             ctx.stroke()
             ctx.restore()
           } else {
@@ -882,13 +891,12 @@ export default function CafeCanvas({
               ? 1 - remaining / level.upgrading.durationMs : 0
             ctx.save()
             ctx.beginPath()
-            ctx.arc(ix + iconSize / 2, iy + iconSize / 2, iconSize / 2, 0, Math.PI * 2)
+            ctx.arc(cx, cy, iconSize / 2, 0, Math.PI * 2)
             ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
             ctx.fill()
-            // Progress arc
             ctx.beginPath()
-            ctx.moveTo(ix + iconSize / 2, iy + iconSize / 2)
-            ctx.arc(ix + iconSize / 2, iy + iconSize / 2, iconSize / 2,
+            ctx.moveTo(cx, cy)
+            ctx.arc(cx, cy, iconSize / 2,
               -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2)
             ctx.closePath()
             ctx.fillStyle = '#FFD54F'
