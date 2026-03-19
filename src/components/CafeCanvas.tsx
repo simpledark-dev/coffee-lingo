@@ -445,7 +445,8 @@ export default function CafeCanvas({
 
     function onTouchMove(e: TouchEvent) {
       if (!isDraggingRef.current || e.touches.length !== 1) return
-      e.preventDefault()
+      // Don't preventDefault on button taps — it suppresses click on mobile
+      if (!(e.target instanceof HTMLButtonElement)) e.preventDefault()
       const dy = touchStartYRef.current - e.touches[0].clientY
       const dx = touchStartXRef.current - e.touches[0].clientX
       const totalMove = Math.sqrt(dx * dx + dy * dy)
