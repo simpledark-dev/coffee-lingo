@@ -53,8 +53,6 @@ interface CafeCanvasProps {
   onFurnishingTap?: (itemId: string) => void
   hideBottomButtons?: boolean
   hasReadyUpgrades?: boolean
-  onQuestsTap?: () => void
-  hasClaimableQuest?: boolean
   lockInteraction?: boolean
 }
 
@@ -197,8 +195,6 @@ export default function CafeCanvas({
   onFurnishingTap,
   hideBottomButtons,
   hasReadyUpgrades,
-  onQuestsTap,
-  hasClaimableQuest,
   lockInteraction,
 }: CafeCanvasProps) {
   // Build dynamic tile→sprite map based on upgrade tiers (infrastructure only)
@@ -1455,12 +1451,12 @@ export default function CafeCanvas({
           >
             📖
           </button>
-          <button
+          {/* <button
             style={styles.mapButton}
             onClick={() => setShowMap(true)}
           >
             🗺
-          </button>
+          </button> */}
           {scene === 'interior' && !placingItem && (
             <button
               style={styles.upgradeButton}
@@ -1470,13 +1466,6 @@ export default function CafeCanvas({
               {hasReadyUpgrades && <span style={styles.upgradeBadge} />}
             </button>
           )}
-          <button
-            style={styles.questsButton}
-            onClick={() => onQuestsTap?.()}
-          >
-            📋
-            {hasClaimableQuest && <span style={styles.upgradeBadge} />}
-          </button>
         </>
       )}
       {placingItem && (
@@ -1590,7 +1579,7 @@ const styles: Record<string, React.CSSProperties> = {
   settingsButton: {
     position: 'absolute',
     bottom: 10,
-    right: 262,
+    right: 178,
     width: 36,
     height: 36,
     background: 'rgba(93, 64, 55, 0.85)',
@@ -1607,7 +1596,7 @@ const styles: Record<string, React.CSSProperties> = {
   contactsButton: {
     position: 'absolute',
     bottom: 10,
-    right: 178,
+    right: 94,
     width: 36,
     height: 36,
     background: 'rgba(93, 64, 55, 0.85)',
@@ -1624,7 +1613,7 @@ const styles: Record<string, React.CSSProperties> = {
   mapButton: {
     position: 'absolute',
     bottom: 10,
-    right: 94,
+    right: 52,
     width: 36,
     height: 36,
     background: 'rgba(93, 64, 55, 0.85)',
@@ -1641,7 +1630,7 @@ const styles: Record<string, React.CSSProperties> = {
   dictionaryButton: {
     position: 'absolute',
     bottom: 10,
-    right: 136,
+    right: 52,
     width: 36,
     height: 36,
     background: 'rgba(93, 64, 55, 0.85)',
@@ -1658,7 +1647,7 @@ const styles: Record<string, React.CSSProperties> = {
   upgradeButton: {
     position: 'absolute',
     bottom: 10,
-    right: 220,
+    right: 136,
     width: 36,
     height: 36,
     background: 'rgba(93, 64, 55, 0.85)',
@@ -1681,23 +1670,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     backgroundColor: '#F44336',
     border: '2px solid rgba(93, 64, 55, 0.85)',
-  },
-  questsButton: {
-    position: 'absolute',
-    bottom: 10,
-    right: 52,
-    width: 36,
-    height: 36,
-    background: 'rgba(93, 64, 55, 0.85)',
-    border: '2px solid rgba(255, 255, 255, 0.3)',
-    borderRadius: 8,
-    fontSize: 18,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 5,
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
   },
   cancelPlaceButton: {
     position: 'absolute',

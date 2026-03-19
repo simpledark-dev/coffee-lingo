@@ -284,7 +284,6 @@ export default function GameplayView({
   const [showPatioPrompt, setShowPatioPrompt] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showQuests, setShowQuests] = useState(false)
-  const [sessionServed, setSessionServed] = useState(0)
   const quizMode: QuizMode = 'sentence'
   const [musicVolume, setMusicVolume] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -612,8 +611,6 @@ export default function GameplayView({
       quests: updatedQuests,
     })
 
-    setSessionServed(prev => prev + 1)
-
     // Correct: auto-advance after 1s. Wrong: wait for manual "Next" tap.
     if (isCorrect) {
       setTimeout(() => advanceConversation(state, customer), 1000)
@@ -699,7 +696,8 @@ export default function GameplayView({
       <HUD
         coins={playerState.coins}
         reputation={playerState.reputation}
-        customersServed={sessionServed}
+        onQuestsTap={() => setShowQuests(true)}
+        hasClaimableQuest={checkClaimableQuest(playerState.quests, playerState.coins, playerState.reputation)}
       />
 
       <CafeCanvas
@@ -723,8 +721,6 @@ export default function GameplayView({
         onFurnishingTap={(itemId) => { playTapSound(); setInspectedFurnishingId(itemId) }}
         hideBottomButtons={!!activeExchange}
         hasReadyUpgrades={readyToInstallIds.length > 0}
-        onQuestsTap={() => setShowQuests(true)}
-        hasClaimableQuest={checkClaimableQuest(playerState.quests, playerState.coins, playerState.reputation)}
         lockInteraction={showContacts || showDictionary || showUpgradeShop || showQuests || showSettings || showPatioPrompt}
       />
 
