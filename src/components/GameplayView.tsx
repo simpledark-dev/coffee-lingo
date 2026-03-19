@@ -1165,7 +1165,7 @@ export default function GameplayView({
                         if (expr) setWordDetailExpr(expr)
                       }}
                     >
-                      ℹ{'\\uFE0E'}
+                      ℹ
                     </span>
                   )}
                 </button>

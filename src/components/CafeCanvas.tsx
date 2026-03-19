@@ -290,10 +290,10 @@ export default function CafeCanvas({
   // Outside scene: shops aligned to tile-grid rows
   // Each shop's { startRow, endRow } matches OUTSIDE_LAYOUT
   const OUTSIDE_SHOPS = useMemo(() => [
-    { name: 'Boulangerie',  wallColor: '#D4A373', wallDark: '#C4956A', awningColor: '#C62828', awningStripe: '#A01919', trimColor: '#8B5E3C', locked: true,  startRow: 1,  endRow: 3  },
-    { name: 'Coffee Lingo', wallColor: '#5D4037', wallDark: '#4E342E', awningColor: '#6D4C41', awningStripe: '#4E342E', trimColor: '#3E2723', locked: false, startRow: 5,  endRow: 8  },
-    { name: 'Librairie',    wallColor: '#B0BEC5', wallDark: '#90A4AE', awningColor: '#1565C0', awningStripe: '#0D47A1', trimColor: '#546E7A', locked: true,  startRow: 10, endRow: 12 },
-    { name: 'Fleuriste',    wallColor: '#C8E6C9', wallDark: '#A5D6A7', awningColor: '#2E7D32', awningStripe: '#1B5E20', trimColor: '#4CAF50', locked: true,  startRow: 14, endRow: 16 },
+    { name: 'Boulangerie', wallColor: '#D4A373', wallDark: '#C4956A', awningColor: '#C62828', awningStripe: '#A01919', trimColor: '#8B5E3C', locked: true, startRow: 1, endRow: 3 },
+    { name: 'Coffee Lingo', wallColor: '#5D4037', wallDark: '#4E342E', awningColor: '#6D4C41', awningStripe: '#4E342E', trimColor: '#3E2723', locked: false, startRow: 5, endRow: 8 },
+    { name: 'Librairie', wallColor: '#B0BEC5', wallDark: '#90A4AE', awningColor: '#1565C0', awningStripe: '#0D47A1', trimColor: '#546E7A', locked: true, startRow: 10, endRow: 12 },
+    { name: 'Fleuriste', wallColor: '#C8E6C9', wallDark: '#A5D6A7', awningColor: '#2E7D32', awningStripe: '#1B5E20', trimColor: '#4CAF50', locked: true, startRow: 14, endRow: 16 },
   ], [])
 
   // Full map popup
@@ -879,7 +879,7 @@ export default function CafeCanvas({
         const lockScreenX = lockWorldX - camX
         const lockScreenY = lockWorldY - camY
         if (lockScreenX > -TILE_PX && lockScreenX < viewW + TILE_PX &&
-            lockScreenY > -TILE_PX && lockScreenY < viewH + TILE_PX) {
+          lockScreenY > -TILE_PX && lockScreenY < viewH + TILE_PX) {
           ctx.save()
           // Lock background circle
           ctx.beginPath()
@@ -1005,7 +1005,7 @@ export default function CafeCanvas({
         ctx.fillStyle = '#FFD54F'
         ctx.shadowColor = 'rgba(0,0,0,0.6)'
         ctx.shadowBlur = 4
-        ctx.fillText('▶\uFE0E', arrowScreenX, arrowScreenY)
+        ctx.fillText('▶', arrowScreenX, arrowScreenY)
         ctx.shadowBlur = 0
         ctx.font = `bold ${Math.round(5 * SCALE)}px sans-serif`
         ctx.fillStyle = '#FFEFD5'
@@ -1253,7 +1253,7 @@ export default function CafeCanvas({
           ctx.fillStyle = '#FFD54F'
           ctx.shadowColor = 'rgba(0,0,0,0.5)'
           ctx.shadowBlur = 4
-          ctx.fillText('▶\uFE0E ENTER', x + w / 2, y + h - baseH - 14)
+          ctx.fillText('▶ ENTER', x + w / 2, y + h - baseH - 14)
           ctx.restore()
         }
       }
@@ -1389,7 +1389,7 @@ export default function CafeCanvas({
               style={{ ...styles.roomArrow, ...styles.roomArrowLeft }}
               onClick={() => switchToRoom(currentRoom - 1)}
             >
-              {'◀\\uFE0E'}
+              {'◀'}
             </button>
           )}
           {currentRoom < 2 && (
@@ -1397,7 +1397,7 @@ export default function CafeCanvas({
               style={{ ...styles.roomArrow, ...styles.roomArrowRight }}
               onClick={() => switchToRoom(currentRoom + 1)}
             >
-              {'▶\\uFE0E'}
+              {'▶'}
               {otherRoomAlert && <span style={styles.alertDot} />}
             </button>
           )}
