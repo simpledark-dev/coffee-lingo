@@ -42,26 +42,27 @@ import {
 } from "../lib/tileset";
 
 interface CafeCanvasProps {
-  cafeStateRef: React.RefObject<WorldState | null>;
-  onCustomerTap: (customerId: number) => void;
-  onCharacterTap?: (characterId: string) => void;
-  onContactsTap?: () => void;
-  onUpgradesTap?: () => void;
-  onDictionaryTap?: () => void;
-  onSettingsTap?: () => void;
-  onSceneChange?: (scene: "interior" | "outside") => void;
-  upgrades?: Record<string, import("../lib/types").UpgradeLevel>;
-  patioUnlocked?: boolean;
-  onPatioLockTap?: () => void;
-  placingItem?: FurnishingItem | null;
-  placingSlots?: GridPos[];
-  onPlace?: (pos: GridPos) => void;
-  onCancelPlace?: () => void;
-  placedFurnishings?: Record<string, import("../lib/types").GridPos>;
-  furnishingUpgrades?: Record<string, import("../lib/types").UpgradeLevel>;
-  onFurnishingTap?: (itemId: string) => void;
-  hideBottomButtons?: boolean;
-  hasReadyUpgrades?: boolean;
+  cafeStateRef: React.RefObject<WorldState | null>
+  onCustomerTap: (customerId: number) => void
+  onCharacterTap?: (characterId: string) => void
+  onContactsTap?: () => void
+  onUpgradesTap?: () => void
+  onDictionaryTap?: () => void
+  onSettingsTap?: () => void
+  onSceneChange?: (scene: 'interior' | 'outside') => void
+  upgrades?: Record<string, import('../lib/types').UpgradeLevel>
+  patioUnlocked?: boolean
+  onPatioLockTap?: () => void
+  placingItem?: FurnishingItem | null
+  placingSlots?: GridPos[]
+  onPlace?: (pos: GridPos) => void
+  onCancelPlace?: () => void
+  placedFurnishings?: Record<string, import('../lib/types').GridPos>
+  furnishingUpgrades?: Record<string, import('../lib/types').UpgradeLevel>
+  onFurnishingTap?: (itemId: string) => void
+  hideBottomButtons?: boolean
+  hasReadyUpgrades?: boolean
+  lockInteraction?: boolean
 }
 
 const TILE_PX = TILE_SIZE * SCALE;
@@ -98,11 +99,11 @@ const NEEDS_FLOOR = new Set<string>([
 ]);
 
 // Swipe thresholds
-const GESTURE_DEAD_ZONE = 10; // px before locking direction
-const SWIPE_THRESHOLD = 60; // px to trigger room switch
-const ROOM_SWITCH_SPEED = 0.05; // camera lerp factor per frame (lower = slower, 0.01–0.2)
-const INERTIA_FRICTION = 0.92; // per-frame friction (0.85 = stops fast, 0.95 = slides long)
-const INERTIA_SCALE = 12; // velocity multiplier (higher = faster initial coast)
+const GESTURE_DEAD_ZONE = 10 // px before locking direction
+const SWIPE_THRESHOLD = 60   // px to trigger room switch
+const ROOM_SWITCH_SPEED = 0.06 // camera lerp factor per frame (lower = slower, 0.01–0.2)
+const INERTIA_FRICTION = 0.92   // per-frame friction (0.85 = stops fast, 0.95 = slides long)
+const INERTIA_SCALE = 12        // velocity multiplier (higher = faster initial coast)
 
 // --- Sprite cache: pre-render each sprite once to an offscreen canvas ---
 type SpriteCache = Map<number[][], HTMLCanvasElement>;
@@ -253,6 +254,7 @@ export default function CafeCanvas({
   onFurnishingTap,
   hideBottomButtons,
   hasReadyUpgrades,
+  lockInteraction,
 }: CafeCanvasProps) {
   // Build dynamic tile→sprite map based on upgrade tiers (infrastructure only)
   const resolvedTileSprite: Record<string, string> = useMemo(
@@ -358,16 +360,18 @@ export default function CafeCanvas({
   const viewHRef = useRef(500);
 
   // Current room (0 = patio, 1 = reading, 2 = cafe)
-  const currentRoomRef = useRef(2);
-  const [currentRoom, setCurrentRoom] = useState(2);
-  const patioUnlockedRef = useRef(patioUnlocked);
-  patioUnlockedRef.current = patioUnlocked;
-  const placingSlotsRef = useRef(placingSlots);
-  placingSlotsRef.current = placingSlots;
-  const placingItemRef = useRef(placingItem);
-  placingItemRef.current = placingItem;
-  const onPlaceRef = useRef(onPlace);
-  onPlaceRef.current = onPlace;
+  const currentRoomRef = useRef(2)
+  const [currentRoom, setCurrentRoom] = useState(2)
+  const patioUnlockedRef = useRef(patioUnlocked)
+  patioUnlockedRef.current = patioUnlocked
+  const lockInteractionRef = useRef(lockInteraction)
+  lockInteractionRef.current = lockInteraction
+  const placingSlotsRef = useRef(placingSlots)
+  placingSlotsRef.current = placingSlots
+  const placingItemRef = useRef(placingItem)
+  placingItemRef.current = placingItem
+  const onPlaceRef = useRef(onPlace)
+  onPlaceRef.current = onPlace
 
   // Floor style — derived from upgrade tier
   const unlockedFloors = useMemo<FloorStyleKey[]>(() => {
@@ -406,55 +410,12 @@ export default function CafeCanvas({
 
   // Outside scene: shops aligned to tile-grid rows
   // Each shop's { startRow, endRow } matches OUTSIDE_LAYOUT
-  const OUTSIDE_SHOPS = useMemo(
-    () => [
-      {
-        name: "Boulangerie",
-        wallColor: "#D4A373",
-        wallDark: "#C4956A",
-        awningColor: "#C62828",
-        awningStripe: "#A01919",
-        trimColor: "#8B5E3C",
-        locked: true,
-        startRow: 1,
-        endRow: 3,
-      },
-      {
-        name: "Coffee Lingo",
-        wallColor: "#5D4037",
-        wallDark: "#4E342E",
-        awningColor: "#6D4C41",
-        awningStripe: "#4E342E",
-        trimColor: "#3E2723",
-        locked: false,
-        startRow: 5,
-        endRow: 8,
-      },
-      {
-        name: "Librairie",
-        wallColor: "#B0BEC5",
-        wallDark: "#90A4AE",
-        awningColor: "#1565C0",
-        awningStripe: "#0D47A1",
-        trimColor: "#546E7A",
-        locked: true,
-        startRow: 10,
-        endRow: 12,
-      },
-      {
-        name: "Fleuriste",
-        wallColor: "#C8E6C9",
-        wallDark: "#A5D6A7",
-        awningColor: "#2E7D32",
-        awningStripe: "#1B5E20",
-        trimColor: "#4CAF50",
-        locked: true,
-        startRow: 14,
-        endRow: 16,
-      },
-    ],
-    []
-  );
+  const OUTSIDE_SHOPS = useMemo(() => [
+    { name: 'Boulangerie', wallColor: '#D4A373', wallDark: '#C4956A', awningColor: '#C62828', awningStripe: '#A01919', trimColor: '#8B5E3C', locked: true, startRow: 1, endRow: 3 },
+    { name: 'Coffee Lingo', wallColor: '#5D4037', wallDark: '#4E342E', awningColor: '#6D4C41', awningStripe: '#4E342E', trimColor: '#3E2723', locked: false, startRow: 5, endRow: 8 },
+    { name: 'Librairie', wallColor: '#B0BEC5', wallDark: '#90A4AE', awningColor: '#1565C0', awningStripe: '#0D47A1', trimColor: '#546E7A', locked: true, startRow: 10, endRow: 12 },
+    { name: 'Fleuriste', wallColor: '#C8E6C9', wallDark: '#A5D6A7', awningColor: '#2E7D32', awningStripe: '#1B5E20', trimColor: '#4CAF50', locked: true, startRow: 14, endRow: 16 },
+  ], [])
 
   // Full map popup
   const [showMap, setShowMap] = useState(false);
@@ -632,27 +593,30 @@ export default function CafeCanvas({
     if (!container) return;
 
     function onTouchStart(e: TouchEvent) {
-      if (e.touches.length !== 1) return;
-      isDraggingRef.current = true;
-      touchStartYRef.current = e.touches[0].clientY;
-      touchStartXRef.current = e.touches[0].clientX;
-      cameraStartYRef.current = cameraYRef.current;
-      outsideCamStartYRef.current = outsideCamYRef.current;
-      touchMovedRef.current = 0;
-      gestureDirRef.current = "none";
-      swipeDxRef.current = 0;
-      lastTouchYRef.current = e.touches[0].clientY;
-      lastTouchTimeRef.current = Date.now();
-      velocityYRef.current = 0;
+      if (lockInteractionRef.current) return
+      if (e.touches.length !== 1) return
+      isDraggingRef.current = true
+      touchStartYRef.current = e.touches[0].clientY
+      touchStartXRef.current = e.touches[0].clientX
+      cameraStartYRef.current = cameraYRef.current
+      outsideCamStartYRef.current = outsideCamYRef.current
+      touchMovedRef.current = 0
+      gestureDirRef.current = 'none'
+      swipeDxRef.current = 0
+      lastTouchYRef.current = e.touches[0].clientY
+      lastTouchTimeRef.current = Date.now()
+      velocityYRef.current = 0
     }
 
     function onTouchMove(e: TouchEvent) {
-      if (!isDraggingRef.current || e.touches.length !== 1) return;
-      e.preventDefault();
-      const dy = touchStartYRef.current - e.touches[0].clientY;
-      const dx = touchStartXRef.current - e.touches[0].clientX;
-      const totalMove = Math.sqrt(dx * dx + dy * dy);
-      touchMovedRef.current = totalMove;
+      if (!isDraggingRef.current || e.touches.length !== 1) return
+      // Don't preventDefault on button taps — it suppresses click on mobile
+      const target = e.target as Element
+      if (!target.closest?.('button')) e.preventDefault()
+      const dy = touchStartYRef.current - e.touches[0].clientY
+      const dx = touchStartXRef.current - e.touches[0].clientX
+      const totalMove = Math.sqrt(dx * dx + dy * dy)
+      touchMovedRef.current = totalMove
 
       // Lock gesture direction after dead zone
       if (gestureDirRef.current === "none" && totalMove > GESTURE_DEAD_ZONE) {
@@ -721,17 +685,18 @@ export default function CafeCanvas({
     }
 
     function onMouseDown(e: MouseEvent) {
-      isDraggingRef.current = true;
-      touchStartYRef.current = e.clientY;
-      touchStartXRef.current = e.clientX;
-      cameraStartYRef.current = cameraYRef.current;
-      outsideCamStartYRef.current = outsideCamYRef.current;
-      touchMovedRef.current = 0;
-      gestureDirRef.current = "none";
-      swipeDxRef.current = 0;
-      lastTouchYRef.current = e.clientY;
-      lastTouchTimeRef.current = Date.now();
-      velocityYRef.current = 0;
+      if (lockInteractionRef.current) return
+      isDraggingRef.current = true
+      touchStartYRef.current = e.clientY
+      touchStartXRef.current = e.clientX
+      cameraStartYRef.current = cameraYRef.current
+      outsideCamStartYRef.current = outsideCamYRef.current
+      touchMovedRef.current = 0
+      gestureDirRef.current = 'none'
+      swipeDxRef.current = 0
+      lastTouchYRef.current = e.clientY
+      lastTouchTimeRef.current = Date.now()
+      velocityYRef.current = 0
     }
 
     function onMouseMove(e: MouseEvent) {
@@ -1032,11 +997,13 @@ export default function CafeCanvas({
           targetCamYRef.current = null;
         }
       }
-      // Apply vertical inertia when not dragging
-      if (!isDraggingRef.current && Math.abs(velocityYRef.current) > 0.01) {
-        cameraYRef.current += velocityYRef.current * INERTIA_SCALE; // ~16ms per frame
-        velocityYRef.current *= INERTIA_FRICTION; // friction
-        if (Math.abs(velocityYRef.current) < 0.01) velocityYRef.current = 0;
+      // Apply vertical inertia when not dragging (skip when modal open)
+      if (!lockInteractionRef.current && !isDraggingRef.current && Math.abs(velocityYRef.current) > 0.01) {
+        cameraYRef.current += velocityYRef.current * INERTIA_SCALE // ~16ms per frame
+        velocityYRef.current *= INERTIA_FRICTION // friction
+        if (Math.abs(velocityYRef.current) < 0.01) velocityYRef.current = 0
+      } else if (lockInteractionRef.current) {
+        velocityYRef.current = 0
       }
 
       cameraYRef.current = Math.max(
@@ -1156,17 +1123,13 @@ export default function CafeCanvas({
 
       // Draw patio lock centered on the wall/floor border (between col 10 and col 11)
       if (!patioUnlockedRef.current) {
-        const lockWorldX = 11 * TILE_PX; // border between col 10 (wall) and col 11 (floor)
-        const lockWorldY = 21.5 * TILE_PX; // center between rows 21-22
-        const lockScreenX = lockWorldX - camX;
-        const lockScreenY = lockWorldY - camY;
-        if (
-          lockScreenX > -TILE_PX &&
-          lockScreenX < viewW + TILE_PX &&
-          lockScreenY > -TILE_PX &&
-          lockScreenY < viewH + TILE_PX
-        ) {
-          ctx.save();
+        const lockWorldX = 11 * TILE_PX                   // border between col 10 (wall) and col 11 (floor)
+        const lockWorldY = 21.5 * TILE_PX                // center between rows 21-22
+        const lockScreenX = lockWorldX - camX
+        const lockScreenY = lockWorldY - camY
+        if (lockScreenX > -TILE_PX && lockScreenX < viewW + TILE_PX &&
+          lockScreenY > -TILE_PX && lockScreenY < viewH + TILE_PX) {
+          ctx.save()
           // Lock background circle
           ctx.beginPath();
           ctx.arc(lockScreenX, lockScreenY, TILE_PX * 0.42, 0, Math.PI * 2);
@@ -1299,27 +1262,28 @@ export default function CafeCanvas({
       const arrowScreenX = doorWorldX - TILE_PX / 2 - camX;
       const arrowScreenY = doorWorldY + TILE_PX / 2 - camY;
       // Only draw if visible
-      if (
-        arrowScreenX > -40 &&
-        arrowScreenX < viewW + 40 &&
-        arrowScreenY > -40 &&
-        arrowScreenY < viewH + 40
-      ) {
-        const pulse = 0.8 + 0.2 * Math.sin(tickRef.current * 0.08);
-        ctx.save();
-        ctx.globalAlpha = pulse;
-        ctx.font = `bold ${Math.round(14 * SCALE)}px sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "#FFD54F";
-        ctx.shadowColor = "rgba(0,0,0,0.6)";
-        ctx.shadowBlur = 4;
-        ctx.fillText("▶", arrowScreenX, arrowScreenY);
-        ctx.shadowBlur = 0;
-        ctx.font = `bold ${Math.round(5 * SCALE)}px sans-serif`;
-        ctx.fillStyle = "#FFEFD5";
-        ctx.fillText("EXIT", arrowScreenX, arrowScreenY + 16 * SCALE);
-        ctx.restore();
+      if (arrowScreenX > -40 && arrowScreenX < viewW + 40 && arrowScreenY > -40 && arrowScreenY < viewH + 40) {
+        const pulse = 0.8 + 0.2 * Math.sin(tickRef.current * 0.08)
+        ctx.save()
+        ctx.globalAlpha = pulse
+        ctx.shadowColor = 'rgba(0,0,0,0.6)'
+        ctx.shadowBlur = 4
+        // Draw triangle arrow instead of emoji for cross-platform consistency
+        const arrowSize = 8 * SCALE
+        ctx.fillStyle = '#FFD54F'
+        ctx.beginPath()
+        ctx.moveTo(arrowScreenX - arrowSize / 2, arrowScreenY - arrowSize)
+        ctx.lineTo(arrowScreenX + arrowSize, arrowScreenY)
+        ctx.lineTo(arrowScreenX - arrowSize / 2, arrowScreenY + arrowSize)
+        ctx.closePath()
+        ctx.fill()
+        ctx.shadowBlur = 0
+        ctx.font = `bold ${Math.round(5 * SCALE)}px sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillStyle = '#FFEFD5'
+        ctx.fillText('EXIT', arrowScreenX, arrowScreenY + 16 * SCALE)
+        ctx.restore()
       }
     }
 
@@ -1328,11 +1292,13 @@ export default function CafeCanvas({
     const SHOP_COLS = 4; // shops span cols 0-3
 
     function drawOutside(viewW: number, viewH: number) {
-      // Apply vertical inertia when not dragging
-      if (!isDraggingRef.current && Math.abs(velocityYRef.current) > 0.01) {
-        outsideCamYRef.current += velocityYRef.current * INERTIA_SCALE;
-        velocityYRef.current *= INERTIA_FRICTION;
-        if (Math.abs(velocityYRef.current) < 0.01) velocityYRef.current = 0;
+      // Apply vertical inertia when not dragging (skip when modal open)
+      if (!lockInteractionRef.current && !isDraggingRef.current && Math.abs(velocityYRef.current) > 0.01) {
+        outsideCamYRef.current += velocityYRef.current * INERTIA_SCALE
+        velocityYRef.current *= INERTIA_FRICTION
+        if (Math.abs(velocityYRef.current) < 0.01) velocityYRef.current = 0
+      } else if (lockInteractionRef.current) {
+        velocityYRef.current = 0
       }
 
       const maxY = Math.max(0, outsideTotalH - viewH);
@@ -1586,17 +1552,17 @@ export default function CafeCanvas({
           ctx.fillText("Coming soon", x + w / 2, y + h - baseH - 10);
           ctx.restore();
         } else {
-          const pulse = 0.7 + 0.3 * Math.sin(tickRef.current * 0.08);
-          ctx.save();
-          ctx.globalAlpha = pulse;
-          ctx.font = `bold ${Math.round(8 * SCALE)}px sans-serif`;
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillStyle = "#FFD54F";
-          ctx.shadowColor = "rgba(0,0,0,0.5)";
-          ctx.shadowBlur = 4;
-          ctx.fillText("▶ ENTER", x + w / 2, y + h - baseH - 14);
-          ctx.restore();
+          const pulse = 0.7 + 0.3 * Math.sin(tickRef.current * 0.08)
+          ctx.save()
+          ctx.globalAlpha = pulse
+          ctx.font = `bold ${Math.round(8 * SCALE)}px sans-serif`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillStyle = '#FFD54F'
+          ctx.shadowColor = 'rgba(0,0,0,0.5)'
+          ctx.shadowBlur = 4
+          ctx.fillText('ENTER', x + w / 2, y + h - baseH - 14)
+          ctx.restore()
         }
       }
 
@@ -1821,10 +1787,13 @@ export default function CafeCanvas({
           >
             📖
           </button>
-          <button style={styles.mapButton} onClick={() => setShowMap(true)}>
+          {/* <button
+            style={styles.mapButton}
+            onClick={() => setShowMap(true)}
+          >
             🗺
-          </button>
-          {scene === "interior" && !placingItem && (
+          </button> */}
+          {scene === 'interior' && !placingItem && (
             <button
               style={styles.upgradeButton}
               onClick={() => onUpgradesTap?.()}
@@ -1948,7 +1917,7 @@ const styles: Record<string, React.CSSProperties> = {
   settingsButton: {
     position: "absolute",
     bottom: 10,
-    right: 220,
+    right: 178,
     width: 36,
     height: 36,
     background: "rgba(93, 64, 55, 0.85)",
@@ -1965,7 +1934,7 @@ const styles: Record<string, React.CSSProperties> = {
   contactsButton: {
     position: "absolute",
     bottom: 10,
-    right: 136,
+    right: 94,
     width: 36,
     height: 36,
     background: "rgba(93, 64, 55, 0.85)",
@@ -1999,7 +1968,7 @@ const styles: Record<string, React.CSSProperties> = {
   dictionaryButton: {
     position: "absolute",
     bottom: 10,
-    right: 94,
+    right: 52,
     width: 36,
     height: 36,
     background: "rgba(93, 64, 55, 0.85)",
@@ -2016,7 +1985,7 @@ const styles: Record<string, React.CSSProperties> = {
   upgradeButton: {
     position: "absolute",
     bottom: 10,
-    right: 178,
+    right: 136,
     width: 36,
     height: 36,
     background: "rgba(93, 64, 55, 0.85)",

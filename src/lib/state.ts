@@ -1,6 +1,7 @@
 import { Expression, PlayerState, VocabularyEntry } from './types'
 import { getReadyToInstallIds, TILE_TO_UPGRADE_ID, INFRASTRUCTURE_IDS } from './upgrades'
 import { getDefaultPlacements, READING_ROOM_FURNISHINGS, CAFE_ROOM_FURNISHINGS, PATIO_FURNISHINGS, ALL_FURNISHINGS } from './furnishing'
+import { initializeQuests, resetDailyQuests } from './quests'
 
 const STORAGE_KEY = 'coffee-lingo-state'
 
@@ -114,6 +115,14 @@ export function loadState(): { state: PlayerState; readyToInstall: string[] } | 
     // Mark them as done so they never run from old code paths.
     if (!localStorage.getItem('coffee-lingo-m3')) localStorage.setItem('coffee-lingo-m3', '1')
     if (!localStorage.getItem('coffee-lingo-m4')) localStorage.setItem('coffee-lingo-m4', '1')
+
+    // Quest initialization + daily reset
+    const today = new Date().toISOString().slice(0, 10)
+    if (!state.quests) {
+      state.quests = initializeQuests(today, state.coins, state.reputation)
+    } else if (state.quests.date !== today) {
+      state.quests = resetDailyQuests(state.quests, today)
+    }
 
     const readyToInstall = getReadyToInstallIds(state.upgrades!, state.furnishingUpgrades)
     return { state, readyToInstall }

@@ -15,11 +15,13 @@ import { PATIO_UNLOCK_REP, PATIO_UNLOCK_COST } from '../lib/tilemap'
 import { buildPlacedTileMap, buildFurnishingPOIs, getAvailableSlots, ALL_FURNISHINGS } from '../lib/furnishing'
 import { getCharacter, getFriendshipLevel, FRIENDSHIP_GAIN, pickNextCharacter, VoiceProfile } from '../lib/characters'
 import { CUSTOMER_SPRITES, PALETTE } from '../lib/sprites'
+import { updateQuestProgress, updateConversationEndProgress, hasClaimableQuest as checkClaimableQuest, QuestEvent } from '../lib/quests'
 import HUD from './HUD'
 import CafeCanvas from './CafeCanvas'
 import ContactsView from './ContactsView'
 import UpgradeShop from './UpgradeShop'
 import DictionaryView from './DictionaryView'
+import QuestsView from './QuestsView'
 
 interface GameplayViewProps {
   expressions: Expression[]
@@ -61,7 +63,7 @@ function getAudioCtx(): AudioContext {
 if (typeof window !== 'undefined') {
   const unlock = () => {
     getAudioCtx()
-    if (_awwAudio) { _awwAudio.play().then(() => { _awwAudio!.pause(); _awwAudio!.currentTime = 0 }).catch(() => {}) }
+    if (_awwAudio) { _awwAudio.play().then(() => { _awwAudio!.pause(); _awwAudio!.currentTime = 0 }).catch(() => { }) }
     window.removeEventListener('touchstart', unlock)
     window.removeEventListener('click', unlock)
   }
@@ -95,7 +97,7 @@ if (typeof window !== 'undefined') {
 function playAwwSound() {
   if (typeof window === 'undefined' || !_awwAudio) return
   _awwAudio.currentTime = 0
-  _awwAudio.play().catch(() => {})
+  _awwAudio.play().catch(() => { })
 }
 
 export function playTapSound() {
@@ -281,7 +283,7 @@ export default function GameplayView({
   const [showDictionary, setShowDictionary] = useState(false)
   const [showPatioPrompt, setShowPatioPrompt] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const [sessionServed, setSessionServed] = useState(0)
+  const [showQuests, setShowQuests] = useState(false)
   const quizMode: QuizMode = 'sentence'
   const [musicVolume, setMusicVolume] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -378,7 +380,7 @@ export default function GameplayView({
 
     // Autoplay is blocked by browsers until first user interaction
     function startAudio() {
-      if (audio.volume > 0) audio.play().catch(() => {})
+      if (audio.volume > 0) audio.play().catch(() => { })
       document.removeEventListener('pointerdown', startAudio)
     }
     document.addEventListener('pointerdown', startAudio)
@@ -389,9 +391,9 @@ export default function GameplayView({
 
   const handleSceneChange = useCallback((scene: 'interior' | 'outside') => {
     const audio = audioRef.current
-    if (!audio || musicVolume === 0) return
-    if (scene === 'interior') {
-      audio.play().catch(() => {})
+    if (!audio) return
+    if (scene === 'interior' && audio.volume > 0) {
+      audio.play().catch(() => { })
     } else {
       audio.pause()
     }
@@ -403,7 +405,7 @@ export default function GameplayView({
     const audio = audioRef.current
     if (audio) {
       audio.volume = vol
-      if (vol === 0) { audio.pause() } else { audio.play().catch(() => {}) }
+      if (vol === 0) { audio.pause() } else { audio.play().catch(() => { }) }
     }
   }, [])
 
@@ -587,15 +589,27 @@ export default function GameplayView({
     if (result.score === 'PERFECT') repChange += 1
     if (result.score === 'MISSED') repChange -= 1
 
+    // Update quest progress
+    let updatedQuests = ps.quests
+    if (updatedQuests) {
+      const questEvent: QuestEvent = {
+        score: result.score,
+        characterId: customer.characterId,
+        hintLevel: hintLevelRef.current,
+        coinsEarned: result.tipAmount,
+        repEarned: Math.max(0, repChange),
+      }
+      updatedQuests = updateQuestProgress(updatedQuests, questEvent)
+    }
+
     onStateUpdate({
       coins: Math.round((updatedState.coins + result.tipAmount) * 100) / 100,
       reputation: Math.max(0, Math.round(updatedState.reputation + repChange)),
       vocabulary: updatedState.vocabulary,
       totalCustomersServed: updatedState.totalCustomersServed + 1,
       wrongQueue,
+      quests: updatedQuests,
     })
-
-    setSessionServed(prev => prev + 1)
 
     // Correct: auto-advance after 1s. Wrong: wait for manual "Next" tap.
     if (isCorrect) {
@@ -639,6 +653,12 @@ export default function GameplayView({
       setSelectedChoiceId(null)
       setFriendshipGain(null)
       processingRef.current = false
+
+      // Update conversation-end quest progress (serve_customers + serve_perfectly)
+      const ps = playerStateRef.current
+      if (ps.quests) {
+        onStateUpdate({ quests: updateConversationEndProgress(ps.quests) })
+      }
     }
   }
 
@@ -676,7 +696,8 @@ export default function GameplayView({
       <HUD
         coins={playerState.coins}
         reputation={playerState.reputation}
-        customersServed={sessionServed}
+        onQuestsTap={() => setShowQuests(true)}
+        hasClaimableQuest={checkClaimableQuest(playerState.quests, playerState.coins, playerState.reputation)}
       />
 
       <CafeCanvas
@@ -700,6 +721,7 @@ export default function GameplayView({
         onFurnishingTap={(itemId) => { playTapSound(); setInspectedFurnishingId(itemId) }}
         hideBottomButtons={!!activeExchange}
         hasReadyUpgrades={readyToInstallIds.length > 0}
+        lockInteraction={showContacts || showDictionary || showUpgradeShop || showQuests || showSettings || showPatioPrompt}
       />
 
       {/* Upgrade install toasts removed — red badge on upgrade button instead */}
@@ -779,6 +801,14 @@ export default function GameplayView({
           onFurnishingPurchase={onFurnishingPurchase}
           onFurnishingInstall={onFurnishingInstall}
           onFurnishingFinish={onFurnishingFinish}
+        />
+      )}
+
+      {showQuests && (
+        <QuestsView
+          playerState={playerState}
+          onStateUpdate={onStateUpdate}
+          onClose={() => setShowQuests(false)}
         />
       )}
 
@@ -1132,7 +1162,7 @@ export default function GameplayView({
                         if (expr) setWordDetailExpr(expr)
                       }}
                     >
-                      ℹ
+                      i
                     </span>
                   )}
                 </button>
@@ -1514,8 +1544,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 700,
+    fontStyle: 'italic' as const,
+    fontFamily: 'Georgia, serif',
     cursor: 'pointer',
   },
   wordDetailOverlay: {

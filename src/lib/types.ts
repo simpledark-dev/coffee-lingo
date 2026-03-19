@@ -86,6 +86,7 @@ export interface PlayerState {
   placedFurnishings?: Record<string, GridPos>
   furnishingUpgrades?: Record<string, UpgradeLevel>
   wrongQueue?: WrongQueueEntry[]
+  quests?: QuestsState
 }
 
 export interface FurnishingBonus {
@@ -109,6 +110,32 @@ export interface FurnishingItem {
 export interface WrongQueueEntry {
   wordId: string
   streak: number
+}
+
+export interface MilestoneQuest {
+  type: 'coins' | 'reputation'
+  target: number
+  stageIndex: number
+  claimed: boolean
+}
+
+export interface DailyQuest {
+  templateId: string
+  description: string
+  target: number
+  progress: number
+  claimed: boolean
+  reward: number
+}
+
+export interface QuestsState {
+  date: string
+  dailyQuests: DailyQuest[]
+  dailyBonusClaimed: boolean
+  milestones: MilestoneQuest[]
+  streak: number
+  uniqueCharacters: string[]
+  currentConvoAllCorrect: boolean
 }
 
 export interface VocabularyEntry {
