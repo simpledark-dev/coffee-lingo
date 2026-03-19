@@ -55,6 +55,7 @@ interface CafeCanvasProps {
   hasReadyUpgrades?: boolean
   onQuestsTap?: () => void
   hasClaimableQuest?: boolean
+  lockInteraction?: boolean
 }
 
 const TILE_PX = TILE_SIZE * SCALE
@@ -198,6 +199,7 @@ export default function CafeCanvas({
   hasReadyUpgrades,
   onQuestsTap,
   hasClaimableQuest,
+  lockInteraction,
 }: CafeCanvasProps) {
   // Build dynamic tile→sprite map based on upgrade tiers (infrastructure only)
   const resolvedTileSprite: Record<string, string> = useMemo(() => ({
@@ -245,6 +247,8 @@ export default function CafeCanvas({
   const [currentRoom, setCurrentRoom] = useState(2)
   const patioUnlockedRef = useRef(patioUnlocked)
   patioUnlockedRef.current = patioUnlocked
+  const lockInteractionRef = useRef(lockInteraction)
+  lockInteractionRef.current = lockInteraction
   const placingSlotsRef = useRef(placingSlots)
   placingSlotsRef.current = placingSlots
   const placingItemRef = useRef(placingItem)
@@ -429,6 +433,7 @@ export default function CafeCanvas({
     if (!container) return
 
     function onTouchStart(e: TouchEvent) {
+      if (lockInteractionRef.current) return
       if (e.touches.length !== 1) return
       isDraggingRef.current = true
       touchStartYRef.current = e.touches[0].clientY
@@ -446,7 +451,8 @@ export default function CafeCanvas({
     function onTouchMove(e: TouchEvent) {
       if (!isDraggingRef.current || e.touches.length !== 1) return
       // Don't preventDefault on button taps — it suppresses click on mobile
-      if (!(e.target instanceof HTMLButtonElement)) e.preventDefault()
+      const target = e.target as Element
+      if (!target.closest?.('button')) e.preventDefault()
       const dy = touchStartYRef.current - e.touches[0].clientY
       const dx = touchStartXRef.current - e.touches[0].clientX
       const totalMove = Math.sqrt(dx * dx + dy * dy)
@@ -506,6 +512,7 @@ export default function CafeCanvas({
     }
 
     function onMouseDown(e: MouseEvent) {
+      if (lockInteractionRef.current) return
       isDraggingRef.current = true
       touchStartYRef.current = e.clientY
       touchStartXRef.current = e.clientX
@@ -769,11 +776,13 @@ export default function CafeCanvas({
           targetCamYRef.current = null
         }
       }
-      // Apply vertical inertia when not dragging
-      if (!isDraggingRef.current && Math.abs(velocityYRef.current) > 0.01) {
+      // Apply vertical inertia when not dragging (skip when modal open)
+      if (!lockInteractionRef.current && !isDraggingRef.current && Math.abs(velocityYRef.current) > 0.01) {
         cameraYRef.current += velocityYRef.current * INERTIA_SCALE // ~16ms per frame
         velocityYRef.current *= INERTIA_FRICTION // friction
         if (Math.abs(velocityYRef.current) < 0.01) velocityYRef.current = 0
+      } else if (lockInteractionRef.current) {
+        velocityYRef.current = 0
       }
 
       cameraYRef.current = Math.max(0, Math.min(WORLD_H - viewH, cameraYRef.current))
@@ -1020,11 +1029,13 @@ export default function CafeCanvas({
     const SHOP_COLS = 4 // shops span cols 0-3
 
     function drawOutside(viewW: number, viewH: number) {
-      // Apply vertical inertia when not dragging
-      if (!isDraggingRef.current && Math.abs(velocityYRef.current) > 0.01) {
+      // Apply vertical inertia when not dragging (skip when modal open)
+      if (!lockInteractionRef.current && !isDraggingRef.current && Math.abs(velocityYRef.current) > 0.01) {
         outsideCamYRef.current += velocityYRef.current * INERTIA_SCALE
         velocityYRef.current *= INERTIA_FRICTION
         if (Math.abs(velocityYRef.current) < 0.01) velocityYRef.current = 0
+      } else if (lockInteractionRef.current) {
+        velocityYRef.current = 0
       }
 
       const maxY = Math.max(0, outsideTotalH - viewH)

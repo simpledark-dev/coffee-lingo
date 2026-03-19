@@ -725,6 +725,7 @@ export default function GameplayView({
         hasReadyUpgrades={readyToInstallIds.length > 0}
         onQuestsTap={() => setShowQuests(true)}
         hasClaimableQuest={checkClaimableQuest(playerState.quests, playerState.coins, playerState.reputation)}
+        lockInteraction={showContacts || showDictionary || showUpgradeShop || showQuests || showSettings || showPatioPrompt}
       />
 
       {/* Upgrade install toasts removed — red badge on upgrade button instead */}
