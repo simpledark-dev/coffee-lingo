@@ -115,6 +115,8 @@ const NEEDS_FLOOR = new Set<string>([
 const GESTURE_DEAD_ZONE = 10 // px before locking direction
 const SWIPE_THRESHOLD = 60   // px to trigger room switch
 const ROOM_SWITCH_SPEED = 0.05 // camera lerp factor per frame (lower = slower, 0.01–0.2)
+const INERTIA_FRICTION = 0.92   // per-frame friction (0.85 = stops fast, 0.95 = slides long)
+const INERTIA_SCALE = 12        // velocity multiplier (higher = faster initial coast)
 
 // --- Sprite cache: pre-render each sprite once to an offscreen canvas ---
 type SpriteCache = Map<number[][], HTMLCanvasElement>
@@ -265,6 +267,9 @@ export default function CafeCanvas({
   const touchMovedRef = useRef(0)
   const gestureDirRef = useRef<'none' | 'horizontal' | 'vertical'>('none')
   const swipeDxRef = useRef(0)
+  const lastTouchYRef = useRef(0)
+  const lastTouchTimeRef = useRef(0)
+  const velocityYRef = useRef(0)
 
   // Exclamation pulse animation
   const tickRef = useRef(0)
@@ -429,6 +434,9 @@ export default function CafeCanvas({
       touchMovedRef.current = 0
       gestureDirRef.current = 'none'
       swipeDxRef.current = 0
+      lastTouchYRef.current = e.touches[0].clientY
+      lastTouchTimeRef.current = Date.now()
+      velocityYRef.current = 0
     }
 
     function onTouchMove(e: TouchEvent) {
@@ -445,6 +453,16 @@ export default function CafeCanvas({
       }
 
       if (gestureDirRef.current === 'vertical') {
+        // Track velocity for inertia
+        const now = Date.now()
+        const dt = now - lastTouchTimeRef.current
+        if (dt > 0) {
+          const moveDy = lastTouchYRef.current - e.touches[0].clientY
+          velocityYRef.current = moveDy / dt // px per ms
+        }
+        lastTouchYRef.current = e.touches[0].clientY
+        lastTouchTimeRef.current = now
+
         if (sceneRef.current === 'outside') {
           const outsideH = OUTSIDE_ROWS * TILE_PX
           const maxY = Math.max(0, outsideH - viewHRef.current)
@@ -464,6 +482,7 @@ export default function CafeCanvas({
         if (touchMovedRef.current < 10) {
           const touch = e.changedTouches[0]
           if (touch) handleTap(touch.clientX, touch.clientY)
+          velocityYRef.current = 0
         } else if (gestureDirRef.current === 'horizontal') {
           // Check for room switch
           const minRoom = patioUnlockedRef.current ? 0 : 1
@@ -472,7 +491,9 @@ export default function CafeCanvas({
           } else if (swipeDxRef.current < -SWIPE_THRESHOLD && currentRoomRef.current > minRoom) {
             switchToRoom(currentRoomRef.current - 1)
           }
+          velocityYRef.current = 0
         }
+        // else: vertical gesture ends — velocity is preserved for inertia
       }
       isDraggingRef.current = false
       gestureDirRef.current = 'none'
@@ -488,6 +509,9 @@ export default function CafeCanvas({
       touchMovedRef.current = 0
       gestureDirRef.current = 'none'
       swipeDxRef.current = 0
+      lastTouchYRef.current = e.clientY
+      lastTouchTimeRef.current = Date.now()
+      velocityYRef.current = 0
     }
 
     function onMouseMove(e: MouseEvent) {
@@ -502,6 +526,15 @@ export default function CafeCanvas({
       }
 
       if (gestureDirRef.current === 'vertical') {
+        const now = Date.now()
+        const dt = now - lastTouchTimeRef.current
+        if (dt > 0) {
+          const moveDy = lastTouchYRef.current - e.clientY
+          velocityYRef.current = moveDy / dt
+        }
+        lastTouchYRef.current = e.clientY
+        lastTouchTimeRef.current = now
+
         if (sceneRef.current === 'outside') {
           const outsideH = OUTSIDE_ROWS * TILE_PX
           const maxY = Math.max(0, outsideH - viewHRef.current)
@@ -520,6 +553,7 @@ export default function CafeCanvas({
       if (isDraggingRef.current) {
         if (touchMovedRef.current < 10) {
           handleTap(e.clientX, e.clientY)
+          velocityYRef.current = 0
         } else if (gestureDirRef.current === 'horizontal') {
           const minRoom = patioUnlockedRef.current ? 0 : 1
           if (swipeDxRef.current > SWIPE_THRESHOLD && currentRoomRef.current < 2) {
@@ -527,6 +561,7 @@ export default function CafeCanvas({
           } else if (swipeDxRef.current < -SWIPE_THRESHOLD && currentRoomRef.current > minRoom) {
             switchToRoom(currentRoomRef.current - 1)
           }
+          velocityYRef.current = 0
         }
       }
       isDraggingRef.current = false
@@ -729,6 +764,13 @@ export default function CafeCanvas({
           targetCamYRef.current = null
         }
       }
+      // Apply vertical inertia when not dragging
+      if (!isDraggingRef.current && Math.abs(velocityYRef.current) > 0.01) {
+        cameraYRef.current += velocityYRef.current * INERTIA_SCALE // ~16ms per frame
+        velocityYRef.current *= INERTIA_FRICTION // friction
+        if (Math.abs(velocityYRef.current) < 0.01) velocityYRef.current = 0
+      }
+
       cameraYRef.current = Math.max(0, Math.min(WORLD_H - viewH, cameraYRef.current))
 
       const camX = Math.round(cameraXRef.current)
@@ -973,6 +1015,13 @@ export default function CafeCanvas({
     const SHOP_COLS = 4 // shops span cols 0-3
 
     function drawOutside(viewW: number, viewH: number) {
+      // Apply vertical inertia when not dragging
+      if (!isDraggingRef.current && Math.abs(velocityYRef.current) > 0.01) {
+        outsideCamYRef.current += velocityYRef.current * INERTIA_SCALE
+        velocityYRef.current *= INERTIA_FRICTION
+        if (Math.abs(velocityYRef.current) < 0.01) velocityYRef.current = 0
+      }
+
       const maxY = Math.max(0, outsideTotalH - viewH)
       outsideCamYRef.current = Math.max(0, Math.min(maxY, outsideCamYRef.current))
       const camY = Math.round(outsideCamYRef.current)
