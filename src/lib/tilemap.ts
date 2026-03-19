@@ -32,12 +32,25 @@ export const T = {
   EMPTY: '.',
   FLOOR: 'F',
   WALL: 'W',
+  WALL_1: 'W1',
+  WALL_2: 'W2',
+  WALL_3: 'W3',
+  WALL_4: 'W4',
+  WALL_5: 'W5',
+  WALL_6: 'W6', 
   COUNTER: 'C',
+  COUNTER_2: 'C2',
+  COUNTER_3: 'C3',
+  COUNTER_4: 'C4',
+  COUNTER_5: 'C5',
+  COUNTER_6: 'C6',
   COUNTER_L: 'c',
   TABLE: 'T',
   CHAIR_U: 'u',
   CHAIR_D: 'd',
   SHELF: 'S',
+  SHELF_L: 'SL',
+  SHELF_R: 'SR',
   MENU: 'M',
   DOOR: 'D',
   MACHINE: 'X',
@@ -45,6 +58,8 @@ export const T = {
   PLANT: 'P',
   CUP: 'Q',
   WINDOW: 'N',
+  WINDOW_L: 'NL',
+  WINDOW_R: 'NR',
   BOOKSHELF: 'B',
   GRASS: 'G',
   HEDGE: 'H',
@@ -60,21 +75,21 @@ export const T = {
   ROAD: 'r',
   ROAD_LINE: 'l',
   SIDEWALK: 'w',
-  SHOP_WALL: 'b',       // brick wall
+  SHOP_WALL: 'b', // brick wall
   SHOP_WALL_LIGHT: 'v', // light stone wall
   AWNING_RED: '1',
   AWNING_BLUE: '2',
   AWNING_GREEN: '3',
   AWNING_BROWN: '4',
-  SHOP_WINDOW: 'n',     // shop display window
+  SHOP_WINDOW: 'n', // shop display window
   LOCKED_DOOR: 'x',
   CAFE_DOOR: 'e',
   STREET_LAMP: 'k',
   OUTDOOR_PLANT: 'p',
-  CURB: 'g',            // curb left (sidewalk→road)
-  CURB_R: 'h',          // curb right (road→sidewalk)
+  CURB: 'g', // curb left (sidewalk→road)
+  CURB_R: 'h', // curb right (road→sidewalk)
   ROOF: 'f',
-} as const
+} as const;
 
 // Full layout: 30 wide × 30 tall
 // Cols 0-9: patio (rows 18-29 only; rows 0-17 are wall)
@@ -90,37 +105,37 @@ export const CAFE_LAYOUT: string[][] = [
   ['W','W','W','W','W','W','W','W','W','W',  'H','G','G','R','G','G','J','J','J','G',  'G','G','G','G','G','G','G','G','G','H'],  // row 4
   ['W','W','W','W','W','W','W','W','W','W',  'H','G','G','G','G','G','G','G','G','G',  'G','G','G','G','G','G','G','G','G','H'],  // row 5
   ['W','W','W','W','W','W','W','W','W','W',  'H','G','G','K','A','A','K','G','G','G',  'G','G','G','K','A','A','K','G','G','H'],  // row 6
-  ['W','W','W','W','W','W','W','W','W','W',  'H','H','H','H','A','A','H','H','H','W',  'W','H','H','H','A','A','H','H','H','H'],  // row 7
+  ['W','W','W','W','W','W','W','W','W','W',  'H','H','H','H','A','A','H','H','H','W3',  'W2','H','H','H','A','A','H','H','H','H'],  // row 7
 
   // === INTERIOR — patio wall continues rows 8-17 ===
   //  ---- PATIO wall (cols 0-9) ----                          ---- READING ROOM (cols 10-19) ----             ---- CAFE (cols 20-29) ----
   ['W','W','W','W','W','W','W','W','W','W',  'W','N','N','W','F','F','W','N','N','W',  'W','N','N','W','F','F','W','N','N','W'],  // row 8
-  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 9
-  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 10
-  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 11
-  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 12
-  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 13
-  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 14
-  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 15
+  ['W','W','W','W','W','W','W','W','W','W',  'W5','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','W6'],  // row 9
+  ['W','W','W','W','W','W','W','W','W','W',  'W5','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','W6'],  // row 10
+  ['W','W','W','W','W','W','W','W','W','W',  'W5','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','W6'],  // row 11
+  ['W','W','W','W','W','W','W','W','W','W',  'W5','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','W6'],  // row 12
+  ['W','W','W','W','W','W','W','W','W','W',  'W5','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','W6'],  // row 13
+  ['W','W','W','W','W','W','W','W','W','W',  'W5','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','W6'],  // row 14
+  ['W','W','W','W','W','W','W','W','W','W',  'W5','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','W6'],  // row 15
 
   // === DIVIDER rows 16-17 ===
-  ['W','W','W','W','W','W','W','W','W','W',  'W','W','W','W','F','W','W','W','W','W',  'W','W','W','W','F','F','W','W','W','W'],  // row 16
-  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','W',  'W','W','F','F','F','F','F','F','W','W'],  // row 17
+  ['W','W','W','W','W','W','W','W','W','W',  'W','W1','W1','W2','F','W3','W1','W1','W1','W',  'W','W1','W1','W2','F','F','W3','W1','W1','W'],  // row 16
+  ['W','W','W','W','W','W','W','W','W','W',  'W5','F','F','F','F','F','F','F','F','W4',  'W4','W4','F','F','F','F','F','F','W4','W'],  // row 17
 
   // === LOWER AREAS (rows 18-29) — patio + passage ===
   //  ---- PATIO (cols 0-9) ----                               ---- READING ROOM lower (cols 10-19) ----      ---- CAFE lower (cols 20-29) ----
-  ['W','W','W','W','W','W','W','W','W','W',  'W','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W'],  // row 18: PASSAGE (reading↔cafe)
-  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W'],  // row 19: patio empty
-  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 20
-  ['W','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 21: patio doorway cols 9-10
-  ['W','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 22: patio doorway cols 9-10
-  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 23
-  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 24
-  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','D'],  // row 25: door
-  ['W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W',  'W','F','F','F','F','F','F','F','F','W'],  // row 26
-  ['W','F','F','F','F','F','F','F','F','W',  'W','W','W','W','W','W','W','W','W','W',  'c','C','C','C','C','C','C','C','C','C'],  // row 27: counter
-  ['W','F','F','F','F','F','F','F','F','W',  'W','W','W','W','W','W','W','W','W','W',  'W','F','X','Q','F','F','X','Q','F','W'],  // row 28: benches
-  ['W','W','W','W','W','W','W','W','W','W',  'W','W','W','W','W','W','W','W','W','W',  'W','W','W','W','W','W','W','W','W','W'],  // row 29: back wall
+  ['W','W','W','W','W','W','W','W','W','W',  'W5','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W6'],  // row 18: PASSAGE (reading↔cafe)
+  ['W','F','F','F','F','F','F','F','F','W',  'W5','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W6'],  // row 19: patio empty
+  ['W','F','F','F','F','F','F','F','F','W',  'W5','F','F','F','F','F','F','F','F','W3',  'W2','F','F','F','F','F','F','F','F','W6'],  // row 20
+  ['W','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','W6'],  // row 21: patio doorway cols 9-10
+  ['W','F','F','F','F','F','F','F','F','F',  'F','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','W6'],  // row 22: patio doorway cols 9-10
+  ['W','F','F','F','F','F','F','F','F','W',  'W2','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','W6'],  // row 23
+  ['W','F','F','F','F','F','F','F','F','W',  'W5','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','W6'],  // row 24
+  ['W','F','F','F','F','F','F','F','F','W',  'W5','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','D'],  // row 25: door
+  ['W','F','F','F','F','F','F','F','F','W',  'W5','F','F','F','F','F','F','F','F','W6',  'W5','F','F','F','F','F','F','F','F','W6'],  // row 26
+  ['W','F','F','F','F','F','F','F','F','W',  'W','W1','W1','W1','W1','W1','W1','W1','W1','W',  'C5','C','C','C','C','C','C','C','C','C6'],  // row 27: counter
+  ['W','F','F','F','F','F','F','F','F','W',  'W','W','W','W','W','W','W','W','W','W',  'C3','C2','X','C2','C2','C2','X','C2','C2','C4'],  // row 28: benches
+  ['W','W','W','W','W','W','W','W','W','W',  'W','W','W','W','W','W','W','W','W','W',  'W','W1','W1','W1','W1','W1','W1','W1','W1','W'],  // row 29: back wall
 ]
 
 // Outside scene: 8 cols × 20 rows — a clean Parisian street

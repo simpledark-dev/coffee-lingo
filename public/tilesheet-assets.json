@@ -1,0 +1,468 @@
+{
+  "version": 1,
+  "exportedAt": "2026-03-19T10:38:01.642Z",
+  "sheets": [
+    {
+      "src": "/Interiors_free_16x16.png",
+      "tileW": 16,
+      "tileH": 16
+    },
+    {
+      "src": "/Room_Builder_free_16x16.png",
+      "tileW": 16,
+      "tileH": 16
+    }
+  ],
+  "assets": [
+    {
+      "id": "mmxc4cj6-6n9dif",
+      "name": "SHELF_R",
+      "rect": {
+        "x": 11,
+        "y": 72,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 1163,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxc40ix-tyuhrl",
+      "name": "SHELF_L",
+      "rect": {
+        "x": 10,
+        "y": 72,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 1162,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxc0xou-lkbtmd",
+      "name": "WINDOW_R",
+      "rect": {
+        "x": 8,
+        "y": 28,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 456,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxc0vp0-q1l2tc",
+      "name": "WINDOW_L",
+      "rect": {
+        "x": 7,
+        "y": 28,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 455,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbybtk-jphtnz",
+      "name": "WINDOW",
+      "rect": {
+        "x": 2,
+        "y": 28,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 450,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbw95k-jbiqjm",
+      "name": "COUNTER_6",
+      "rect": {
+        "x": 2,
+        "y": 5,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 82,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbw6bg-3e665i",
+      "name": "COUNTER_5",
+      "rect": {
+        "x": 0,
+        "y": 5,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 80,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbtuwb-2s9imm",
+      "name": "COUNTER_4",
+      "rect": {
+        "x": 2,
+        "y": 8,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 130,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbtt0j-calfup",
+      "name": "COUNTER_3",
+      "rect": {
+        "x": 0,
+        "y": 8,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 128,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbrwoy-lzyd5i",
+      "name": "COUNTER_2",
+      "rect": {
+        "x": 1,
+        "y": 8,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 129,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbquf8-s1qqxp",
+      "name": "COUNTER",
+      "rect": {
+        "x": 1,
+        "y": 5,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 81,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbm0b4-fzhgt8",
+      "name": "COUNTER_TOP",
+      "rect": {
+        "x": 1,
+        "y": 5,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 81,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbl4j9-qzr2nd",
+      "name": "COFFEE_MACHINE",
+      "rect": {
+        "x": 3,
+        "y": 8,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 131,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbdr1y-8308zi",
+      "name": "CHESS_TABLE",
+      "rect": {
+        "x": 2,
+        "y": 33,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 530,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbctde-s1noeb",
+      "name": "TABLE_T2",
+      "rect": {
+        "x": 4,
+        "y": 46,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 740,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbci0v-d8142u",
+      "name": "TABLE_T1",
+      "rect": {
+        "x": 4,
+        "y": 46,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 740,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbcegd-ytzs0c",
+      "name": "TABLE",
+      "rect": {
+        "x": 1,
+        "y": 33,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 529,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbbpkg-a1lrie",
+      "name": "CHAIR_T2",
+      "rect": {
+        "x": 5,
+        "y": 44,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 709,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxbb1yy-4swsrv",
+      "name": "CHAIR_T1",
+      "rect": {
+        "x": 5,
+        "y": 44,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 709,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxb9dc4-mcrx9g",
+      "name": "CHAIR",
+      "rect": {
+        "x": 4,
+        "y": 31,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 500,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxaxlxt-plwd00",
+      "name": "WALL_6",
+      "rect": {
+        "x": 4,
+        "y": 13,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 225,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Room_Builder_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxaxil5-lvhlhg",
+      "name": "WALL_5",
+      "rect": {
+        "x": 6,
+        "y": 13,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 227,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Room_Builder_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxavswu-75dz4a",
+      "name": "WALL_4",
+      "rect": {
+        "x": 1,
+        "y": 14,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 239,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Room_Builder_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxau9ep-jk3euj",
+      "name": "WALL_3",
+      "rect": {
+        "x": 0,
+        "y": 13,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 221,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Room_Builder_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxapr8t-dqewa7",
+      "name": "WALL_2",
+      "rect": {
+        "x": 2,
+        "y": 13,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 223,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Room_Builder_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxagspi-q2v2i0",
+      "name": "WALL_1",
+      "rect": {
+        "x": 1,
+        "y": 13,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 222,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Room_Builder_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmxa6e0i-40p7ru",
+      "name": "WALL",
+      "rect": {
+        "x": 5,
+        "y": 13,
+        "w": 1,
+        "h": 1
+      },
+      "topLeftIndex": 226,
+      "tileW": 1,
+      "tileH": 1,
+      "sheetSrc": "/Room_Builder_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmx98l60-3hmzoc",
+      "name": "PLANT_T2",
+      "rect": {
+        "x": 12,
+        "y": 45,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 732,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmx8u8x1-ea79n6",
+      "name": "PLANT_T1",
+      "rect": {
+        "x": 12,
+        "y": 45,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 732,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    },
+    {
+      "id": "mmx86oh9-709drp",
+      "name": "PLANT",
+      "rect": {
+        "x": 0,
+        "y": 49,
+        "w": 1,
+        "h": 2
+      },
+      "topLeftIndex": 784,
+      "tileW": 1,
+      "tileH": 2,
+      "sheetSrc": "/Interiors_free_16x16.png",
+      "sheetTileSize": 16
+    }
+  ]
+}
