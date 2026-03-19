@@ -391,8 +391,8 @@ export default function GameplayView({
 
   const handleSceneChange = useCallback((scene: 'interior' | 'outside') => {
     const audio = audioRef.current
-    if (!audio || musicVolume === 0) return
-    if (scene === 'interior') {
+    if (!audio) return
+    if (scene === 'interior' && audio.volume > 0) {
       audio.play().catch(() => { })
     } else {
       audio.pause()
@@ -1162,7 +1162,7 @@ export default function GameplayView({
                         if (expr) setWordDetailExpr(expr)
                       }}
                     >
-                      ℹ
+                      i
                     </span>
                   )}
                 </button>
@@ -1544,8 +1544,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 700,
+    fontStyle: 'italic' as const,
+    fontFamily: 'Georgia, serif',
     cursor: 'pointer',
   },
   wordDetailOverlay: {

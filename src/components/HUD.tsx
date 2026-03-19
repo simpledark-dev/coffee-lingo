@@ -18,44 +18,109 @@ export default function HUD({
   const rep = getRepLevel(reputation)
 
   return (
-    <div className="hud">
-      <span className="hud-item hud-coins">{Math.round(coins)} coins</span>
-      <span className="hud-item hud-rep" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        {rep.current.title} ({reputation} Rep)
-        <span style={{ width: 40, height: 6, backgroundColor: '#3E2723', borderRadius: 3, display: 'inline-block', overflow: 'hidden', border: '1px solid #5D4037' }}>
-          <span style={{ display: 'block', height: '100%', width: `${rep.progress * 100}%`, backgroundColor: '#FFD54F', borderRadius: 3 }} />
-        </span>
-      </span>
-      <span
+    <div style={styles.hud}>
+      {/* Coins */}
+      <div style={styles.stat}>
+        <span style={styles.statIcon}>💰</span>
+        <span style={styles.coinValue}>{Math.round(coins)}</span>
+      </div>
+
+      {/* Rep */}
+      <div style={styles.stat}>
+        <span style={styles.statIcon}>⭐</span>
+        <div style={styles.repGroup}>
+          <span style={styles.repTitle}>{rep.current.title}</span>
+          <div style={styles.repBarOuter}>
+            <div style={{ ...styles.repBarInner, width: `${rep.progress * 100}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Quests */}
+      <div
         onClick={onQuestsTap}
-        style={{
-          cursor: 'pointer',
-          position: 'relative',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 28,
-          height: 28,
-          background: 'rgba(93, 64, 55, 0.85)',
-          border: '1.5px solid rgba(255, 255, 255, 0.3)',
-          borderRadius: 6,
-          fontSize: 14,
-        }}
+        style={styles.questButton}
       >
         📋
-        {hasClaimableQuest && (
-          <span style={{
-            position: 'absolute',
-            top: -3,
-            right: -3,
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            backgroundColor: '#F44336',
-            border: '2px solid rgba(93, 64, 55, 0.85)',
-          }} />
-        )}
-      </span>
+        {hasClaimableQuest && <span style={styles.badge} />}
+      </div>
     </div>
   )
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  hud: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 'calc(8px + env(safe-area-inset-top)) 12px 8px',
+    background: 'linear-gradient(180deg, #4E342E 0%, #3E2723 100%)',
+    borderBottom: '1px solid #6D4C41',
+    flexShrink: 0,
+    gap: 8,
+  },
+  stat: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+  },
+  statIcon: {
+    fontSize: 14,
+    lineHeight: 1,
+  },
+  coinValue: {
+    color: '#FFD54F',
+    fontSize: 15,
+    fontWeight: 700,
+    fontFamily: 'monospace',
+  },
+  repGroup: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 2,
+  },
+  repTitle: {
+    color: '#FFEFD5',
+    fontSize: 12,
+    fontWeight: 600,
+    fontFamily: 'monospace',
+    lineHeight: 1,
+  },
+  repBarOuter: {
+    width: 72,
+    height: 7,
+    backgroundColor: '#2C1A12',
+    borderRadius: 3,
+    overflow: 'hidden',
+    border: '1px solid #5D4037',
+  },
+  repBarInner: {
+    height: '100%',
+    backgroundColor: '#FFD54F',
+    borderRadius: 3,
+    transition: 'width 0.3s ease',
+  },
+  questButton: {
+    cursor: 'pointer',
+    position: 'relative' as const,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 28,
+    height: 28,
+    background: 'rgba(93, 64, 55, 0.85)',
+    border: '1.5px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: 6,
+    fontSize: 14,
+  },
+  badge: {
+    position: 'absolute' as const,
+    top: -3,
+    right: -3,
+    width: 8,
+    height: 8,
+    borderRadius: '50%',
+    backgroundColor: '#F44336',
+    border: '1.5px solid #3E2723',
+  },
 }

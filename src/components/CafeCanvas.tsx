@@ -1005,15 +1005,21 @@ export default function CafeCanvas({
         const pulse = 0.8 + 0.2 * Math.sin(tickRef.current * 0.08)
         ctx.save()
         ctx.globalAlpha = pulse
-        ctx.font = `bold ${Math.round(14 * SCALE)}px sans-serif`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillStyle = '#FFD54F'
         ctx.shadowColor = 'rgba(0,0,0,0.6)'
         ctx.shadowBlur = 4
-        ctx.fillText('▶', arrowScreenX, arrowScreenY)
+        // Draw triangle arrow instead of emoji for cross-platform consistency
+        const arrowSize = 8 * SCALE
+        ctx.fillStyle = '#FFD54F'
+        ctx.beginPath()
+        ctx.moveTo(arrowScreenX - arrowSize / 2, arrowScreenY - arrowSize)
+        ctx.lineTo(arrowScreenX + arrowSize, arrowScreenY)
+        ctx.lineTo(arrowScreenX - arrowSize / 2, arrowScreenY + arrowSize)
+        ctx.closePath()
+        ctx.fill()
         ctx.shadowBlur = 0
         ctx.font = `bold ${Math.round(5 * SCALE)}px sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
         ctx.fillStyle = '#FFEFD5'
         ctx.fillText('EXIT', arrowScreenX, arrowScreenY + 16 * SCALE)
         ctx.restore()
@@ -1261,7 +1267,7 @@ export default function CafeCanvas({
           ctx.fillStyle = '#FFD54F'
           ctx.shadowColor = 'rgba(0,0,0,0.5)'
           ctx.shadowBlur = 4
-          ctx.fillText('▶ ENTER', x + w / 2, y + h - baseH - 14)
+          ctx.fillText('ENTER', x + w / 2, y + h - baseH - 14)
           ctx.restore()
         }
       }
