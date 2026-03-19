@@ -1,18 +1,33 @@
 // Character sprite sheet rendering.
-// Each sheet has 4 directions in columns: right(0), up/back(1), left(2), down/front(3).
-// Each cell is 16×32px (1 tile wide, 2 tiles tall).
+// Both idle_anim and run sheets share the same layout:
+//   4 directions × 6 frames in a single row. Each cell 16×32px.
+//   sx = (dirCol * ANIM_FRAMES + frame) * 16
 
-export const CHARACTER_SHEETS = [
-  '/Adam_idle_16x16.png',
-  '/Alex_idle_16x16.png',
-  '/Bob_idle_16x16.png',
-  '/Amelia_idle_16x16.png',
+const IDLE_SHEETS = [
+  '/characters/Adam_idle_anim_16x16.png',
+  '/characters/Alex_idle_anim_16x16.png',
+  '/characters/Bob_idle_anim_16x16.png',
+  '/characters/Amelia_idle_anim_16x16.png',
 ];
+
+const RUN_SHEETS = [
+  '/characters/Adam_run_16x16.png',
+  '/characters/Alex_run_16x16.png',
+  '/characters/Bob_run_16x16.png',
+  '/characters/Amelia_run_16x16.png',
+];
+
+/** All sheet paths — preload all of them */
+export const CHARACTER_SHEETS = [...IDLE_SHEETS, ...RUN_SHEETS];
+
+export const ANIM_FRAMES = 6;
+/** Divide game tick by this to get animation frame index (~6 fps at 60fps loop) */
+export const ANIM_FRAME_SPEED = 10;
 
 // Column index per facing direction
 const CHAR_DIR_COL: Record<string, number> = { right: 0, up: 1, left: 2, down: 3 };
-const CHAR_SW = 16;  // source width per direction
-const CHAR_SH = 32;  // source height (2 tiles tall)
+const CHAR_SW = 16;
+const CHAR_SH = 32;  // 2 tiles tall
 
 export function preloadCharacterSheets(map: Map<string, HTMLImageElement>) {
   for (const src of CHARACTER_SHEETS) {
@@ -24,6 +39,11 @@ export function preloadCharacterSheets(map: Map<string, HTMLImageElement>) {
   }
 }
 
+/**
+ * Draw a character sprite.
+ * @param animFrame - animation frame 0–5
+ * @param run - true = run sheet, false = idle anim sheet
+ */
 export function drawCharacter(
   ctx: CanvasRenderingContext2D,
   charSheetMap: Map<string, HTMLImageElement>,
@@ -31,13 +51,19 @@ export function drawCharacter(
   facingDir: string,
   x: number,
   y: number,
-  tilePx: number
+  tilePx: number,
+  animFrame: number,
+  run: boolean,
 ) {
-  const src = CHARACTER_SHEETS[spriteVariant % CHARACTER_SHEETS.length];
+  const idx = spriteVariant % IDLE_SHEETS.length;
+  const src = run ? RUN_SHEETS[idx] : IDLE_SHEETS[idx];
   const img = charSheetMap.get(src);
   if (!img) return;
-  const col = CHAR_DIR_COL[facingDir] ?? 3;
+
+  const dirCol = CHAR_DIR_COL[facingDir] ?? 3;
+  const sx = (dirCol * ANIM_FRAMES + (animFrame % ANIM_FRAMES)) * CHAR_SW;
+
   ctx.imageSmoothingEnabled = false;
-  // Anchor bottom: draw from y - tilePx so feet land at y + tilePx
-  ctx.drawImage(img, col * CHAR_SW, 0, CHAR_SW, CHAR_SH, x, y - tilePx, tilePx, tilePx * 2);
+  // Anchor bottom: feet land at y + tilePx
+  ctx.drawImage(img, sx, 0, CHAR_SW, CHAR_SH, x, y - tilePx, tilePx, tilePx * 2);
 }

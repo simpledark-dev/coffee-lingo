@@ -23,7 +23,6 @@ import {
   OUTSIDE_COLS,
   OUTSIDE_ROWS,
   OUTSIDE_LAYOUT,
-  CAFE_OUTSIDE_DOOR,
   DOOR_POS,
   T,
 } from "../lib/tilemap";
@@ -42,6 +41,8 @@ import {
 import {
   preloadCharacterSheets,
   drawCharacter,
+  ANIM_FRAMES,
+  ANIM_FRAME_SPEED,
 } from "../lib/characterRenderer";
 
 interface CafeCanvasProps {
@@ -293,6 +294,8 @@ export default function CafeCanvas({
 
   // Character sprite sheet images, keyed by sheet path
   const charSheetMapRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  // Track previous positions to detect movement (id → {x, y})
+  const prevPosRef = useRef<Map<number, { x: number; y: number }>>(new Map());
 
   // Optional tilesheet renderer (falls back to procedural sprites when unmapped)
   // Keyed by sheetSrc URL so multi-sheet assets each use the correct image.
@@ -1027,7 +1030,7 @@ export default function CafeCanvas({
       // Draw barista behind counter (row 28, col 24 in cafe room)
       ctx.save();
       ctx.translate(-camX, -camY);
-      drawCharacter(ctx, charSheetMapRef.current, 0, 'up', 24 * TILE_PX, 28 * TILE_PX, TILE_PX);
+      drawCharacter(ctx, charSheetMapRef.current, 0, 'up', 24 * TILE_PX, 28 * TILE_PX, TILE_PX, Math.floor(tickRef.current / ANIM_FRAME_SPEED) % ANIM_FRAMES, false);
       ctx.restore();
 
       // Upgrade button moved to HTML overlay (bottom bar)
@@ -1043,7 +1046,11 @@ export default function CafeCanvas({
         ctx.translate(-camX, -camY);
 
         for (const customer of sorted) {
-          drawCharacter(ctx, charSheetMapRef.current, customer.spriteVariant, customer.facingDir, customer.worldPos.x, customer.worldPos.y, TILE_PX);
+          const animFrame = Math.floor(tickRef.current / ANIM_FRAME_SPEED) % ANIM_FRAMES;
+          const prev = prevPosRef.current.get(customer.id);
+          const moved = !prev || Math.abs(customer.worldPos.x - prev.x) > 0.5 || Math.abs(customer.worldPos.y - prev.y) > 0.5;
+          prevPosRef.current.set(customer.id, { x: customer.worldPos.x, y: customer.worldPos.y });
+          drawCharacter(ctx, charSheetMapRef.current, customer.spriteVariant, customer.facingDir, customer.worldPos.x, customer.worldPos.y, TILE_PX, animFrame, moved);
 
           // Draw name above head (unless exclamation is showing)
           if (customer.phase !== "exclamation") {
@@ -1572,7 +1579,11 @@ export default function CafeCanvas({
 
         for (const customer of outsideChars) {
           const pos = customer.outsideWorldPos;
-          drawCharacter(ctx, charSheetMapRef.current, customer.spriteVariant, customer.facingDir, pos.x - bgCamX, pos.y - camY, TILE_PX);
+          const animFrame = Math.floor(tickRef.current / ANIM_FRAME_SPEED) % ANIM_FRAMES;
+          const prev = prevPosRef.current.get(customer.id);
+          const moved = !prev || Math.abs(pos.x - prev.x) > 0.5 || Math.abs(pos.y - prev.y) > 0.5;
+          prevPosRef.current.set(customer.id, { x: pos.x, y: pos.y });
+          drawCharacter(ctx, charSheetMapRef.current, customer.spriteVariant, customer.facingDir, pos.x - bgCamX, pos.y - camY, TILE_PX, animFrame, moved);
 
           // Name above head
           const char = getCharacter(customer.characterId);
