@@ -6,7 +6,6 @@ import {
   SPRITE_MAP,
   FLOOR_STYLES,
   WALL,
-  CUSTOMER_SPRITES,
   EXCLAMATION,
   POND_VARIANTS,
   FOUNTAIN_L,
@@ -40,6 +39,10 @@ import {
   SPRITE_KEY_TO_TILE,
   buildSpriteKeyToTileFromExport,
 } from "../lib/tileset";
+import {
+  preloadCharacterSheets,
+  drawCharacter,
+} from "../lib/characterRenderer";
 
 interface CafeCanvasProps {
   cafeStateRef: React.RefObject<WorldState | null>
@@ -66,6 +69,7 @@ interface CafeCanvasProps {
 }
 
 const TILE_PX = TILE_SIZE * SCALE;
+
 const WORLD_H = GRID_ROWS * TILE_PX;
 const ROOM_W = ROOM_COLS * TILE_PX; // width of one room in pixels
 
@@ -132,11 +136,6 @@ function buildSpriteCache(scale: number): SpriteCache {
   const cache: SpriteCache = new Map();
   for (const sprite of Object.values(SPRITE_MAP)) {
     cacheSprite(cache, sprite, scale);
-  }
-  for (const variant of CUSTOMER_SPRITES) {
-    for (const dir of ["down", "up", "left", "right"] as const) {
-      cacheSprite(cache, variant[dir], scale);
-    }
   }
   cacheSprite(cache, EXCLAMATION, scale);
   // Pond autotile variants
@@ -292,6 +291,9 @@ export default function CafeCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<number>(0);
 
+  // Character sprite sheet images, keyed by sheet path
+  const charSheetMapRef = useRef<Map<string, HTMLImageElement>>(new Map());
+
   // Optional tilesheet renderer (falls back to procedural sprites when unmapped)
   // Keyed by sheetSrc URL so multi-sheet assets each use the correct image.
   const tilesetMapRef = useRef<Map<string, TilesetRef>>(new Map());
@@ -310,6 +312,11 @@ export default function CafeCanvas({
     };
     img.src = src;
   }
+
+  // Preload all character sprite sheets
+  useEffect(() => {
+    preloadCharacterSheets(charSheetMapRef.current);
+  }, []);
 
   // Load mapping from public/tilesheet-assets.json and all referenced sheet images
   useEffect(() => {
@@ -1020,8 +1027,7 @@ export default function CafeCanvas({
       // Draw barista behind counter (row 28, col 24 in cafe room)
       ctx.save();
       ctx.translate(-camX, -camY);
-      const baristaSprite = CUSTOMER_SPRITES[0].up;
-      drawCached(ctx, spriteCache, baristaSprite, 24 * TILE_PX, 28 * TILE_PX);
+      drawCharacter(ctx, charSheetMapRef.current, 0, 'up', 24 * TILE_PX, 28 * TILE_PX, TILE_PX);
       ctx.restore();
 
       // Upgrade button moved to HTML overlay (bottom bar)
@@ -1037,16 +1043,7 @@ export default function CafeCanvas({
         ctx.translate(-camX, -camY);
 
         for (const customer of sorted) {
-          const spriteSet =
-            CUSTOMER_SPRITES[customer.spriteVariant % CUSTOMER_SPRITES.length];
-          const sprite = spriteSet[customer.facingDir];
-          drawCached(
-            ctx,
-            spriteCache,
-            sprite,
-            customer.worldPos.x,
-            customer.worldPos.y
-          );
+          drawCharacter(ctx, charSheetMapRef.current, customer.spriteVariant, customer.facingDir, customer.worldPos.x, customer.worldPos.y, TILE_PX);
 
           // Draw name above head (unless exclamation is showing)
           if (customer.phase !== "exclamation") {
@@ -1574,11 +1571,8 @@ export default function CafeCanvas({
           .sort((a, b) => a.outsideWorldPos.y - b.outsideWorldPos.y);
 
         for (const customer of outsideChars) {
-          const spriteSet =
-            CUSTOMER_SPRITES[customer.spriteVariant % CUSTOMER_SPRITES.length];
-          const sprite = spriteSet[customer.facingDir];
           const pos = customer.outsideWorldPos;
-          drawCached(ctx, spriteCache, sprite, pos.x - bgCamX, pos.y - camY);
+          drawCharacter(ctx, charSheetMapRef.current, customer.spriteVariant, customer.facingDir, pos.x - bgCamX, pos.y - camY, TILE_PX);
 
           // Name above head
           const char = getCharacter(customer.characterId);
