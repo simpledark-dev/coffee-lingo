@@ -21,6 +21,11 @@
   padding: 0;
 }
 
+/* Eliminate 300ms tap delay on mobile */
+button, a, [role="button"] {
+  touch-action: manipulation;
+}
+
 html, body {
   height: 100vh;
   width: 100%;

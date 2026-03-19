@@ -52,6 +52,7 @@ interface CafeCanvasProps {
   furnishingUpgrades?: Record<string, import('../lib/types').UpgradeLevel>
   onFurnishingTap?: (itemId: string) => void
   hideBottomButtons?: boolean
+  hasReadyUpgrades?: boolean
 }
 
 const TILE_PX = TILE_SIZE * SCALE
@@ -113,7 +114,7 @@ const NEEDS_FLOOR = new Set<string>([
 // Swipe thresholds
 const GESTURE_DEAD_ZONE = 10 // px before locking direction
 const SWIPE_THRESHOLD = 60   // px to trigger room switch
-const ROOM_SWITCH_SPEED = 0.04 // camera lerp factor per frame (lower = slower, 0.01–0.2)
+const ROOM_SWITCH_SPEED = 0.05 // camera lerp factor per frame (lower = slower, 0.01–0.2)
 
 // --- Sprite cache: pre-render each sprite once to an offscreen canvas ---
 type SpriteCache = Map<number[][], HTMLCanvasElement>
@@ -190,6 +191,7 @@ export default function CafeCanvas({
   furnishingUpgrades,
   onFurnishingTap,
   hideBottomButtons,
+  hasReadyUpgrades,
 }: CafeCanvasProps) {
   // Build dynamic tile→sprite map based on upgrade tiers (infrastructure only)
   const resolvedTileSprite: Record<string, string> = useMemo(() => ({
@@ -1400,6 +1402,7 @@ export default function CafeCanvas({
               onClick={() => onUpgradesTap?.()}
             >
               🔧
+              {hasReadyUpgrades && <span style={styles.upgradeBadge} />}
             </button>
           )}
         </>
@@ -1596,6 +1599,16 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     zIndex: 5,
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+  },
+  upgradeBadge: {
+    position: 'absolute' as const,
+    top: -3,
+    right: -3,
+    width: 10,
+    height: 10,
+    borderRadius: '50%',
+    backgroundColor: '#F44336',
+    border: '2px solid rgba(93, 64, 55, 0.85)',
   },
   cancelPlaceButton: {
     position: 'absolute',

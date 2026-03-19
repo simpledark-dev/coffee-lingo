@@ -269,8 +269,7 @@ export default function GameplayView({
   const respondingRef = useRef(false)
   const processingRef = useRef(false)
   const hintLevelRef = useRef(0)
-  const patienceStartRef = useRef(0)
-  const patienceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const patienceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const patioUnlocked = playerState.unlockedRooms?.includes('patio') ?? false
   const [patioUnlockToast, setPatioUnlockToast] = useState(false)
@@ -433,33 +432,31 @@ export default function GameplayView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Patience timer for active conversation
+  // Patience timer — CSS transition handles the animation, single timeout for expiry
+  const patienceDuration = PATIENCE_DURATION + bonuses.patienceBonus
   useEffect(() => {
     if (!activeExchange || !responding) {
-      if (patienceTimerRef.current) clearInterval(patienceTimerRef.current)
+      if (patienceTimeoutRef.current) clearTimeout(patienceTimeoutRef.current)
+      setPatiencePercent(100)
       return
     }
 
-    patienceStartRef.current = Date.now()
+    // Start at 100%, then immediately set to 0% — CSS transition animates it
     setPatiencePercent(100)
+    requestAnimationFrame(() => {
+      setPatiencePercent(0)
+    })
 
-    patienceTimerRef.current = setInterval(() => {
-      const elapsed = Date.now() - patienceStartRef.current
-      const remaining = Math.max(0, 100 - (elapsed / (PATIENCE_DURATION + bonuses.patienceBonus)) * 100)
-      setPatiencePercent(remaining)
-
-      if (remaining <= 0) {
-        if (patienceTimerRef.current) clearInterval(patienceTimerRef.current)
-        if (respondingRef.current && !processingRef.current) {
-          setSelectedChoiceId('timeout')
-          processResult(null)
-        }
+    // Single timeout for when patience runs out
+    const timeoutId = setTimeout(() => {
+      if (respondingRef.current && !processingRef.current) {
+        setSelectedChoiceId('timeout')
+        processResult(null)
       }
-    }, 100)
+    }, patienceDuration)
+    patienceTimeoutRef.current = timeoutId
 
-    return () => {
-      if (patienceTimerRef.current) clearInterval(patienceTimerRef.current)
-    }
+    return () => clearTimeout(timeoutId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeExchange, responding])
 
@@ -674,19 +671,10 @@ export default function GameplayView({
         furnishingUpgrades={playerState.furnishingUpgrades}
         onFurnishingTap={(itemId) => { playTapSound(); setInspectedFurnishingId(itemId) }}
         hideBottomButtons={!!activeExchange}
+        hasReadyUpgrades={readyToInstallIds.length > 0}
       />
 
-      {/* Upgrade install toasts */}
-      {readyToInstallIds.length > 0 && (
-        <div style={styles.toastContainer}>
-          {readyToInstallIds.map((id) => (
-            <div key={id} style={styles.toast}>
-              <span style={{ flex: 1, fontWeight: 600 }}>Upgrade ready!</span>
-              <button style={styles.toastButton} onClick={() => { playInstallSound(); onInstall(id) }}>Install</button>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Upgrade install toasts removed — red badge on upgrade button instead */}
 
       {patioUnlockToast && (
         <div style={styles.toastContainer}>
@@ -1041,7 +1029,10 @@ export default function GameplayView({
               <div style={{
                 ...styles.patienceBar,
                 width: `${patiencePercent}%`,
-                background: patiencePercent > 40 ? '#4CAF50' : patiencePercent > 15 ? '#FF9800' : '#F44336',
+                background: '#4CAF50',
+                transition: patiencePercent === 0
+                  ? `width ${patienceDuration}ms linear, background ${patienceDuration}ms linear`
+                  : 'none',
               }} />
             </div>
 
@@ -1329,7 +1320,6 @@ const styles: Record<string, React.CSSProperties> = {
   patienceBar: {
     height: '100%',
     borderRadius: 3,
-    transition: 'width 0.5s linear, background 0.3s',
   },
   hintButton: {
     flexShrink: 0,

@@ -193,6 +193,11 @@ export default function Home() {
     setPlayerState(fresh)
     setReadyToInstallIds([])
     saveState(fresh)
+    // Mark all migrations as done so they don't auto-place furnishings
+    localStorage.setItem('coffee-lingo-m1', '1')
+    localStorage.setItem('coffee-lingo-m2', '1')
+    localStorage.setItem('coffee-lingo-m3', '1')
+    localStorage.setItem('coffee-lingo-m4', '1')
   }
 
   return (

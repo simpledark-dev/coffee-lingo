@@ -109,52 +109,11 @@ export function loadState(): { state: PlayerState; readyToInstall: string[] } | 
       }
     }
 
-    // Migration m3: reading room + café furniture now purchasable — auto-place for existing saves
-    if (!localStorage.getItem('coffee-lingo-m3')) {
-      for (const item of [...READING_ROOM_FURNISHINGS, ...CAFE_ROOM_FURNISHINGS]) {
-        if (!state.placedFurnishings[item.id]) {
-          state.placedFurnishings[item.id] = item.slots[0]
-        }
-      }
-      localStorage.setItem('coffee-lingo-m3', '1')
-    }
-
-    // Migration m4: convert category furnishing upgrades to per-item upgrades
-    if (!localStorage.getItem('coffee-lingo-m4')) {
-      // Build map: which placed items belong to which upgrade category
-      const categoryItems: Record<string, string[]> = {}
-      for (const itemId of Object.keys(state.placedFurnishings)) {
-        const item = ALL_FURNISHINGS.find(f => f.id === itemId)
-        if (!item) continue
-        const upgradeId = TILE_TO_UPGRADE_ID[item.tileId]
-        if (upgradeId && state.upgrades?.[upgradeId]) {
-          if (!categoryItems[upgradeId]) categoryItems[upgradeId] = []
-          categoryItems[upgradeId].push(itemId)
-        }
-      }
-      // Apply category tier to all items of that category
-      for (const [upgradeId, itemIds] of Object.entries(categoryItems)) {
-        const level = state.upgrades![upgradeId]
-        for (let i = 0; i < itemIds.length; i++) {
-          state.furnishingUpgrades![itemIds[i]] = { tier: level.tier }
-          // If upgrading was in progress, give it to the first item only
-          if (level.upgrading && i === 0) {
-            state.furnishingUpgrades![itemIds[i]].upgrading = level.upgrading
-          }
-        }
-        // Remove category entry (unless it's infrastructure)
-        if (!INFRASTRUCTURE_IDS.includes(upgradeId)) {
-          delete state.upgrades![upgradeId]
-        }
-      }
-      // Also clean up non-infrastructure category upgrades that had no placed items
-      for (const upgradeId of Object.keys(state.upgrades!)) {
-        if (!INFRASTRUCTURE_IDS.includes(upgradeId)) {
-          delete state.upgrades![upgradeId]
-        }
-      }
-      localStorage.setItem('coffee-lingo-m4', '1')
-    }
+    // Legacy migrations m3/m4 removed — they auto-placed/upgraded all furnishings
+    // which caused a bug where buying one item made everything appear bought.
+    // Mark them as done so they never run from old code paths.
+    if (!localStorage.getItem('coffee-lingo-m3')) localStorage.setItem('coffee-lingo-m3', '1')
+    if (!localStorage.getItem('coffee-lingo-m4')) localStorage.setItem('coffee-lingo-m4', '1')
 
     const readyToInstall = getReadyToInstallIds(state.upgrades!, state.furnishingUpgrades)
     return { state, readyToInstall }
