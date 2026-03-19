@@ -29,6 +29,11 @@ const CHAR_DIR_COL: Record<string, number> = { right: 0, up: 1, left: 2, down: 3
 const CHAR_SW = 16;
 const CHAR_SH = 32;  // 2 tiles tall
 
+/** Returns the idle anim sheet path for a given spriteVariant */
+export function getIdleSheetSrc(spriteVariant: number): string {
+  return IDLE_SHEETS[spriteVariant % IDLE_SHEETS.length];
+}
+
 export function preloadCharacterSheets(map: Map<string, HTMLImageElement>) {
   for (const src of CHARACTER_SHEETS) {
     if (map.has(src)) continue;

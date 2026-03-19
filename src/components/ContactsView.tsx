@@ -1,27 +1,54 @@
 'use client'
 
+import { useRef, useEffect } from 'react'
 import type { Relationship } from '../lib/types'
 import { CHARACTER_ROSTER, getFriendshipLevel, type Character } from '../lib/characters'
-import { CUSTOMER_SPRITES, PALETTE } from '../lib/sprites'
+import { getIdleSheetSrc, ANIM_FRAMES, ANIM_FRAME_SPEED } from '../lib/characterRenderer'
 
-function spriteToDataURL(spriteVariant: number, size: number): string {
-  const sprites = CUSTOMER_SPRITES[spriteVariant % CUSTOMER_SPRITES.length]
-  const sprite = sprites.down
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
-  const scale = size / 32
-  const s = Math.ceil(scale)
-  for (let row = 0; row < sprite.length; row++) {
-    for (let col = 0; col < sprite[row].length; col++) {
-      const idx = sprite[row][col]
-      if (idx === 0) continue
-      ctx.fillStyle = PALETTE[idx]
-      ctx.fillRect(col * scale, row * scale, s, s)
+function CharacterAvatar({ spriteVariant }: { spriteVariant: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const rafRef = useRef<number>(0)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')!
+    let running = true
+    let tick = 0
+
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const c = canvasRef.current
+      if (!c) return
+      function draw() {
+        if (!running || !c) return
+        tick++
+        const frame = Math.floor(tick / ANIM_FRAME_SPEED) % ANIM_FRAMES
+        const sx = (3 * ANIM_FRAMES + frame) * 16 // down direction = col 3
+        ctx.clearRect(0, 0, c.width, c.height)
+        ctx.imageSmoothingEnabled = false
+        ctx.drawImage(img, sx, 0, 16, 32, 0, 0, c.width, c.height)
+        rafRef.current = requestAnimationFrame(draw)
+      }
+      draw()
     }
-  }
-  return canvas.toDataURL()
+    img.src = getIdleSheetSrc(spriteVariant)
+
+    return () => {
+      running = false
+      cancelAnimationFrame(rafRef.current)
+    }
+  }, [spriteVariant])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={32}
+      height={64}
+      style={{ imageRendering: 'pixelated', flexShrink: 0 }}
+    />
+  )
 }
 
 interface ContactsViewProps {
@@ -41,13 +68,7 @@ export default function ContactsView({ relationships, reputation, onClose }: Con
 
     return (
       <div key={char.id} style={styles.card}>
-        <img
-          src={spriteToDataURL(char.spriteVariant, 48)}
-          width={48}
-          height={48}
-          alt={char.name}
-          style={{ imageRendering: 'pixelated' }}
-        />
+        <CharacterAvatar spriteVariant={char.spriteVariant} />
         <div style={styles.info}>
           <div style={styles.name}>{char.name}</div>
           <div style={styles.bio}>{char.bio}</div>
