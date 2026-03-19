@@ -6,7 +6,7 @@ import {
   EvaluationResult, PlayerState, WorldState,
   Expression, FurnishingItem, GridPos,
 } from '../lib/types'
-import { evaluateChoice, generateSingleConversation, generateWordQuiz } from '../lib/game'
+import { evaluateChoice, generateSingleConversation, generateWordQuiz, QuizMode } from '../lib/game'
 import { updateMastery } from '../lib/state'
 import type { UpgradeBonuses } from '../lib/upgrades'
 import { TILE_TO_UPGRADE_ID, getUpgradeCatalogEntry, getUpgradeTimeRemaining, formatTimeRemaining } from '../lib/upgrades'
@@ -40,11 +40,38 @@ interface GameplayViewProps {
 
 const PATIENCE_DURATION = 20_000
 
+function renderCustomerLine(line: string): React.ReactNode {
+  const parts = line.split(/(\{[^}]+\})/)
+  if (parts.length === 1) return line
+  return parts.map((part, i) =>
+    part.startsWith('{') && part.endsWith('}')
+      ? <span key={i} style={{ fontWeight: 800, color: '#8B4513' }}>[{part.slice(1, -1)}]</span>
+      : <span key={i}>{part}</span>
+  )
+}
+
 let _audioCtx: AudioContext | null = null
+function getAudioCtx(): AudioContext {
+  if (!_audioCtx) _audioCtx = new AudioContext()
+  if (_audioCtx.state === 'suspended') _audioCtx.resume()
+  return _audioCtx
+}
+
+// Unlock audio on first user interaction (iOS requirement)
+if (typeof window !== 'undefined') {
+  const unlock = () => {
+    getAudioCtx()
+    if (_awwAudio) { _awwAudio.play().then(() => { _awwAudio!.pause(); _awwAudio!.currentTime = 0 }).catch(() => {}) }
+    window.removeEventListener('touchstart', unlock)
+    window.removeEventListener('click', unlock)
+  }
+  window.addEventListener('touchstart', unlock, { once: true })
+  window.addEventListener('click', unlock, { once: true })
+}
+
 function playCoinSound() {
   if (typeof window === 'undefined') return
-  if (!_audioCtx) _audioCtx = new AudioContext()
-  const ctx = _audioCtx
+  const ctx = getAudioCtx()
   const now = ctx.currentTime
   // Two quick ascending tones
   for (let i = 0; i < 2; i++) {
@@ -61,17 +88,19 @@ function playCoinSound() {
 }
 
 let _awwAudio: HTMLAudioElement | null = null
+if (typeof window !== 'undefined') {
+  _awwAudio = new Audio('/aww.mp3')
+  _awwAudio.preload = 'auto'
+}
 function playAwwSound() {
-  if (typeof window === 'undefined') return
-  if (!_awwAudio) _awwAudio = new Audio('/aww.mp3')
+  if (typeof window === 'undefined' || !_awwAudio) return
   _awwAudio.currentTime = 0
   _awwAudio.play().catch(() => {})
 }
 
 export function playTapSound() {
   if (typeof window === 'undefined') return
-  if (!_audioCtx) _audioCtx = new AudioContext()
-  const ctx = _audioCtx
+  const ctx = getAudioCtx()
   const now = ctx.currentTime
   const osc = ctx.createOscillator()
   const gain = ctx.createGain()
@@ -86,8 +115,7 @@ export function playTapSound() {
 
 export function playUpgradeStartSound() {
   if (typeof window === 'undefined') return
-  if (!_audioCtx) _audioCtx = new AudioContext()
-  const ctx = _audioCtx
+  const ctx = getAudioCtx()
   const now = ctx.currentTime
   // Rising three-note arpeggio
   const freqs = [523, 659, 784] // C5, E5, G5
@@ -106,8 +134,7 @@ export function playUpgradeStartSound() {
 
 function playUpgradeReadySound() {
   if (typeof window === 'undefined') return
-  if (!_audioCtx) _audioCtx = new AudioContext()
-  const ctx = _audioCtx
+  const ctx = getAudioCtx()
   const now = ctx.currentTime
   // Bright notification chime — two notes
   const freqs = [784, 1047] // G5, C6
@@ -126,8 +153,7 @@ function playUpgradeReadySound() {
 
 export function playInstallSound() {
   if (typeof window === 'undefined') return
-  if (!_audioCtx) _audioCtx = new AudioContext()
-  const ctx = _audioCtx
+  const ctx = getAudioCtx()
   const now = ctx.currentTime
   // Satisfying descending sparkle — four quick notes
   const freqs = [1319, 1047, 784, 1047] // E6, C6, G5, C6
@@ -256,6 +282,7 @@ export default function GameplayView({
   const [showPatioPrompt, setShowPatioPrompt] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [sessionServed, setSessionServed] = useState(0)
+  const quizMode: QuizMode = 'sentence'
   const [musicVolume, setMusicVolume] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('coffee-lingo-volume')
@@ -339,7 +366,7 @@ export default function GameplayView({
 
   // Initialize simulation once on mount
   useEffect(() => {
-    const state = createWorldState(bonuses.maxInShopBonus, patioUnlocked, tileOverrides, patioPOIs)
+    const state = createWorldState(0, patioUnlocked, tileOverrides, patioPOIs)
     cafeStateRef.current = state
     lastFrameRef.current = performance.now()
 
@@ -412,7 +439,7 @@ export default function GameplayView({
         // Empty string means all unlocked characters are already in the world
         if (!characterId) { requestAnimationFrame(loop); return }
         const { conversation, usedWordId, roundsTarget } = generateSingleConversation(
-          expressions, ps.vocabulary, ps.recencyBuffer, ps.wrongQueue ?? []
+          expressions, ps.vocabulary, ps.recencyBuffer, ps.wrongQueue ?? [], quizMode
         )
         spawnCharacter(state, conversation, characterId, roundsTarget)
 
@@ -433,7 +460,7 @@ export default function GameplayView({
   }, [])
 
   // Patience timer — CSS transition handles the animation, single timeout for expiry
-  const patienceDuration = PATIENCE_DURATION + bonuses.patienceBonus
+  const patienceDuration = PATIENCE_DURATION
   useEffect(() => {
     if (!activeExchange || !responding) {
       if (patienceTimeoutRef.current) clearTimeout(patienceTimeoutRef.current)
@@ -528,8 +555,7 @@ export default function GameplayView({
     const isCorrect = result.score === 'PERFECT' || result.score === 'GOOD'
     const targetWordId = exchange.templateId // templateId stores the target word id
     const updatedState = updateMastery(
-      ps, targetWordId, isCorrect,
-      bonuses.masteryXpMultiplier
+      ps, targetWordId, isCorrect
     )
 
     // Update wrong queue
@@ -589,7 +615,7 @@ export default function GameplayView({
       const convoWordIds = customer.conversation.exchanges.map(e => e.templateId)
       const combinedRecency = [...ps.recencyBuffer, ...convoWordIds].slice(-10)
       const { exchange } = generateWordQuiz(
-        expressions, ps.vocabulary, combinedRecency, ps.wrongQueue ?? []
+        expressions, ps.vocabulary, combinedRecency, ps.wrongQueue ?? [], quizMode
       )
       // Append to conversation and advance
       customer.conversation.exchanges.push(exchange)
@@ -599,6 +625,7 @@ export default function GameplayView({
       setActiveExchange(exchange)
       setLastResult(null)
       setSelectedChoiceId(null)
+      setFriendshipGain(null)
       setHintLevel(0)
       hintLevelRef.current = 0
       setResponding(true)
@@ -610,6 +637,7 @@ export default function GameplayView({
       setActiveExchange(null)
       setLastResult(null)
       setSelectedChoiceId(null)
+      setFriendshipGain(null)
       processingRef.current = false
     }
   }
@@ -1055,7 +1083,7 @@ export default function GameplayView({
                     )}
                   </div>
                 )}
-                <div style={styles.speechText}>{activeExchange.customerLine}</div>
+                <div style={styles.speechText}>{renderCustomerLine(activeExchange.customerLine)}</div>
                 {hintLevel >= 1 && <div style={styles.hintText}>{activeExchange.hintIdea}</div>}
                 {hintLevel >= 2 && <div style={styles.hintTranslation}>{activeExchange.hintTranslation}</div>}
               </div>
@@ -1264,8 +1292,8 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#FFFEF7',
     borderRadius: 12,
     padding: '10px 16px',
-    minWidth: 160,
-    maxWidth: 280,
+    minWidth: 240,
+    maxWidth: 360,
     boxShadow: '0 3px 12px rgba(0,0,0,0.25)',
     textAlign: 'center',
     border: '2px solid #5D4037',

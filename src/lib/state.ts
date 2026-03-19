@@ -20,8 +20,8 @@ export function createInitialState(expressions: Expression[]): PlayerState {
   }
   return {
     totalCustomersServed: 0,
-    coins: 3000,
-    reputation: 3000,
+    coins: 0,
+    reputation: 0,
     vocabulary,
     recencyBuffer: [],
     upgrades: {},
@@ -141,7 +141,6 @@ export function updateMastery(
   state: PlayerState,
   targetWordId: string,
   correct: boolean,
-  masteryXpMultiplier: number = 1
 ): PlayerState {
   const entry = state.vocabulary[targetWordId]
   if (!entry) return state
@@ -163,8 +162,7 @@ export function updateMastery(
   }
 
   if (correct) {
-    const bonus = Math.random() < (masteryXpMultiplier - 1) ? 2 : 1
-    updated.totalSuccessfulUses += bonus
+    updated.totalSuccessfulUses += 1
     updated.todayRight += 1
   } else {
     updated.totalSuccessfulUses = Math.max(0, updated.totalSuccessfulUses - 5)

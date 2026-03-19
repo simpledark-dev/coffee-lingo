@@ -27,7 +27,7 @@ export const PATIO_FURNISHINGS: FurnishingItem[] = [
     cost: 50, tileId: T.TABLE, spriteKey: 'TABLE',
     slots: [{ row: 21, col: 3 }, { row: 21, col: 6 }], room: 'patio',
     group: [{ dr: -1, dc: 0, tileId: T.CHAIR_D }, { dr: 1, dc: 0, tileId: T.CHAIR_U }],
-    bonus: { description: '+1 max customers', effects: { maxInShopBonus: 1 } },
+    bonus: { description: '+5% coins on PERFECT', effects: { perfectCoinMultiplier: 0.05 } },
   },
   {
     id: 'patio_table_lower',
@@ -36,7 +36,7 @@ export const PATIO_FURNISHINGS: FurnishingItem[] = [
     cost: 50, tileId: T.TABLE, spriteKey: 'TABLE',
     slots: [{ row: 25, col: 2 }, { row: 25, col: 6 }], room: 'patio',
     group: [{ dr: -1, dc: 0, tileId: T.CHAIR_D }, { dr: 1, dc: 0, tileId: T.CHAIR_U }],
-    bonus: { description: '+1 max customers', effects: { maxInShopBonus: 1 } },
+    bonus: { description: '+5% coins on PERFECT', effects: { perfectCoinMultiplier: 0.05 } },
   },
   {
     id: 'patio_lamp',
@@ -44,7 +44,7 @@ export const PATIO_FURNISHINGS: FurnishingItem[] = [
     description: 'Warm ambient string lights',
     cost: 40, tileId: T.LAMP, spriteKey: 'LAMP',
     slots: [{ row: 23, col: 4 }, { row: 23, col: 6 }], room: 'patio',
-    bonus: { description: '-10% hint penalty', effects: { hintPenaltyReduction: 0.10 } },
+    bonus: { description: '+3% tips', effects: { tipMultiplier: 0.03 } },
   },
   {
     id: 'patio_center_plant',
@@ -60,7 +60,7 @@ export const PATIO_FURNISHINGS: FurnishingItem[] = [
     description: 'A comfy wooden bench',
     cost: 35, tileId: T.BENCH, spriteKey: 'BENCH',
     slots: [{ row: 28, col: 4 }], room: 'patio',
-    bonus: { description: '+2s response time', effects: { patienceBonus: 2000 } },
+    bonus: { description: '+0.3 rep per customer', effects: { repBonusPerCustomer: 0.3 } },
   },
   {
     id: 'patio_bench_right',
@@ -68,7 +68,7 @@ export const PATIO_FURNISHINGS: FurnishingItem[] = [
     description: 'Matching bench on the other side',
     cost: 35, tileId: T.BENCH, spriteKey: 'BENCH',
     slots: [{ row: 28, col: 5 }], room: 'patio',
-    bonus: { description: '+2s response time', effects: { patienceBonus: 2000 } },
+    bonus: { description: '+0.3 rep per customer', effects: { repBonusPerCustomer: 0.3 } },
   },
   {
     id: 'patio_corner_plant_left',
@@ -76,7 +76,7 @@ export const PATIO_FURNISHINGS: FurnishingItem[] = [
     description: 'Greenery in the corner',
     cost: 25, tileId: T.PLANT, spriteKey: 'PLANT',
     slots: [{ row: 28, col: 1 }], room: 'patio',
-    bonus: { description: '+5% mastery XP', effects: { masteryXpMultiplier: 0.05 } },
+    bonus: { description: '+3% bonus coin chance', effects: { bonusCoinChance: 0.03 } },
   },
   {
     id: 'patio_corner_plant_right',
@@ -84,7 +84,7 @@ export const PATIO_FURNISHINGS: FurnishingItem[] = [
     description: 'Greenery in the other corner',
     cost: 25, tileId: T.PLANT, spriteKey: 'PLANT',
     slots: [{ row: 28, col: 8 }], room: 'patio',
-    bonus: { description: '+5% mastery XP', effects: { masteryXpMultiplier: 0.05 } },
+    bonus: { description: '+3% bonus coin chance', effects: { bonusCoinChance: 0.03 } },
   },
 ]
 
@@ -96,7 +96,7 @@ export const READING_ROOM_FURNISHINGS: FurnishingItem[] = [
     description: 'A tall shelf of classic novels',
     cost: 30, tileId: T.BOOKSHELF, spriteKey: 'BOOKSHELF',
     slots: [{ row: 10, col: 12 }], room: 'reading',
-    bonus: { description: '+5% mastery XP', effects: { masteryXpMultiplier: 0.05 } },
+    bonus: { description: '+3% tips', effects: { tipMultiplier: 0.03 } },
   },
   {
     id: 'reading_bookshelf_right',
@@ -104,7 +104,7 @@ export const READING_ROOM_FURNISHINGS: FurnishingItem[] = [
     description: 'Poetry and language guides',
     cost: 30, tileId: T.BOOKSHELF, spriteKey: 'BOOKSHELF',
     slots: [{ row: 10, col: 17 }], room: 'reading',
-    bonus: { description: '+5% mastery XP', effects: { masteryXpMultiplier: 0.05 } },
+    bonus: { description: '+3% tips', effects: { tipMultiplier: 0.03 } },
   },
   {
     id: 'reading_table_left',
@@ -113,7 +113,7 @@ export const READING_ROOM_FURNISHINGS: FurnishingItem[] = [
     cost: 55, tileId: T.TABLE, spriteKey: 'TABLE',
     slots: [{ row: 13, col: 12 }], room: 'reading',
     group: [{ dr: -1, dc: 0, tileId: T.CHAIR_D }, { dr: 1, dc: 0, tileId: T.CHAIR_U }],
-    bonus: { description: '+1 max customers', effects: { maxInShopBonus: 1 } },
+    bonus: { description: '+5% coins on PERFECT', effects: { perfectCoinMultiplier: 0.05 } },
   },
   {
     id: 'reading_table_right',
@@ -122,7 +122,7 @@ export const READING_ROOM_FURNISHINGS: FurnishingItem[] = [
     cost: 55, tileId: T.TABLE, spriteKey: 'TABLE',
     slots: [{ row: 13, col: 16 }], room: 'reading',
     group: [{ dr: -1, dc: 0, tileId: T.CHAIR_D }, { dr: 1, dc: 0, tileId: T.CHAIR_U }],
-    bonus: { description: '+1 max customers', effects: { maxInShopBonus: 1 } },
+    bonus: { description: '+5% coins on PERFECT', effects: { perfectCoinMultiplier: 0.05 } },
   },
   {
     id: 'reading_plant_upper',
@@ -163,7 +163,7 @@ export const READING_ROOM_FURNISHINGS: FurnishingItem[] = [
     cost: 35, tileId: T.BOOKSHELF, spriteKey: 'BOOKSHELF',
     slots: [{ row: 17, col: 12 }], room: 'reading',
     group: [{ dr: 0, dc: 1, tileId: T.BOOKSHELF }],
-    bonus: { description: '+5% mastery XP', effects: { masteryXpMultiplier: 0.05 } },
+    bonus: { description: '+3% tips', effects: { tipMultiplier: 0.03 } },
   },
   {
     id: 'reading_divider_right',
@@ -172,7 +172,7 @@ export const READING_ROOM_FURNISHINGS: FurnishingItem[] = [
     cost: 35, tileId: T.BOOKSHELF, spriteKey: 'BOOKSHELF',
     slots: [{ row: 17, col: 16 }], room: 'reading',
     group: [{ dr: 0, dc: 1, tileId: T.BOOKSHELF }],
-    bonus: { description: '+5% mastery XP', effects: { masteryXpMultiplier: 0.05 } },
+    bonus: { description: '+3% tips', effects: { tipMultiplier: 0.03 } },
   },
   {
     id: 'reading_chess_left',
@@ -181,7 +181,7 @@ export const READING_ROOM_FURNISHINGS: FurnishingItem[] = [
     cost: 45, tileId: T.CHESS, spriteKey: 'CHESS_TABLE',
     slots: [{ row: 21, col: 12 }], room: 'reading',
     group: [{ dr: -1, dc: 0, tileId: T.CHAIR_D }, { dr: 1, dc: 0, tileId: T.CHAIR_U }],
-    bonus: { description: '+2s response time', effects: { patienceBonus: 2000 } },
+    bonus: { description: '+0.3 rep per customer', effects: { repBonusPerCustomer: 0.3 } },
   },
   {
     id: 'reading_chess_right',
@@ -190,7 +190,7 @@ export const READING_ROOM_FURNISHINGS: FurnishingItem[] = [
     cost: 45, tileId: T.CHESS, spriteKey: 'CHESS_TABLE',
     slots: [{ row: 21, col: 16 }], room: 'reading',
     group: [{ dr: -1, dc: 0, tileId: T.CHAIR_D }, { dr: 1, dc: 0, tileId: T.CHAIR_U }],
-    bonus: { description: '+2s response time', effects: { patienceBonus: 2000 } },
+    bonus: { description: '+0.3 rep per customer', effects: { repBonusPerCustomer: 0.3 } },
   },
   {
     id: 'reading_lamp',
@@ -198,7 +198,7 @@ export const READING_ROOM_FURNISHINGS: FurnishingItem[] = [
     description: 'Warm light for studying',
     cost: 35, tileId: T.LAMP, spriteKey: 'LAMP',
     slots: [{ row: 21, col: 14 }], room: 'reading',
-    bonus: { description: '-8% hint penalty', effects: { hintPenaltyReduction: 0.08 } },
+    bonus: { description: '+3% tips', effects: { tipMultiplier: 0.03 } },
   },
   {
     id: 'reading_chess_corner',
@@ -211,7 +211,7 @@ export const READING_ROOM_FURNISHINGS: FurnishingItem[] = [
       { dr: 0, dc: 1, tileId: T.CHAIR_D },
       { dr: 1, dc: 0, tileId: T.CHAIR_U },
     ],
-    bonus: { description: '+2s response time', effects: { patienceBonus: 2000 } },
+    bonus: { description: '+0.5 rep per customer', effects: { repBonusPerCustomer: 0.5 } },
   },
   {
     id: 'reading_spare_chair',
@@ -219,7 +219,7 @@ export const READING_ROOM_FURNISHINGS: FurnishingItem[] = [
     description: 'An extra seat for visitors',
     cost: 15, tileId: T.CHAIR_D, spriteKey: 'CHAIR',
     slots: [{ row: 24, col: 13 }], room: 'reading',
-    bonus: { description: '+1s response time', effects: { patienceBonus: 1000 } },
+    bonus: { description: '+0.2 rep per customer', effects: { repBonusPerCustomer: 0.2 } },
   },
 ]
 
@@ -232,7 +232,7 @@ export const CAFE_ROOM_FURNISHINGS: FurnishingItem[] = [
     cost: 55, tileId: T.TABLE, spriteKey: 'TABLE',
     slots: [{ row: 11, col: 22 }], room: 'cafe',
     group: [{ dr: -1, dc: 0, tileId: T.CHAIR_D }, { dr: 1, dc: 1, tileId: T.CHAIR_U }],
-    bonus: { description: '+1 max customers', effects: { maxInShopBonus: 1 } },
+    bonus: { description: '+5% coins on PERFECT', effects: { perfectCoinMultiplier: 0.05 } },
   },
   {
     id: 'cafe_table_upper_right',
@@ -241,7 +241,7 @@ export const CAFE_ROOM_FURNISHINGS: FurnishingItem[] = [
     cost: 55, tileId: T.TABLE, spriteKey: 'TABLE',
     slots: [{ row: 11, col: 27 }], room: 'cafe',
     group: [{ dr: -1, dc: 0, tileId: T.CHAIR_D }, { dr: 1, dc: -1, tileId: T.CHAIR_U }],
-    bonus: { description: '+1 max customers', effects: { maxInShopBonus: 1 } },
+    bonus: { description: '+5% coins on PERFECT', effects: { perfectCoinMultiplier: 0.05 } },
   },
   {
     id: 'cafe_table_mid_left',
@@ -250,7 +250,7 @@ export const CAFE_ROOM_FURNISHINGS: FurnishingItem[] = [
     cost: 55, tileId: T.TABLE, spriteKey: 'TABLE',
     slots: [{ row: 21, col: 22 }], room: 'cafe',
     group: [{ dr: -1, dc: 0, tileId: T.CHAIR_D }, { dr: 1, dc: 1, tileId: T.CHAIR_U }],
-    bonus: { description: '+1 max customers', effects: { maxInShopBonus: 1 } },
+    bonus: { description: '+5% coins on PERFECT', effects: { perfectCoinMultiplier: 0.05 } },
   },
   {
     id: 'cafe_table_mid_right',
@@ -259,7 +259,7 @@ export const CAFE_ROOM_FURNISHINGS: FurnishingItem[] = [
     cost: 55, tileId: T.TABLE, spriteKey: 'TABLE',
     slots: [{ row: 22, col: 26 }], room: 'cafe',
     group: [{ dr: -1, dc: 0, tileId: T.CHAIR_D }, { dr: 1, dc: 0, tileId: T.CHAIR_U }],
-    bonus: { description: '+1 max customers', effects: { maxInShopBonus: 1 } },
+    bonus: { description: '+5% coins on PERFECT', effects: { perfectCoinMultiplier: 0.05 } },
   },
   {
     id: 'cafe_corner_table',
@@ -268,7 +268,7 @@ export const CAFE_ROOM_FURNISHINGS: FurnishingItem[] = [
     cost: 55, tileId: T.TABLE, spriteKey: 'TABLE',
     slots: [{ row: 25, col: 21 }], room: 'cafe',
     group: [{ dr: -1, dc: 0, tileId: T.CHAIR_U }, { dr: 0, dc: -1, tileId: T.CHAIR_U }],
-    bonus: { description: '+1 max customers', effects: { maxInShopBonus: 1 } },
+    bonus: { description: '+5% coins on PERFECT', effects: { perfectCoinMultiplier: 0.05 } },
   },
   {
     id: 'cafe_display_shelves',
@@ -277,7 +277,7 @@ export const CAFE_ROOM_FURNISHINGS: FurnishingItem[] = [
     cost: 40, tileId: T.SHELF, spriteKey: 'SHELF',
     slots: [{ row: 17, col: 22 }], room: 'cafe',
     group: [{ dr: 0, dc: 1, tileId: T.SHELF }],
-    bonus: { description: '+10% mastery XP', effects: { masteryXpMultiplier: 0.10 } },
+    bonus: { description: '+5% tips', effects: { tipMultiplier: 0.05 } },
   },
   {
     id: 'cafe_menu_board',

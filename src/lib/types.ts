@@ -6,6 +6,7 @@ export interface Expression {
   stage: number
   definition?: string
   examples?: string[]
+  sentences?: string[]
 }
 
 export interface ResponseOption {

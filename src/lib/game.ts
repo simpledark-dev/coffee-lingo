@@ -24,8 +24,10 @@ function shuffle<T>(arr: T[]): T[] {
   return result
 }
 
+export type QuizMode = 'word' | 'sentence'
+
 /**
- * Generate a word quiz: NPC says an English word, player picks the correct French translation.
+ * Generate a word quiz: NPC says an English word (or sentence), player picks the correct German translation.
  * Returns 1 correct choice + 3 distractors.
  */
 export function generateWordQuiz(
@@ -33,6 +35,7 @@ export function generateWordQuiz(
   vocabulary: Record<string, VocabularyEntry>,
   recencyBuffer: string[],
   wrongQueue: WrongQueueEntry[] = [],
+  mode: QuizMode = 'word',
 ): { exchange: ResolvedExchange; targetWordId: string } {
   const recentSet = new Set(recencyBuffer)
   let target: Expression | undefined
@@ -133,7 +136,9 @@ export function generateWordQuiz(
   }
 
   const exchange: ResolvedExchange = {
-    customerLine: target.nativeText,
+    customerLine: mode === 'sentence' && target.sentences?.length
+      ? pickRandom(target.sentences)
+      : target.nativeText,
     requiredIdeas: target.ideaTags,
     bonusIdeas: [],
     choices,
@@ -157,8 +162,9 @@ export function generateSingleConversation(
   vocabulary: Record<string, VocabularyEntry>,
   recencyBuffer: string[],
   wrongQueue: WrongQueueEntry[] = [],
+  mode: QuizMode = 'word',
 ): { conversation: CustomerConversation; usedWordId: string; roundsTarget: number } {
-  const { exchange, targetWordId } = generateWordQuiz(expressions, vocabulary, recencyBuffer, wrongQueue)
+  const { exchange, targetWordId } = generateWordQuiz(expressions, vocabulary, recencyBuffer, wrongQueue, mode)
   return {
     conversation: { exchanges: [exchange] },
     usedWordId: targetWordId,
@@ -169,31 +175,28 @@ export function generateSingleConversation(
 // Shared tip calculation with upgrade bonuses
 function computeTip(score: Score, hintLevel: number, bonuses?: UpgradeBonuses): number {
   const SCORE_MULTIPLIERS: Record<Score, number> = {
-    PERFECT: 1.5,
-    GOOD: 1.0,
-    UNDERSTOOD: 0.5,
+    PERFECT: 1,
+    GOOD: 0,
+    UNDERSTOOD: 0,
     MISSED: 0,
   }
   const HINT_MULTIPLIERS = [1.0, 0.75, 0.5]
-  const BASE_TIP = 10
+  const BASE_TIP = 1
 
-  // Lamp bonus: reduce hint penalty
-  const rawHintMult = HINT_MULTIPLIERS[hintLevel] ?? 0.5
-  const hintMult = bonuses
-    ? 1 - (1 - rawHintMult) * (1 - bonuses.hintPenaltyReduction)
-    : rawHintMult
+  const hintMult = HINT_MULTIPLIERS[hintLevel] ?? 0.5
 
   let tipAmount = Math.round(
     BASE_TIP
     * SCORE_MULTIPLIERS[score]
     * hintMult
-    * (bonuses?.tipMultiplier ?? 1)   // Coffee Machine
-    * (bonuses?.coinMultiplier ?? 1)   // Floor
+    * (bonuses?.tipMultiplier ?? 1)           // Coffee Machine + Lamp + Shelf
+    * (bonuses?.coinMultiplier ?? 1)           // Floor
+    * (score === 'PERFECT' ? (bonuses?.perfectCoinMultiplier ?? 1) : 1)  // Table
   )
 
   // Plant bonus: chance of bonus coins
   if (bonuses && bonuses.bonusCoinChance > 0 && score !== 'MISSED') {
-    if (Math.random() < bonuses.bonusCoinChance) tipAmount += 5
+    if (Math.random() < bonuses.bonusCoinChance) tipAmount += 1
   }
 
   return tipAmount

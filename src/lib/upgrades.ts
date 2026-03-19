@@ -14,12 +14,9 @@ export interface UpgradeTier {
 
 export interface UpgradeBonuses {
   tipMultiplier: number           // Coffee Machine: 1.0 / 1.10 / 1.25
-  repBonusPerCustomer: number     // Counter: 0 / 0.2 / 0.4 rep per customer
-  maxInShopBonus: number          // Table: 0 / 1 / 2 extra simultaneous customers
-  patienceBonus: number           // Chair: 0 / 5000 / 10000 (ms)
+  repBonusPerCustomer: number     // Counter: 0 / 1 / 2 rep per customer
+  perfectCoinMultiplier: number   // Table: 1.0 / 1.10 / 1.20 (bonus on PERFECT)
   bonusCoinChance: number         // Plant: 0 / 0.10 / 0.20
-  hintPenaltyReduction: number    // Lamp: 0 / 0.15 / 0.30
-  masteryXpMultiplier: number     // Shelf: 1.0 / 1.20 / 1.40
   coinMultiplier: number          // Floor: 1.0 / 1.05 / 1.10
 }
 
@@ -42,8 +39,8 @@ export const UPGRADE_CATALOG: UpgradeCatalogEntry[] = [
     displayName: 'Plant',
     defaultSpriteKey: 'PLANT',
     tiers: [
-      { tier: 1, name: 'Flowering Plant', description: 'Pink and coral blooms', bonusDescription: '10% chance of +5 bonus coins', cost: 100, requiredReputation: 10, durationMs: 30 * MIN, spriteKey: 'PLANT_T1' },
-      { tier: 2, name: 'Ornamental Tree', description: 'Lush canopy, saucer pot', bonusDescription: '20% chance of +5 bonus coins', cost: 250, requiredReputation: 30, durationMs: 2 * HOUR, spriteKey: 'PLANT_T2' },
+      { tier: 1, name: 'Flowering Plant', description: 'Pink and coral blooms', bonusDescription: '10% chance of +1 bonus coin', cost: 100, requiredReputation: 10, durationMs: 30 * MIN, spriteKey: 'PLANT_T1' },
+      { tier: 2, name: 'Ornamental Tree', description: 'Lush canopy, saucer pot', bonusDescription: '20% chance of +1 bonus coin', cost: 250, requiredReputation: 30, durationMs: 2 * HOUR, spriteKey: 'PLANT_T2' },
     ],
   },
   {
@@ -51,8 +48,8 @@ export const UPGRADE_CATALOG: UpgradeCatalogEntry[] = [
     displayName: 'Lamp',
     defaultSpriteKey: 'LAMP',
     tiers: [
-      { tier: 1, name: 'Art Deco Lamp', description: 'Geometric shade, warm glow', bonusDescription: '15% less hint penalty', cost: 100, requiredReputation: 10, durationMs: 30 * MIN, spriteKey: 'LAMP_T1' },
-      { tier: 2, name: 'Crystal Chandelier', description: 'Multi-arm sparkle', bonusDescription: '30% less hint penalty', cost: 300, requiredReputation: 30, durationMs: 2 * HOUR, spriteKey: 'LAMP_T2' },
+      { tier: 1, name: 'Art Deco Lamp', description: 'Geometric shade, warm glow', bonusDescription: '+5% tips', cost: 100, requiredReputation: 10, durationMs: 30 * MIN, spriteKey: 'LAMP_T1' },
+      { tier: 2, name: 'Crystal Chandelier', description: 'Multi-arm sparkle', bonusDescription: '+15% tips', cost: 300, requiredReputation: 30, durationMs: 2 * HOUR, spriteKey: 'LAMP_T2' },
     ],
   },
   {
@@ -60,8 +57,8 @@ export const UPGRADE_CATALOG: UpgradeCatalogEntry[] = [
     displayName: 'Chair',
     defaultSpriteKey: 'CHAIR',
     tiers: [
-      { tier: 1, name: 'Cushioned Bistro', description: 'Padded seat, curved back', bonusDescription: '+5s response time', cost: 120, requiredReputation: 10, durationMs: 45 * MIN, spriteKey: 'CHAIR_T1' },
-      { tier: 2, name: 'Velvet Armchair', description: 'Plush tufted upholstery', bonusDescription: '+10s response time', cost: 350, requiredReputation: 30, durationMs: 2.5 * HOUR, spriteKey: 'CHAIR_T2' },
+      { tier: 1, name: 'Cushioned Bistro', description: 'Padded seat, curved back', bonusDescription: '+0.5 rep per customer', cost: 120, requiredReputation: 10, durationMs: 45 * MIN, spriteKey: 'CHAIR_T1' },
+      { tier: 2, name: 'Velvet Armchair', description: 'Plush tufted upholstery', bonusDescription: '+1 rep per customer', cost: 350, requiredReputation: 30, durationMs: 2.5 * HOUR, spriteKey: 'CHAIR_T2' },
     ],
   },
   {
@@ -69,8 +66,8 @@ export const UPGRADE_CATALOG: UpgradeCatalogEntry[] = [
     displayName: 'Table',
     defaultSpriteKey: 'TABLE',
     tiers: [
-      { tier: 1, name: 'Marble Bistro', description: 'Light surface, thin legs', bonusDescription: '+1 max customers in shop', cost: 150, requiredReputation: 10, durationMs: 1 * HOUR, spriteKey: 'TABLE_T1' },
-      { tier: 2, name: 'Ornate Parisian', description: 'Iron scrollwork, mosaic top', bonusDescription: '+2 max customers in shop', cost: 400, requiredReputation: 30, durationMs: 3 * HOUR, spriteKey: 'TABLE_T2' },
+      { tier: 1, name: 'Marble Bistro', description: 'Light surface, thin legs', bonusDescription: '+10% coins on PERFECT', cost: 150, requiredReputation: 10, durationMs: 1 * HOUR, spriteKey: 'TABLE_T1' },
+      { tier: 2, name: 'Ornate Parisian', description: 'Iron scrollwork, mosaic top', bonusDescription: '+20% coins on PERFECT', cost: 400, requiredReputation: 30, durationMs: 3 * HOUR, spriteKey: 'TABLE_T2' },
     ],
   },
   {
@@ -78,8 +75,8 @@ export const UPGRADE_CATALOG: UpgradeCatalogEntry[] = [
     displayName: 'Shelf',
     defaultSpriteKey: 'SHELF',
     tiers: [
-      { tier: 1, name: 'Artisan Shelf', description: 'Grinder, books, variety', bonusDescription: '+20% mastery XP', cost: 150, requiredReputation: 10, durationMs: 1 * HOUR, spriteKey: 'SHELF_T1' },
-      { tier: 2, name: 'Display Cabinet', description: 'Glass front, premium items', bonusDescription: '+40% mastery XP', cost: 400, requiredReputation: 30, durationMs: 3 * HOUR, spriteKey: 'SHELF_T2' },
+      { tier: 1, name: 'Artisan Shelf', description: 'Grinder, books, variety', bonusDescription: '+5% tips', cost: 150, requiredReputation: 10, durationMs: 1 * HOUR, spriteKey: 'SHELF_T1' },
+      { tier: 2, name: 'Display Cabinet', description: 'Glass front, premium items', bonusDescription: '+10% tips', cost: 400, requiredReputation: 30, durationMs: 3 * HOUR, spriteKey: 'SHELF_T2' },
     ],
   },
   {
@@ -105,8 +102,8 @@ export const UPGRADE_CATALOG: UpgradeCatalogEntry[] = [
     displayName: 'Bench',
     defaultSpriteKey: 'BENCH',
     tiers: [
-      { tier: 1, name: 'Cushioned Iron Bench', description: 'Iron frame with soft cushion', bonusDescription: '+3s response time', cost: 150, requiredReputation: 15, durationMs: 45 * MIN, spriteKey: 'BENCH_T1' },
-      { tier: 2, name: 'Ornate Garden Bench', description: 'Gold filigree, velvet seat', bonusDescription: '+6s response time', cost: 400, requiredReputation: 35, durationMs: 2.5 * HOUR, spriteKey: 'BENCH_T2' },
+      { tier: 1, name: 'Cushioned Iron Bench', description: 'Iron frame with soft cushion', bonusDescription: '+0.5 rep per customer', cost: 150, requiredReputation: 15, durationMs: 45 * MIN, spriteKey: 'BENCH_T1' },
+      { tier: 2, name: 'Ornate Garden Bench', description: 'Gold filigree, velvet seat', bonusDescription: '+1 rep per customer', cost: 400, requiredReputation: 35, durationMs: 2.5 * HOUR, spriteKey: 'BENCH_T2' },
     ],
   },
   {
@@ -189,23 +186,20 @@ export function installUpgrade(
 export const BONUS_TABLE: Record<string, Record<number, Partial<UpgradeBonuses>>> = {
   COFFEE_MACHINE: { 1: { tipMultiplier: 1.10 }, 2: { tipMultiplier: 1.25 } },
   COUNTER:        { 1: { repBonusPerCustomer: 1 }, 2: { repBonusPerCustomer: 2 } },
-  TABLE:          { 1: { maxInShopBonus: 1 },       2: { maxInShopBonus: 2 } },
-  CHAIR:          { 1: { patienceBonus: 5000 },   2: { patienceBonus: 10000 } },
+  TABLE:          { 1: { perfectCoinMultiplier: 1.10 }, 2: { perfectCoinMultiplier: 1.20 } },
+  CHAIR:          { 1: { repBonusPerCustomer: 0.5 },    2: { repBonusPerCustomer: 1 } },
   PLANT:          { 1: { bonusCoinChance: 0.10 }, 2: { bonusCoinChance: 0.20 } },
-  LAMP:           { 1: { hintPenaltyReduction: 0.15 }, 2: { hintPenaltyReduction: 0.30 } },
-  SHELF:          { 1: { masteryXpMultiplier: 1.20 },  2: { masteryXpMultiplier: 1.40 } },
-  BENCH:          { 1: { patienceBonus: 3000 },   2: { patienceBonus: 6000 } },
+  LAMP:           { 1: { tipMultiplier: 1.05 },   2: { tipMultiplier: 1.15 } },
+  SHELF:          { 1: { tipMultiplier: 1.05 },   2: { tipMultiplier: 1.10 } },
+  BENCH:          { 1: { repBonusPerCustomer: 0.5 },    2: { repBonusPerCustomer: 1 } },
   FLOOR:          { 1: { coinMultiplier: 1.05 },  2: { coinMultiplier: 1.10 } },
 }
 
 const DEFAULT_BONUSES: UpgradeBonuses = {
   tipMultiplier: 1,
   repBonusPerCustomer: 0,
-  maxInShopBonus: 0,
-  patienceBonus: 0,
+  perfectCoinMultiplier: 1,
   bonusCoinChance: 0,
-  hintPenaltyReduction: 0,
-  masteryXpMultiplier: 1,
   coinMultiplier: 1,
 }
 

@@ -136,7 +136,11 @@ export default function UpgradeShop({
     { id: 'infra', label: 'Infra', items: [] as FurnishingItem[] },
   ]
 
-  const activeItems = tabs.find(t => t.id === activeTab)?.items ?? []
+  const activeItems = [...(tabs.find(t => t.id === activeTab)?.items ?? [])].sort((a, b) => {
+    const aOwned = a.id in placedFurnishings ? 1 : 0
+    const bOwned = b.id in placedFurnishings ? 1 : 0
+    return bOwned - aOwned // owned items first
+  })
 
   return (
     <div style={styles.overlay} onClick={onClose}>
