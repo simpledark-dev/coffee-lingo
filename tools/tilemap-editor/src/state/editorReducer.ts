@@ -45,6 +45,7 @@ export function createInitialState(): EditorState {
     zones: [],
     selectedZoneDefType: null,
     selectedZoneId: null,
+    selectedEntityDefForCollision: null,
     exportDialogOpen: false,
     importDialogOpen: false,
     createEntityDefDialogOpen: false,
@@ -544,6 +545,18 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ...state,
         zones: state.zones.map(z =>
           z.id === action.zoneId ? { ...z, properties: { ...z.properties, ...action.properties } } : z
+        ),
+      }
+
+    // ── Entity Collision ──
+    case 'SELECT_ENTITY_DEF_FOR_COLLISION':
+      return { ...state, selectedEntityDefForCollision: action.entityType }
+
+    case 'UPDATE_ENTITY_DEF_COLLISION':
+      return {
+        ...state,
+        entityDefs: state.entityDefs.map(def =>
+          def.type === action.entityType ? { ...def, collisionZones: action.collisionZones } : def
         ),
       }
 

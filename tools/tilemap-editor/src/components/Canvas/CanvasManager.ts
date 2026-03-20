@@ -351,6 +351,21 @@ export class CanvasManager {
   private collisionPointerDown(e: PointerEvent) {
     const s = this.state
     const grid = this.screenToCollisionGrid(e.clientX, e.clientY)
+    const tileGrid = this.screenToGrid(e.clientX, e.clientY)
+
+    // Click on entity → open collision editor
+    if (!s.selectedZoneDefType) {
+      for (let i = s.entities.length - 1; i >= 0; i--) {
+        const ent = s.entities[i]
+        const def = s.entityDefs.find(d => d.type === ent.type)
+        if (!def) continue
+        if (tileGrid.row >= ent.row && tileGrid.row < ent.row + def.height &&
+            tileGrid.col >= ent.col && tileGrid.col < ent.col + def.width) {
+          this.dispatch({ type: 'SELECT_ENTITY_DEF_FOR_COLLISION', entityType: ent.type })
+          return
+        }
+      }
+    }
 
     // Click on existing zone
     const clicked = [...s.zones].reverse().find(z =>
@@ -680,15 +695,32 @@ export class CanvasManager {
     const { tileSize, zones, zoneDefs, selectedZoneId, entities, entityDefs } = s
     const C = COLLISION_CELL
 
-    // Entity footprints
+    // Entity footprints + collision zones
     for (const entity of entities) {
       const def = entityDefs.find(d => d.type === entity.type)
       if (!def) continue
+      const ex = entity.col * tileSize
+      const ey = entity.row * tileSize
+
+      // Footprint border
       ctx.strokeStyle = 'rgba(255,255,255,0.15)'
       ctx.lineWidth = 1 / this.zoom
       ctx.setLineDash([3 / this.zoom, 3 / this.zoom])
-      ctx.strokeRect(entity.col * tileSize, entity.row * tileSize, def.width * tileSize, def.height * tileSize)
+      ctx.strokeRect(ex, ey, def.width * tileSize, def.height * tileSize)
       ctx.setLineDash([])
+
+      // Entity collision zones (amber)
+      if (def.collisionZones) {
+        for (const z of def.collisionZones) {
+          const zDef = zoneDefs.find(d => d.type === z.type)
+          const color = zDef?.color ?? '#ffc107'
+          ctx.fillStyle = colorWithAlpha(color, 0.25)
+          ctx.fillRect(ex + z.col * C, ey + z.row * C, z.width * C, z.height * C)
+          ctx.strokeStyle = colorWithAlpha(color, 0.7)
+          ctx.lineWidth = 1.5 / this.zoom
+          ctx.strokeRect(ex + z.col * C, ey + z.row * C, z.width * C, z.height * C)
+        }
+      }
     }
 
     // Placed zones

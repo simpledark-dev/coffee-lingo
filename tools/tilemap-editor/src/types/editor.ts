@@ -133,6 +133,7 @@ export interface EditorState {
   zones: import('./collision').Zone[]
   selectedZoneDefType: string | null
   selectedZoneId: string | null
+  selectedEntityDefForCollision: string | null
 
   // UI
   exportDialogOpen: boolean
@@ -190,6 +191,8 @@ export type EditorAction =
   | { type: 'MOVE_ZONE'; zoneId: string; row: number; col: number }
   | { type: 'DELETE_ZONE'; zoneId: string }
   | { type: 'UPDATE_ZONE_PROPS'; zoneId: string; properties: Record<string, unknown> }
+  | { type: 'SELECT_ENTITY_DEF_FOR_COLLISION'; entityType: string | null }
+  | { type: 'UPDATE_ENTITY_DEF_COLLISION'; entityType: string; collisionZones: import('./entity').EntityDef['collisionZones'] }
   | { type: 'ADD_TILESET'; tileset: TilesetConfig }
   | { type: 'REMOVE_TILESET'; tilesetId: string }
   | { type: 'SET_EXPORT_DIALOG'; open: boolean }

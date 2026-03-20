@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useEditorState, useEditorDispatch } from '../../state/EditorContext'
 import { CanvasManager } from './CanvasManager'
 import { Minimap } from './Minimap'
@@ -56,37 +56,16 @@ export function EditorCanvas() {
     return () => observer.disconnect()
   }, [])
 
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    managerRef.current?.onWheel(e.nativeEvent)
-  }, [])
-
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    managerRef.current?.onPointerDown(e.nativeEvent)
-  }, [])
-
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    managerRef.current?.onPointerMove(e.nativeEvent)
-    setCursor(managerRef.current?.getCursor() ?? 'crosshair')
-  }, [])
-
-  const handlePointerUp = useCallback((e: React.PointerEvent) => {
-    managerRef.current?.onPointerUp(e.nativeEvent)
-  }, [])
-
-  const handlePointerLeave = useCallback(() => {
-    managerRef.current?.onPointerLeave()
-  }, [])
-
   return (
     <div ref={containerRef} className="w-full h-full overflow-hidden bg-neutral-950 relative" style={{ cursor }}>
       <canvas
         ref={canvasRef}
         style={{ width: canvasSize.w, height: canvasSize.h }}
-        onWheel={handleWheel}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerLeave}
+        onWheel={e => managerRef.current?.onWheel(e.nativeEvent)}
+        onPointerDown={e => managerRef.current?.onPointerDown(e.nativeEvent)}
+        onPointerMove={e => { managerRef.current?.onPointerMove(e.nativeEvent); setCursor(managerRef.current?.getCursor() ?? 'crosshair') }}
+        onPointerUp={e => managerRef.current?.onPointerUp(e.nativeEvent)}
+        onPointerLeave={() => managerRef.current?.onPointerLeave()}
         onContextMenu={e => e.preventDefault()}
       />
       <div className="absolute top-2 right-2 z-10">

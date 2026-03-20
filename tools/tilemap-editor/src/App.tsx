@@ -11,6 +11,8 @@ import { ZoneList } from './components/ZoneList'
 import { ExportDialog } from './components/ExportDialog'
 import { ImportDialog } from './components/ImportDialog'
 import { CreateEntityDefDialog } from './components/CreateEntityDefDialog'
+import { EntityCollisionModal } from './components/EntityCollisionModal'
+import { EntityCollisionList } from './components/EntityCollisionList'
 import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorage'
 
 function AutoLoad() {
@@ -139,9 +141,16 @@ function EditorLayout() {
 
         <ResizeHandleX onResize={handleLayerResize} />
 
-        {/* Center: Canvas */}
-        <div className="flex-1 min-w-0">
-          <EditorCanvas />
+        {/* Center: Canvas + EntityCollisionList */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="flex-1 min-h-0">
+            <EditorCanvas />
+          </div>
+          {mode === 'collision' && (
+            <div className="shrink-0 border-t border-neutral-700 h-[180px]">
+              <EntityCollisionList />
+            </div>
+          )}
         </div>
 
         <ResizeHandleX onResize={handlePaletteResize} />
@@ -164,6 +173,7 @@ export default function App() {
       <ExportDialog />
       <ImportDialog />
       <CreateEntityDefDialog />
+      <EntityCollisionModal />
     </EditorProvider>
   )
 }
