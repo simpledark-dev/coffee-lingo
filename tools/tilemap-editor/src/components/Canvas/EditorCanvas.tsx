@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
-import { useEditorState } from '../../state/EditorContext'
+import { useEditorState, useEditorDispatch } from '../../state/EditorContext'
 import { useCanvasRenderer } from './useCanvasRenderer'
 import { useCanvasPanZoom } from './useCanvasPanZoom'
 import { useCanvasPointer } from './useCanvasPointer'
@@ -10,8 +10,28 @@ export function EditorCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const state = useEditorState()
+  const dispatch = useEditorDispatch()
   const [hoverCell, setHoverCell] = useState<{ row: number; col: number } | null>(null)
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 })
+  const centered = useRef(false)
+
+  // Center map in viewport on first meaningful size
+  useEffect(() => {
+    if (centered.current || canvasSize.w === 0 || canvasSize.h === 0) return
+    centered.current = true
+    const mapW = state.gridCols * state.tileSize
+    const mapH = state.gridRows * state.tileSize
+    const padding = 40
+    const fitZoom = Math.min(
+      (canvasSize.w - padding * 2) / mapW,
+      (canvasSize.h - padding * 2) / mapH,
+      1, // don't zoom in beyond 100%
+    )
+    const panX = (canvasSize.w - mapW * fitZoom) / 2
+    const panY = (canvasSize.h - mapH * fitZoom) / 2
+    dispatch({ type: 'SET_ZOOM', zoom: fitZoom })
+    dispatch({ type: 'SET_PAN', x: panX, y: panY })
+  }, [canvasSize, state.gridCols, state.gridRows, state.tileSize, dispatch])
 
   const screenToGrid = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current
