@@ -4,6 +4,7 @@ import {
   ChevronUp, ChevronDown, Layers,
 } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
+import { Tooltip } from './Tooltip'
 
 export function LayerPanel() {
   const state = useEditorState()
@@ -34,16 +35,17 @@ export function LayerPanel() {
           <Layers size={12} />
           <span>Layers</span>
         </div>
-        <button
-          onClick={() => {
-            dispatch({ type: 'PUSH_HISTORY' })
-            dispatch({ type: 'ADD_LAYER' })
-          }}
-          className="p-0.5 text-neutral-400 hover:text-neutral-100 bg-neutral-700 hover:bg-neutral-600"
-          title="Add Layer"
-        >
-          <Plus size={14} />
-        </button>
+        <Tooltip text="Add Layer" side="right">
+          <button
+            onClick={() => {
+              dispatch({ type: 'PUSH_HISTORY' })
+              dispatch({ type: 'ADD_LAYER' })
+            }}
+            className="p-0.5 text-neutral-400 hover:text-neutral-100 bg-neutral-700 hover:bg-neutral-600"
+          >
+            <Plus size={14} />
+          </button>
+        </Tooltip>
       </div>
 
       {/* Layer list */}
@@ -59,22 +61,24 @@ export function LayerPanel() {
               }`}
             >
               {/* Visibility */}
-              <button
-                onClick={e => { e.stopPropagation(); dispatch({ type: 'TOGGLE_LAYER_VISIBILITY', layerId: layer.id }) }}
-                className="p-0.5 text-neutral-400 hover:text-neutral-100"
-                title={layer.visible ? 'Hide' : 'Show'}
-              >
-                {layer.visible ? <Eye size={12} /> : <EyeOff size={12} />}
-              </button>
+              <Tooltip text={layer.visible ? 'Hide Layer' : 'Show Layer'} side="right" delay={600}>
+                <button
+                  onClick={e => { e.stopPropagation(); dispatch({ type: 'TOGGLE_LAYER_VISIBILITY', layerId: layer.id }) }}
+                  className="p-0.5 text-neutral-400 hover:text-neutral-100"
+                >
+                  {layer.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+                </button>
+              </Tooltip>
 
               {/* Lock */}
-              <button
-                onClick={e => { e.stopPropagation(); dispatch({ type: 'TOGGLE_LAYER_LOCK', layerId: layer.id }) }}
-                className="p-0.5 text-neutral-400 hover:text-neutral-100"
-                title={layer.locked ? 'Unlock' : 'Lock'}
-              >
-                {layer.locked ? <Lock size={12} /> : <Unlock size={12} />}
-              </button>
+              <Tooltip text={layer.locked ? 'Unlock Layer' : 'Lock Layer'} side="right" delay={600}>
+                <button
+                  onClick={e => { e.stopPropagation(); dispatch({ type: 'TOGGLE_LAYER_LOCK', layerId: layer.id }) }}
+                  className="p-0.5 text-neutral-400 hover:text-neutral-100"
+                >
+                  {layer.locked ? <Lock size={12} /> : <Unlock size={12} />}
+                </button>
+              </Tooltip>
 
               {/* Name */}
               {editingId === layer.id ? (
@@ -88,42 +92,47 @@ export function LayerPanel() {
                   onClick={e => e.stopPropagation()}
                 />
               ) : (
-                <span
-                  className="flex-1 text-xs truncate"
-                  onDoubleClick={() => startRename(layer.id, layer.name)}
-                >
-                  {layer.name}
-                </span>
+                <Tooltip text="Double-click to rename" side="right" delay={800}>
+                  <span
+                    className="flex-1 text-xs truncate"
+                    onDoubleClick={() => startRename(layer.id, layer.name)}
+                  >
+                    {layer.name}
+                  </span>
+                </Tooltip>
               )}
 
               {/* Reorder */}
-              <button
-                onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_LAYER', layerId: layer.id, direction: 'up' }) }}
-                className="p-0.5 text-neutral-500 hover:text-neutral-100"
-                title="Move Up"
-              >
-                <ChevronUp size={12} />
-              </button>
-              <button
-                onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_LAYER', layerId: layer.id, direction: 'down' }) }}
-                className="p-0.5 text-neutral-500 hover:text-neutral-100"
-                title="Move Down"
-              >
-                <ChevronDown size={12} />
-              </button>
+              <Tooltip text="Move Up" side="right" delay={600}>
+                <button
+                  onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_LAYER', layerId: layer.id, direction: 'up' }) }}
+                  className="p-0.5 text-neutral-500 hover:text-neutral-100"
+                >
+                  <ChevronUp size={12} />
+                </button>
+              </Tooltip>
+              <Tooltip text="Move Down" side="right" delay={600}>
+                <button
+                  onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_LAYER', layerId: layer.id, direction: 'down' }) }}
+                  className="p-0.5 text-neutral-500 hover:text-neutral-100"
+                >
+                  <ChevronDown size={12} />
+                </button>
+              </Tooltip>
 
               {/* Delete */}
-              <button
-                onClick={e => {
-                  e.stopPropagation()
-                  dispatch({ type: 'PUSH_HISTORY' })
-                  dispatch({ type: 'REMOVE_LAYER', layerId: layer.id })
-                }}
-                className="p-0.5 text-neutral-500 hover:text-red-400"
-                title="Delete Layer"
-              >
-                <Trash2 size={12} />
-              </button>
+              <Tooltip text="Delete Layer" side="right" delay={600}>
+                <button
+                  onClick={e => {
+                    e.stopPropagation()
+                    dispatch({ type: 'PUSH_HISTORY' })
+                    dispatch({ type: 'REMOVE_LAYER', layerId: layer.id })
+                  }}
+                  className="p-0.5 text-neutral-500 hover:text-red-400"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </Tooltip>
             </div>
           )
         })}
