@@ -93,74 +93,41 @@ function ResizeHandleX({ onResize }: { onResize: (delta: number) => void }) {
   )
 }
 
-/** Horizontal resize handle (drag up/down) */
-function ResizeHandleY({ onResize }: { onResize: (delta: number) => void }) {
-  const dragging = useRef(false)
-  const lastY = useRef(0)
-
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    e.preventDefault()
-    dragging.current = true
-    lastY.current = e.clientY
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-  }, [])
-
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragging.current) return
-    const dy = e.clientY - lastY.current
-    lastY.current = e.clientY
-    onResize(dy)
-  }, [onResize])
-
-  const onPointerUp = useCallback(() => {
-    dragging.current = false
-  }, [])
-
-  return (
-    <div
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      className="h-1.5 cursor-row-resize bg-neutral-700 hover:bg-sky-600 active:bg-sky-500 shrink-0 relative group"
-    >
-      {/* Knob */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-1 w-8 bg-neutral-500 group-hover:bg-sky-400" />
-    </div>
-  )
-}
-
 export default function App() {
-  const [layerWidth, setLayerWidth] = useState(220)
-  const [paletteHeight, setPaletteHeight] = useState(180)
+  const [layerWidth, setLayerWidth] = useState(200)
+  const [paletteWidth, setPaletteWidth] = useState(420)
 
   const handleLayerResize = useCallback((dx: number) => {
-    setLayerWidth(prev => Math.max(140, Math.min(500, prev + dx)))
+    setLayerWidth(prev => Math.max(140, Math.min(400, prev + dx)))
   }, [])
 
-  const handlePaletteResize = useCallback((dy: number) => {
-    setPaletteHeight(prev => Math.max(80, Math.min(600, prev - dy)))
+  const handlePaletteResize = useCallback((dx: number) => {
+    setPaletteWidth(prev => Math.max(160, Math.min(600, prev - dx)))
   }, [])
 
   return (
     <EditorProvider>
       <AutoLoad />
       <KeyboardShortcuts />
-      <div className="flex h-screen bg-neutral-900 text-neutral-100 select-none overflow-hidden">
-        {/* Left col: Layers (full height) */}
-        <div style={{ width: layerWidth }} className="shrink-0 flex flex-col">
-          <LayerPanel />
-        </div>
+      <div className="flex flex-col h-screen bg-neutral-900 text-neutral-100 select-none overflow-hidden">
+        <Toolbar />
+        <div className="flex flex-1 min-h-0">
+          {/* Left: Layers */}
+          <div style={{ width: layerWidth }} className="shrink-0 flex flex-col">
+            <LayerPanel />
+          </div>
 
-        <ResizeHandleX onResize={handleLayerResize} />
+          <ResizeHandleX onResize={handleLayerResize} />
 
-        {/* Right col: Toolbar + Canvas + Tileset */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <Toolbar />
-          <div className="flex-1 min-h-0">
+          {/* Center: Canvas */}
+          <div className="flex-1 min-w-0">
             <EditorCanvas />
           </div>
-          <ResizeHandleY onResize={handlePaletteResize} />
-          <div style={{ height: paletteHeight }} className="shrink-0">
+
+          <ResizeHandleX onResize={handlePaletteResize} />
+
+          {/* Right: Tile Palette */}
+          <div style={{ width: paletteWidth }} className="shrink-0">
             <TilePalette />
           </div>
         </div>

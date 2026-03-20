@@ -57,7 +57,7 @@ export function TilePalette() {
             <ChevronDown size={12} />
           </button>
           {dropdownOpen && (
-            <div className="absolute left-0 bottom-full mb-1 w-64 max-h-60 overflow-y-auto bg-neutral-800 border border-neutral-600 z-50 shadow-lg">
+            <div className="absolute left-0 top-full mt-1 w-64 max-h-60 overflow-y-auto bg-neutral-800 border border-neutral-600 z-50 shadow-lg">
               {TILESET_PATHS.map(t => (
                 <button
                   key={t.id}
