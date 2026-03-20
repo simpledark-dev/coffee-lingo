@@ -255,6 +255,54 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       }
     }
 
+    case 'MOVE_SELECTION': {
+      if (!state.selection) return state
+      const layer = getActiveLayer(state)
+      if (!layer || layer.locked) return state
+      const { startRow, startCol, endRow, endCol } = state.selection
+      const minR = Math.min(startRow, endRow)
+      const maxR = Math.max(startRow, endRow)
+      const minC = Math.min(startCol, endCol)
+      const maxC = Math.max(startCol, endCol)
+      const { dRow, dCol } = action
+
+      // Collect tiles in selection
+      const moving: Record<string, typeof layer.tiles[string]> = {}
+      const newTiles = { ...layer.tiles }
+      for (let r = minR; r <= maxR; r++) {
+        for (let c = minC; c <= maxC; c++) {
+          const key = `${r},${c}`
+          if (newTiles[key]) {
+            moving[key] = newTiles[key]
+            delete newTiles[key]
+          }
+        }
+      }
+
+      // Place at new position
+      for (const [key, tile] of Object.entries(moving)) {
+        const [r, c] = key.split(',').map(Number)
+        const nr = r + dRow
+        const nc = c + dCol
+        if (nr >= 0 && nr < state.gridRows && nc >= 0 && nc < state.gridCols) {
+          newTiles[`${nr},${nc}`] = tile
+        }
+      }
+
+      return {
+        ...state,
+        layers: state.layers.map(l =>
+          l.id === layer.id ? { ...l, tiles: newTiles } : l
+        ),
+        selection: {
+          startRow: minR + dRow,
+          startCol: minC + dCol,
+          endRow: maxR + dRow,
+          endCol: maxC + dCol,
+        },
+      }
+    }
+
     // ── History ──
     case 'PUSH_HISTORY':
       return {

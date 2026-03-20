@@ -101,7 +101,18 @@ export function EditorCanvas() {
     onPointerUp(e)
   }
 
-  const cursor = resizeCursor ?? 'crosshair'
+  // Determine cursor
+  let cursor = 'crosshair'
+  if (resizeCursor) {
+    cursor = resizeCursor
+  } else if (state.activeTool === 'select' && state.selection && hoverCell) {
+    const { startRow, startCol, endRow, endCol } = state.selection
+    const minR = Math.min(startRow, endRow), maxR = Math.max(startRow, endRow)
+    const minC = Math.min(startCol, endCol), maxC = Math.max(startCol, endCol)
+    if (hoverCell.row >= minR && hoverCell.row <= maxR && hoverCell.col >= minC && hoverCell.col <= maxC) {
+      cursor = 'move'
+    }
+  }
 
   return (
     <div ref={containerRef} className="w-full h-full overflow-hidden bg-neutral-950 relative" style={{ cursor }}>

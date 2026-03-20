@@ -122,6 +122,7 @@ export type EditorAction =
   | { type: 'COPY_SELECTION' }
   | { type: 'PASTE_SELECTION'; row: number; col: number }
   | { type: 'DELETE_SELECTION' }
+  | { type: 'MOVE_SELECTION'; dRow: number; dCol: number }
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'PUSH_HISTORY' }
