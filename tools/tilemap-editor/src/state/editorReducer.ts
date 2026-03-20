@@ -1,5 +1,6 @@
 import type { EditorState, EditorAction, Layer } from '../types/editor'
 import { generateId } from '../utils/generateId'
+import { hydrateLayers } from '../utils/importJson'
 
 const MAX_HISTORY = 50
 
@@ -334,19 +335,21 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     }
 
     // ── Import ──
-    case 'IMPORT_MAP':
+    case 'IMPORT_MAP': {
+      const hydratedLayers = hydrateLayers(action.data)
       return {
         ...state,
         mapName: action.data.name,
         gridCols: action.data.gridCols,
         gridRows: action.data.gridRows,
         tileSize: action.data.tileSize,
-        layers: action.data.layers,
-        activeLayerId: action.data.layers[0]?.id ?? state.activeLayerId,
+        layers: hydratedLayers,
+        activeLayerId: hydratedLayers[0]?.id ?? state.activeLayerId,
         undoStack: [],
         redoStack: [],
         importDialogOpen: false,
       }
+    }
 
     case 'SET_GRID_SIZE':
       return { ...state, gridCols: action.cols, gridRows: action.rows }

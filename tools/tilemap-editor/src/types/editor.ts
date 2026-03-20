@@ -33,9 +33,26 @@ export interface Layer {
   tiles: Record<string, TilePlacement> // key: "row,col"
 }
 
-// ── JSON Format ─────────────────────────────────────────
+// ── JSON Format (v2 - compact) ──────────────────────────
 
 export interface TilemapJSON {
+  version: 2
+  name: string
+  gridCols: number
+  gridRows: number
+  tileSize: number
+  tilesets: string[]        // tileset IDs as array, index = tilesetIdx
+  layers: {
+    id: string
+    name: string
+    visible: boolean
+    locked: boolean
+    tiles: number[]          // flat: [row, col, tilesetIdx, tileIndex, ...]
+  }[]
+}
+
+// v1 format for backward compat import
+export interface TilemapJSON_V1 {
   version: 1
   name: string
   gridCols: number
