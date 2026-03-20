@@ -2,10 +2,13 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { EditorProvider, useEditorDispatch, useEditorState } from './state/EditorContext'
 import { Toolbar } from './components/Toolbar'
 import { LayerPanel } from './components/LayerPanel'
+import { EntityList } from './components/EntityList'
 import { EditorCanvas } from './components/Canvas/EditorCanvas'
 import { TilePalette } from './components/TilePalette'
+import { EntityPalette } from './components/EntityPalette'
 import { ExportDialog } from './components/ExportDialog'
 import { ImportDialog } from './components/ImportDialog'
+import { CreateEntityDefDialog } from './components/CreateEntityDefDialog'
 import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorage'
 
 function AutoLoad() {
@@ -44,9 +47,14 @@ function KeyboardShortcuts() {
         case 's': dispatch({ type: 'SET_TOOL', tool: 'select' }); break
         case 'i': dispatch({ type: 'SET_TOOL', tool: 'eyedropper' }); break
         case 'r': dispatch({ type: 'TOGGLE_RESIZE_MODE' }); break
+        case 'm': dispatch({ type: 'SET_EDITOR_MODE', mode: state.editorMode === 'tile' ? 'entity' : 'tile' }); break
         case 'delete':
         case 'backspace':
-          if (state.selection) dispatch({ type: 'DELETE_SELECTION' })
+          if (state.editorMode === 'entity' && state.selectedEntityId) {
+            dispatch({ type: 'DELETE_ENTITY', entityId: state.selectedEntityId })
+          } else if (state.selection) {
+            dispatch({ type: 'DELETE_SELECTION' })
+          }
           break
       }
     }
@@ -93,7 +101,8 @@ function ResizeHandleX({ onResize }: { onResize: (delta: number) => void }) {
   )
 }
 
-export default function App() {
+function EditorLayout() {
+  const state = useEditorState()
   const [layerWidth, setLayerWidth] = useState(200)
   const [paletteWidth, setPaletteWidth] = useState(420)
 
@@ -105,35 +114,44 @@ export default function App() {
     setPaletteWidth(prev => Math.max(160, Math.min(600, prev - dx)))
   }, [])
 
+  const isTileMode = state.editorMode === 'tile'
+
+  return (
+    <div className="flex flex-col h-screen bg-neutral-900 text-neutral-100 select-none overflow-hidden">
+      <Toolbar />
+      <div className="flex flex-1 min-h-0">
+        {/* Left panel */}
+        <div style={{ width: layerWidth }} className="shrink-0 flex flex-col">
+          {isTileMode ? <LayerPanel /> : <EntityList />}
+        </div>
+
+        <ResizeHandleX onResize={handleLayerResize} />
+
+        {/* Center: Canvas */}
+        <div className="flex-1 min-w-0">
+          <EditorCanvas />
+        </div>
+
+        <ResizeHandleX onResize={handlePaletteResize} />
+
+        {/* Right panel */}
+        <div style={{ width: paletteWidth }} className="shrink-0">
+          {isTileMode ? <TilePalette /> : <EntityPalette />}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function App() {
   return (
     <EditorProvider>
       <AutoLoad />
       <KeyboardShortcuts />
-      <div className="flex flex-col h-screen bg-neutral-900 text-neutral-100 select-none overflow-hidden">
-        <Toolbar />
-        <div className="flex flex-1 min-h-0">
-          {/* Left: Layers */}
-          <div style={{ width: layerWidth }} className="shrink-0 flex flex-col">
-            <LayerPanel />
-          </div>
-
-          <ResizeHandleX onResize={handleLayerResize} />
-
-          {/* Center: Canvas */}
-          <div className="flex-1 min-w-0">
-            <EditorCanvas />
-          </div>
-
-          <ResizeHandleX onResize={handlePaletteResize} />
-
-          {/* Right: Tile Palette */}
-          <div style={{ width: paletteWidth }} className="shrink-0">
-            <TilePalette />
-          </div>
-        </div>
-      </div>
+      <EditorLayout />
       <ExportDialog />
       <ImportDialog />
+      <CreateEntityDefDialog />
     </EditorProvider>
   )
 }

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   Pencil, Eraser, PaintBucket, Square, Pipette,
   Grid3x3, ZoomIn, ZoomOut, Undo2, Redo2,
-  Download, Upload, Move, Save,
+  Download, Upload, Move, Save, Layers, Box,
 } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { Tooltip } from './Tooltip'
@@ -37,6 +37,22 @@ export function Toolbar() {
 
   return (
     <div className="flex items-center gap-1 px-2 h-10 bg-neutral-800 border-b border-neutral-700 shrink-0">
+      {/* Mode toggle */}
+      <div className="flex gap-0.5">
+        <Tooltip text="Tile Mode" shortcut="M">
+          <ToolBtn active={state.editorMode === 'tile'} onClick={() => dispatch({ type: 'SET_EDITOR_MODE', mode: 'tile' })}>
+            <Layers size={16} />
+          </ToolBtn>
+        </Tooltip>
+        <Tooltip text="Entity Mode" shortcut="M">
+          <ToolBtn active={state.editorMode === 'entity'} onClick={() => dispatch({ type: 'SET_EDITOR_MODE', mode: 'entity' })}>
+            <Box size={16} />
+          </ToolBtn>
+        </Tooltip>
+      </div>
+
+      <div className="w-px h-6 bg-neutral-600 mx-1" />
+
       {/* Tool buttons */}
       <div className="flex gap-0.5">
         {TOOLS.map(t => (

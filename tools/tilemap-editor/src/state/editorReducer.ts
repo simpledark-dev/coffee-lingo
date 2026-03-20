@@ -35,9 +35,15 @@ export function createInitialState(): EditorState {
     panY: 0,
     undoStack: [],
     redoStack: [],
+    editorMode: 'tile',
     resizeMode: false,
+    entityDefs: [],
+    entities: [],
+    selectedEntityDefType: null,
+    selectedEntityId: null,
     exportDialogOpen: false,
     importDialogOpen: false,
+    createEntityDefDialogOpen: false,
   }
 }
 
@@ -345,6 +351,10 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         tileSize: action.data.tileSize,
         layers: hydratedLayers,
         activeLayerId: hydratedLayers[0]?.id ?? state.activeLayerId,
+        entityDefs: action.data.entityDefs ?? [],
+        entities: action.data.entities ?? [],
+        selectedEntityId: null,
+        selectedEntityDefType: null,
         undoStack: [],
         redoStack: [],
         importDialogOpen: false,
@@ -391,6 +401,87 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case 'TOGGLE_RESIZE_MODE':
       return { ...state, resizeMode: !state.resizeMode }
+
+    // ── Editor Mode ──
+    case 'SET_EDITOR_MODE':
+      return { ...state, editorMode: action.mode, resizeMode: false }
+
+    // ── Entity Defs ──
+    case 'ADD_ENTITY_DEF':
+      if (state.entityDefs.some(d => d.type === action.def.type)) return state
+      return { ...state, entityDefs: [...state.entityDefs, action.def] }
+
+    case 'REMOVE_ENTITY_DEF':
+      return {
+        ...state,
+        entityDefs: state.entityDefs.filter(d => d.type !== action.entityType),
+        entities: state.entities.filter(e => e.type !== action.entityType),
+        selectedEntityDefType: state.selectedEntityDefType === action.entityType ? null : state.selectedEntityDefType,
+      }
+
+    case 'SELECT_ENTITY_DEF':
+      return { ...state, selectedEntityDefType: action.entityType, selectedEntityId: null }
+
+    // ── Entities ──
+    case 'PLACE_ENTITY': {
+      const def = state.entityDefs.find(d => d.type === state.selectedEntityDefType)
+      if (!def) return state
+      // Check overlap
+      const newR = action.row, newC = action.col
+      const overlaps = state.entities.some(e => {
+        const eDef = state.entityDefs.find(d => d.type === e.type)
+        if (!eDef) return false
+        return newR < e.row + eDef.height && newR + def.height > e.row &&
+               newC < e.col + eDef.width && newC + def.width > e.col
+      })
+      if (overlaps) return state
+      // Check bounds
+      if (newR < 0 || newC < 0 || newR + def.height > state.gridRows || newC + def.width > state.gridCols) return state
+      const entity = { id: generateId(), type: def.type, row: newR, col: newC, properties: { ...def.properties } }
+      return { ...state, entities: [...state.entities, entity] }
+    }
+
+    case 'SELECT_ENTITY':
+      return { ...state, selectedEntityId: action.entityId }
+
+    case 'MOVE_ENTITY': {
+      const entity = state.entities.find(e => e.id === action.entityId)
+      if (!entity) return state
+      const def = state.entityDefs.find(d => d.type === entity.type)
+      if (!def) return state
+      if (action.row < 0 || action.col < 0 || action.row + def.height > state.gridRows || action.col + def.width > state.gridCols) return state
+      // Check overlap with other entities
+      const overlaps2 = state.entities.some(e => {
+        if (e.id === action.entityId) return false
+        const eDef = state.entityDefs.find(d => d.type === e.type)
+        if (!eDef) return false
+        return action.row < e.row + eDef.height && action.row + def.height > e.row &&
+               action.col < e.col + eDef.width && action.col + def.width > e.col
+      })
+      if (overlaps2) return state
+      return {
+        ...state,
+        entities: state.entities.map(e => e.id === action.entityId ? { ...e, row: action.row, col: action.col } : e),
+      }
+    }
+
+    case 'DELETE_ENTITY':
+      return {
+        ...state,
+        entities: state.entities.filter(e => e.id !== action.entityId),
+        selectedEntityId: state.selectedEntityId === action.entityId ? null : state.selectedEntityId,
+      }
+
+    case 'UPDATE_ENTITY_PROPS':
+      return {
+        ...state,
+        entities: state.entities.map(e =>
+          e.id === action.entityId ? { ...e, properties: { ...e.properties, ...action.properties } } : e
+        ),
+      }
+
+    case 'SET_CREATE_ENTITY_DEF_DIALOG':
+      return { ...state, createEntityDefDialogOpen: action.open }
 
     // ── Tilesets ──
     case 'ADD_TILESET':

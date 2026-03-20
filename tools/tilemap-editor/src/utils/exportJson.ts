@@ -32,6 +32,8 @@ export function exportJson(state: EditorState): TilemapJSON {
         tiles,
       }
     }),
+    entityDefs: state.entityDefs.length > 0 ? state.entityDefs : undefined,
+    entities: state.entities.length > 0 ? state.entities : undefined,
   }
 }
 

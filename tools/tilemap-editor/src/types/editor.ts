@@ -49,6 +49,8 @@ export interface TilemapJSON {
     locked: boolean
     tiles: number[]          // flat: [row, col, tilesetIdx, tileIndex, ...]
   }[]
+  entityDefs?: import('./entity').EntityDef[]
+  entities?: import('./entity').Entity[]
 }
 
 // v1 format for backward compat import
@@ -74,6 +76,10 @@ export interface Selection {
   endRow: number
   endCol: number
 }
+
+// ── Editor Mode ─────────────────────────────────────────
+
+export type EditorMode = 'tile' | 'entity'
 
 // ── Editor State ────────────────────────────────────────
 
@@ -111,11 +117,19 @@ export interface EditorState {
   redoStack: Layer[][]
 
   // Modes
+  editorMode: EditorMode
   resizeMode: boolean
+
+  // Entities
+  entityDefs: import('./entity').EntityDef[]
+  entities: import('./entity').Entity[]
+  selectedEntityDefType: string | null
+  selectedEntityId: string | null
 
   // UI
   exportDialogOpen: boolean
   importDialogOpen: boolean
+  createEntityDefDialogOpen: boolean
 }
 
 // ── Actions ─────────────────────────────────────────────
@@ -151,7 +165,17 @@ export type EditorAction =
   | { type: 'SET_PAN'; x: number; y: number }
   | { type: 'TOGGLE_GRID' }
   | { type: 'TOGGLE_RESIZE_MODE' }
+  | { type: 'SET_EDITOR_MODE'; mode: EditorMode }
+  | { type: 'ADD_ENTITY_DEF'; def: import('./entity').EntityDef }
+  | { type: 'REMOVE_ENTITY_DEF'; entityType: string }
+  | { type: 'SELECT_ENTITY_DEF'; entityType: string | null }
+  | { type: 'PLACE_ENTITY'; row: number; col: number }
+  | { type: 'SELECT_ENTITY'; entityId: string | null }
+  | { type: 'MOVE_ENTITY'; entityId: string; row: number; col: number }
+  | { type: 'DELETE_ENTITY'; entityId: string }
+  | { type: 'UPDATE_ENTITY_PROPS'; entityId: string; properties: Record<string, unknown> }
   | { type: 'ADD_TILESET'; tileset: TilesetConfig }
   | { type: 'REMOVE_TILESET'; tilesetId: string }
   | { type: 'SET_EXPORT_DIALOG'; open: boolean }
   | { type: 'SET_IMPORT_DIALOG'; open: boolean }
+  | { type: 'SET_CREATE_ENTITY_DEF_DIALOG'; open: boolean }
