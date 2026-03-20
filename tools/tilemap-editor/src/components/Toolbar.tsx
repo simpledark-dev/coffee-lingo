@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import {
   Pencil, Eraser, PaintBucket, Square, Pipette,
   Grid3x3, ZoomIn, ZoomOut, Undo2, Redo2,
-  Download, Upload, Move,
+  Download, Upload, Move, Save,
 } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { Tooltip } from './Tooltip'
+import { saveToLocalStorage } from '../utils/localStorage'
 import type { ToolType } from '../types/editor'
 
 const TOOLS: { type: ToolType; icon: typeof Pencil; label: string; shortcut: string }[] = [
@@ -31,6 +33,7 @@ function ToolBtn({ active, onClick, children }: {
 export function Toolbar() {
   const state = useEditorState()
   const dispatch = useEditorDispatch()
+  const [saved, setSaved] = useState(false)
 
   return (
     <div className="flex items-center gap-1 px-2 h-10 bg-neutral-800 border-b border-neutral-700 shrink-0">
@@ -103,8 +106,14 @@ export function Toolbar() {
 
       <div className="flex-1" />
 
-      {/* Export / Import */}
-      <Tooltip text="Export" shortcut="Ctrl+S">
+      {/* Save / Export / Import */}
+      <Tooltip text="Save" shortcut="Ctrl+S">
+        <ToolBtn onClick={() => { saveToLocalStorage(state); setSaved(true); setTimeout(() => setSaved(false), 1500) }}>
+          <Save size={16} />
+        </ToolBtn>
+      </Tooltip>
+      {saved && <span className="text-xs text-green-400">Saved!</span>}
+      <Tooltip text="Export">
         <ToolBtn onClick={() => dispatch({ type: 'SET_EXPORT_DIALOG', open: true })}>
           <Download size={16} />
         </ToolBtn>

@@ -6,6 +6,19 @@ import { EditorCanvas } from './components/Canvas/EditorCanvas'
 import { TilePalette } from './components/TilePalette'
 import { ExportDialog } from './components/ExportDialog'
 import { ImportDialog } from './components/ImportDialog'
+import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorage'
+
+function AutoLoad() {
+  const dispatch = useEditorDispatch()
+  const loaded = useRef(false)
+  useEffect(() => {
+    if (loaded.current) return
+    loaded.current = true
+    const data = loadFromLocalStorage()
+    if (data) dispatch({ type: 'IMPORT_MAP', data })
+  }, [dispatch])
+  return null
+}
 
 function KeyboardShortcuts() {
   const dispatch = useEditorDispatch()
@@ -18,7 +31,7 @@ function KeyboardShortcuts() {
       if (e.ctrlKey || e.metaKey) {
         if (e.key === 'z') { e.preventDefault(); dispatch({ type: 'UNDO' }) }
         if (e.key === 'y') { e.preventDefault(); dispatch({ type: 'REDO' }) }
-        if (e.key === 's') { e.preventDefault(); dispatch({ type: 'SET_EXPORT_DIALOG', open: true }) }
+        if (e.key === 's') { e.preventDefault(); saveToLocalStorage(state) }
         if (e.key === 'c' && state.selection) { e.preventDefault(); dispatch({ type: 'COPY_SELECTION' }) }
         if (e.key === 'v' && state.clipboard) { e.preventDefault(); dispatch({ type: 'PASTE_SELECTION', row: 0, col: 0 }) }
         return
@@ -130,6 +143,7 @@ export default function App() {
 
   return (
     <EditorProvider>
+      <AutoLoad />
       <KeyboardShortcuts />
       <div className="flex h-screen bg-neutral-900 text-neutral-100 select-none overflow-hidden">
         {/* Left col: Layers (full height) */}
