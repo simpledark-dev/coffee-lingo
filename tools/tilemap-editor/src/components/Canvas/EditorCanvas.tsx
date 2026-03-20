@@ -3,6 +3,7 @@ import { useEditorState } from '../../state/EditorContext'
 import { useCanvasRenderer } from './useCanvasRenderer'
 import { useCanvasPanZoom } from './useCanvasPanZoom'
 import { useCanvasPointer } from './useCanvasPointer'
+import { Minimap } from './Minimap'
 import { tilesetImageStore } from '../TilePalette'
 
 export function EditorCanvas() {
@@ -65,7 +66,7 @@ export function EditorCanvas() {
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full overflow-hidden bg-neutral-950 cursor-crosshair">
+    <div ref={containerRef} className="w-full h-full overflow-hidden bg-neutral-950 cursor-crosshair relative">
       <canvas
         ref={canvasRef}
         style={{ width: canvasSize.w, height: canvasSize.h }}
@@ -76,6 +77,9 @@ export function EditorCanvas() {
         onPointerLeave={() => setHoverCell(null)}
         onContextMenu={e => e.preventDefault()}
       />
+      <div className="absolute top-2 right-2 z-10">
+        <Minimap tilesetImages={tilesetImageStore} canvasSize={canvasSize} />
+      </div>
     </div>
   )
 }
