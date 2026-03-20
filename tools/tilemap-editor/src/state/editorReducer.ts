@@ -34,6 +34,7 @@ export function createInitialState(): EditorState {
     panY: 0,
     undoStack: [],
     redoStack: [],
+    resizeMode: false,
     exportDialogOpen: false,
     importDialogOpen: false,
   }
@@ -302,6 +303,28 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'SET_GRID_SIZE':
       return { ...state, gridCols: action.cols, gridRows: action.rows }
 
+    case 'RESIZE_MAP': {
+      const { top, right, bottom, left } = action
+      const newCols = Math.max(1, state.gridCols + left + right)
+      const newRows = Math.max(1, state.gridRows + top + bottom)
+      // Offset tiles when expanding/shrinking from top or left
+      const dr = top
+      const dc = left
+      const newLayers = state.layers.map(layer => {
+        const newTiles: Record<string, typeof layer.tiles[string]> = {}
+        for (const [key, tile] of Object.entries(layer.tiles)) {
+          const [r, c] = key.split(',').map(Number)
+          const nr = r + dr
+          const nc = c + dc
+          if (nr >= 0 && nr < newRows && nc >= 0 && nc < newCols) {
+            newTiles[`${nr},${nc}`] = tile
+          }
+        }
+        return { ...layer, tiles: newTiles }
+      })
+      return { ...state, gridCols: newCols, gridRows: newRows, layers: newLayers }
+    }
+
     case 'SET_TILE_SIZE':
       return { ...state, tileSize: Math.max(8, Math.min(128, action.size)) }
 
@@ -314,6 +337,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case 'TOGGLE_GRID':
       return { ...state, showGrid: !state.showGrid }
+
+    case 'TOGGLE_RESIZE_MODE':
+      return { ...state, resizeMode: !state.resizeMode }
 
     // ── Tilesets ──
     case 'ADD_TILESET':

@@ -3,6 +3,7 @@ import { useEditorState, useEditorDispatch } from '../../state/EditorContext'
 import { useCanvasRenderer } from './useCanvasRenderer'
 import { useCanvasPanZoom } from './useCanvasPanZoom'
 import { useCanvasPointer } from './useCanvasPointer'
+import { useCanvasResize } from './useCanvasResize'
 import { Minimap } from './Minimap'
 import { tilesetImageStore } from '../TilePalette'
 
@@ -25,7 +26,7 @@ export function EditorCanvas() {
     const fitZoom = Math.min(
       (canvasSize.w - padding * 2) / mapW,
       (canvasSize.h - padding * 2) / mapH,
-      1, // don't zoom in beyond 100%
+      1,
     )
     const panX = (canvasSize.w - mapW * fitZoom) / 2
     const panY = (canvasSize.h - mapH * fitZoom) / 2
@@ -56,16 +57,30 @@ export function EditorCanvas() {
     return () => observer.disconnect()
   }, [])
 
-  useCanvasRenderer(canvasRef, tilesetImageStore, hoverCell, canvasSize)
+  const {
+    hoveredHandle, resizeCursor,
+    updateHover,
+    onResizePointerDown, onResizePointerMove, onResizePointerUp,
+  } = useCanvasResize(canvasRef)
+
+  useCanvasRenderer(canvasRef, tilesetImageStore, hoverCell, canvasSize, hoveredHandle)
   const { onWheel, onPanPointerDown, onPanPointerMove, onPanPointerUp } = useCanvasPanZoom(canvasRef)
   const { onPointerDown, onPointerMove, onPointerUp } = useCanvasPointer(canvasRef)
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (state.resizeMode && onResizePointerDown(e)) return
     onPanPointerDown(e)
-    if (e.button === 0) onPointerDown(e)
+    if (e.button === 0 && !state.resizeMode) onPointerDown(e)
   }
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (state.resizeMode) {
+      if (onResizePointerMove(e)) return
+      updateHover(e.clientX, e.clientY)
+      onPanPointerMove(e)
+      return
+    }
+
     onPanPointerMove(e)
     onPointerMove(e)
 
@@ -81,12 +96,15 @@ export function EditorCanvas() {
   }
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    if (state.resizeMode && onResizePointerUp()) return
     onPanPointerUp(e)
     onPointerUp(e)
   }
 
+  const cursor = resizeCursor ?? 'crosshair'
+
   return (
-    <div ref={containerRef} className="w-full h-full overflow-hidden bg-neutral-950 cursor-crosshair relative">
+    <div ref={containerRef} className="w-full h-full overflow-hidden bg-neutral-950 relative" style={{ cursor }}>
       <canvas
         ref={canvasRef}
         style={{ width: canvasSize.w, height: canvasSize.h }}
@@ -94,7 +112,7 @@ export function EditorCanvas() {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerLeave={() => setHoverCell(null)}
+        onPointerLeave={() => { setHoverCell(null); updateHover(-9999, -9999) }}
         onContextMenu={e => e.preventDefault()}
       />
       <div className="absolute top-2 right-2 z-10">

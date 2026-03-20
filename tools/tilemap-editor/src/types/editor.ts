@@ -93,6 +93,9 @@ export interface EditorState {
   undoStack: Layer[][]
   redoStack: Layer[][]
 
+  // Modes
+  resizeMode: boolean
+
   // UI
   exportDialogOpen: boolean
   importDialogOpen: boolean
@@ -124,10 +127,12 @@ export type EditorAction =
   | { type: 'PUSH_HISTORY' }
   | { type: 'IMPORT_MAP'; data: TilemapJSON }
   | { type: 'SET_GRID_SIZE'; cols: number; rows: number }
+  | { type: 'RESIZE_MAP'; top: number; right: number; bottom: number; left: number }
   | { type: 'SET_TILE_SIZE'; size: number }
   | { type: 'SET_ZOOM'; zoom: number }
   | { type: 'SET_PAN'; x: number; y: number }
   | { type: 'TOGGLE_GRID' }
+  | { type: 'TOGGLE_RESIZE_MODE' }
   | { type: 'ADD_TILESET'; tileset: TilesetConfig }
   | { type: 'REMOVE_TILESET'; tilesetId: string }
   | { type: 'SET_EXPORT_DIALOG'; open: boolean }

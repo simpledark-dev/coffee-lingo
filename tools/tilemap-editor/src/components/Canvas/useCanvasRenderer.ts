@@ -1,11 +1,13 @@
 import { useEffect } from 'react'
 import { useEditorState } from '../../state/EditorContext'
+import type { HandleId } from './useCanvasResize'
 
 export function useCanvasRenderer(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   tilesetImages: Map<string, HTMLImageElement>,
   hoverCell: { row: number; col: number } | null,
   canvasSize: { w: number; h: number },
+  hoveredHandle?: HandleId | null,
 ) {
   const state = useEditorState()
 
@@ -192,6 +194,76 @@ export function useCanvasRenderer(
       )
     }
 
+    // Resize mode overlay + handles
+    if (state.resizeMode) {
+      const mapW = gridCols * tileSize
+      const mapH = gridRows * tileSize
+
+      // Dim overlay
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'
+      ctx.fillRect(0, 0, mapW, mapH)
+
+      // Dashed border
+      ctx.strokeStyle = '#38bdf8'
+      ctx.lineWidth = 2 / state.zoom
+      ctx.setLineDash([6 / state.zoom, 4 / state.zoom])
+      ctx.strokeRect(0, 0, mapW, mapH)
+      ctx.setLineDash([])
+
+      // 8 handles
+      const handleSize = 10 / state.zoom
+      const positions: [string, number, number][] = [
+        ['nw', 0, 0], ['n', mapW / 2, 0], ['ne', mapW, 0],
+        ['w', 0, mapH / 2], ['e', mapW, mapH / 2],
+        ['sw', 0, mapH], ['s', mapW / 2, mapH], ['se', mapW, mapH],
+      ]
+      for (const [id, hx, hy] of positions) {
+        const isHovered = hoveredHandle === id
+        ctx.fillStyle = isHovered ? '#38bdf8' : '#ffffff'
+        ctx.fillRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize)
+        ctx.strokeStyle = '#1e293b'
+        ctx.lineWidth = 1.5 / state.zoom
+        ctx.strokeRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize)
+      }
+
+      // Arrow indicators on 4 edges
+      const arrowLen = 16 / state.zoom
+      const arrowW = 5 / state.zoom
+      ctx.fillStyle = 'rgba(56,189,248,0.6)'
+      // Top arrow (up)
+      ctx.beginPath()
+      ctx.moveTo(mapW / 2, -arrowLen - 4 / state.zoom)
+      ctx.lineTo(mapW / 2 - arrowW, -4 / state.zoom)
+      ctx.lineTo(mapW / 2 + arrowW, -4 / state.zoom)
+      ctx.fill()
+      // Bottom arrow (down)
+      ctx.beginPath()
+      ctx.moveTo(mapW / 2, mapH + arrowLen + 4 / state.zoom)
+      ctx.lineTo(mapW / 2 - arrowW, mapH + 4 / state.zoom)
+      ctx.lineTo(mapW / 2 + arrowW, mapH + 4 / state.zoom)
+      ctx.fill()
+      // Left arrow
+      ctx.beginPath()
+      ctx.moveTo(-arrowLen - 4 / state.zoom, mapH / 2)
+      ctx.lineTo(-4 / state.zoom, mapH / 2 - arrowW)
+      ctx.lineTo(-4 / state.zoom, mapH / 2 + arrowW)
+      ctx.fill()
+      // Right arrow
+      ctx.beginPath()
+      ctx.moveTo(mapW + arrowLen + 4 / state.zoom, mapH / 2)
+      ctx.lineTo(mapW + 4 / state.zoom, mapH / 2 - arrowW)
+      ctx.lineTo(mapW + 4 / state.zoom, mapH / 2 + arrowW)
+      ctx.fill()
+
+      // Size label
+      ctx.fillStyle = 'rgba(56,189,248,0.9)'
+      const fontSize = Math.max(12, 14 / state.zoom)
+      ctx.font = `${fontSize}px 'Courier New', monospace`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(`${gridCols} x ${gridRows}`, mapW / 2, mapH / 2)
+    }
+
     ctx.restore()
-  }, [canvasRef, state, tilesetImages, hoverCell, canvasSize])
+  }, [canvasRef, state, tilesetImages, hoverCell, canvasSize, hoveredHandle])
 }

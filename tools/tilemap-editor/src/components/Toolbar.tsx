@@ -1,7 +1,7 @@
 import {
   Pencil, Eraser, PaintBucket, Square, Pipette,
   Grid3x3, ZoomIn, ZoomOut, Undo2, Redo2,
-  Download, Upload,
+  Download, Upload, Move,
 } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import type { ToolType } from '../types/editor'
@@ -57,6 +57,15 @@ export function Toolbar() {
         title="Toggle Grid"
       >
         <Grid3x3 size={16} />
+      </ToolBtn>
+
+      {/* Resize mode */}
+      <ToolBtn
+        active={state.resizeMode}
+        onClick={() => dispatch({ type: 'TOGGLE_RESIZE_MODE' })}
+        title="Resize Map (R)"
+      >
+        <Move size={16} />
       </ToolBtn>
 
       <div className="w-px h-6 bg-neutral-600 mx-1" />

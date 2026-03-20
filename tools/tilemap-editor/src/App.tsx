@@ -30,6 +30,7 @@ function KeyboardShortcuts() {
         case 'g': dispatch({ type: 'SET_TOOL', tool: 'fill' }); break
         case 's': dispatch({ type: 'SET_TOOL', tool: 'select' }); break
         case 'i': dispatch({ type: 'SET_TOOL', tool: 'eyedropper' }); break
+        case 'r': dispatch({ type: 'TOGGLE_RESIZE_MODE' }); break
         case 'delete':
         case 'backspace':
           if (state.selection) dispatch({ type: 'DELETE_SELECTION' })
