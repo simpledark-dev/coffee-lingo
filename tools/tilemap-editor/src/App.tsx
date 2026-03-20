@@ -57,7 +57,8 @@ function KeyboardShortcuts() {
         }
         case 'c': dispatch({ type: 'SET_EDITOR_MODE', mode: 'collision' }); break
         case 'delete':
-        case 'backspace':
+        case 'backspace': {
+          e.preventDefault()
           if (state.editorMode === 'entity' && state.selectedEntityId) {
             dispatch({ type: 'DELETE_ENTITY', entityId: state.selectedEntityId })
           } else if (state.editorMode === 'collision' && state.selectedZoneId) {
@@ -66,11 +67,12 @@ function KeyboardShortcuts() {
             dispatch({ type: 'DELETE_SELECTION' })
           }
           break
+        }
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [dispatch, state.selection, state.clipboard])
+  }, [dispatch, state])
 
   return null
 }
