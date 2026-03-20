@@ -34,7 +34,7 @@ export function EntityPalette() {
               def={def}
               active={state.selectedEntityDefType === def.type}
               tileSize={state.tileSize}
-              onSelect={() => dispatch({ type: 'SELECT_ENTITY_DEF', entityType: def.type })}
+              onSelect={() => dispatch({ type: 'SELECT_ENTITY_DEF', entityType: state.selectedEntityDefType === def.type ? null : def.type })}
               onDelete={() => dispatch({ type: 'REMOVE_ENTITY_DEF', entityType: def.type })}
             />
           ))

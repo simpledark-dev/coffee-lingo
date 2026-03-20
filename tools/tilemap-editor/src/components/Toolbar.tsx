@@ -53,43 +53,51 @@ export function Toolbar() {
 
       <div className="w-px h-6 bg-neutral-600 mx-1" />
 
-      {/* Tool buttons */}
-      <div className="flex gap-0.5">
-        {TOOLS.map(t => (
-          <Tooltip key={t.type} text={t.label} shortcut={t.shortcut}>
+      {/* Tool buttons - only show in tile mode */}
+      {state.editorMode === 'tile' && (
+        <>
+          <div className="flex gap-0.5">
+            {TOOLS.map(t => (
+              <Tooltip key={t.type} text={t.label} shortcut={t.shortcut}>
+                <ToolBtn
+                  active={state.activeTool === t.type}
+                  onClick={() => dispatch({ type: 'SET_TOOL', tool: t.type })}
+                >
+                  <t.icon size={16} />
+                </ToolBtn>
+              </Tooltip>
+            ))}
+          </div>
+
+          <div className="w-px h-6 bg-neutral-600 mx-1" />
+        </>
+      )}
+
+      {/* Grid toggle - only in tile mode */}
+      {state.editorMode === 'tile' && (
+        <>
+          <Tooltip text="Toggle Grid">
             <ToolBtn
-              active={state.activeTool === t.type}
-              onClick={() => dispatch({ type: 'SET_TOOL', tool: t.type })}
+              active={state.showGrid}
+              onClick={() => dispatch({ type: 'TOGGLE_GRID' })}
             >
-              <t.icon size={16} />
+              <Grid3x3 size={16} />
             </ToolBtn>
           </Tooltip>
-        ))}
-      </div>
 
-      <div className="w-px h-6 bg-neutral-600 mx-1" />
+          {/* Resize mode */}
+          <Tooltip text="Resize Map" shortcut="R">
+            <ToolBtn
+              active={state.resizeMode}
+              onClick={() => dispatch({ type: 'TOGGLE_RESIZE_MODE' })}
+            >
+              <Move size={16} />
+            </ToolBtn>
+          </Tooltip>
 
-      {/* Grid toggle */}
-      <Tooltip text="Toggle Grid">
-        <ToolBtn
-          active={state.showGrid}
-          onClick={() => dispatch({ type: 'TOGGLE_GRID' })}
-        >
-          <Grid3x3 size={16} />
-        </ToolBtn>
-      </Tooltip>
-
-      {/* Resize mode */}
-      <Tooltip text="Resize Map" shortcut="R">
-        <ToolBtn
-          active={state.resizeMode}
-          onClick={() => dispatch({ type: 'TOGGLE_RESIZE_MODE' })}
-        >
-          <Move size={16} />
-        </ToolBtn>
-      </Tooltip>
-
-      <div className="w-px h-6 bg-neutral-600 mx-1" />
+          <div className="w-px h-6 bg-neutral-600 mx-1" />
+        </>
+      )}
 
       {/* Zoom */}
       <Tooltip text="Zoom In">
