@@ -512,7 +512,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       const zoneDef = state.zoneDefs.find(d => d.type === state.selectedZoneDefType)
       if (!zoneDef) return state
       const { row, col, width, height } = action
-      if (row < 0 || col < 0 || row + height > state.gridRows || col + width > state.gridCols) return state
+      const maxCells = (axis: number) => axis * state.tileSize / 2  // 2px per collision cell
+      if (row < 0 || col < 0 || row + height > maxCells(state.gridRows) || col + width > maxCells(state.gridCols)) return state
       const zone = { id: generateId(), type: zoneDef.type, row, col, width, height, properties: { ...zoneDef.properties } }
       return { ...state, zones: [...state.zones, zone] }
     }
@@ -523,7 +524,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'MOVE_ZONE': {
       const zone = state.zones.find(z => z.id === action.zoneId)
       if (!zone) return state
-      if (action.row < 0 || action.col < 0 || action.row + zone.height > state.gridRows || action.col + zone.width > state.gridCols) return state
+      const maxCells2 = (axis: number) => axis * state.tileSize / 2
+      if (action.row < 0 || action.col < 0 || action.row + zone.height > maxCells2(state.gridRows) || action.col + zone.width > maxCells2(state.gridCols)) return state
       return {
         ...state,
         zones: state.zones.map(z => z.id === action.zoneId ? { ...z, row: action.row, col: action.col } : z),

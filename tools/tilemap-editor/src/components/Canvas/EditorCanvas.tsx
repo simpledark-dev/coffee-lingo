@@ -1,22 +1,16 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { useEditorState, useEditorDispatch } from '../../state/EditorContext'
-import { useCanvasRenderer } from './useCanvasRenderer'
-import { useCanvasEntityRenderer } from './useCanvasEntityRenderer'
-import { useCanvasPanZoom } from './useCanvasPanZoom'
-import { useCanvasPointer } from './useCanvasPointer'
-import { useCanvasEntityPointer } from './useCanvasEntityPointer'
-import { useCanvasCollisionRenderer } from './useCanvasCollisionRenderer'
-import { useCanvasCollisionPointer } from './useCanvasCollisionPointer'
-import { useCanvasResize } from './useCanvasResize'
+import { CanvasManager } from './CanvasManager'
 import { Minimap } from './Minimap'
 import { tilesetImageStore } from '../TilePalette'
 
 export function EditorCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const managerRef = useRef<CanvasManager | null>(null)
   const state = useEditorState()
   const dispatch = useEditorDispatch()
-  const [hoverCell, setHoverCell] = useState<{ row: number; col: number } | null>(null)
+  const [cursor, setCursor] = useState('crosshair')
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 })
   const centered = useRef(false)
 
@@ -32,14 +26,20 @@ export function EditorCanvas() {
     dispatch({ type: 'SET_PAN', x: (canvasSize.w - mapW * fitZoom) / 2, y: (canvasSize.h - mapH * fitZoom) / 2 })
   }, [canvasSize, state.gridCols, state.gridRows, state.tileSize, dispatch])
 
-  const screenToGrid = useCallback((clientX: number, clientY: number) => {
+  // Create manager
+  useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return null
-    const rect = canvas.getBoundingClientRect()
-    const x = (clientX - rect.left - state.panX) / state.zoom
-    const y = (clientY - rect.top - state.panY) / state.zoom
-    return { row: Math.floor(y / state.tileSize), col: Math.floor(x / state.tileSize) }
-  }, [state.panX, state.panY, state.zoom, state.tileSize])
+    if (!canvas) return
+    const mgr = new CanvasManager(canvas, dispatch)
+    managerRef.current = mgr
+    mgr.start()
+    return () => { mgr.destroy(); managerRef.current = null }
+  }, [dispatch])
+
+  // Sync state → manager
+  useEffect(() => {
+    managerRef.current?.syncState(state, tilesetImageStore)
+  }, [state])
 
   // Track container size
   useEffect(() => {
@@ -47,107 +47,46 @@ export function EditorCanvas() {
     if (!container) return
     const observer = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect
-      setCanvasSize({ w: Math.round(width), h: Math.round(height) })
+      const w = Math.round(width)
+      const h = Math.round(height)
+      setCanvasSize({ w, h })
+      managerRef.current?.resize(w, h)
     })
     observer.observe(container)
     return () => observer.disconnect()
   }, [])
 
-  const {
-    hoveredHandle, resizeCursor, updateHover,
-    onResizePointerDown, onResizePointerMove, onResizePointerUp,
-  } = useCanvasResize(canvasRef)
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    managerRef.current?.onWheel(e.nativeEvent)
+  }, [])
 
-  const { onCollisionPointerDown, onCollisionPointerMove, onCollisionPointerUp, dragPreviewRef } = useCanvasCollisionPointer(canvasRef)
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    managerRef.current?.onPointerDown(e.nativeEvent)
+  }, [])
 
-  useCanvasRenderer(canvasRef, tilesetImageStore, hoverCell, canvasSize, hoveredHandle)
-  useCanvasEntityRenderer(canvasRef, tilesetImageStore, hoverCell, canvasSize)
-  useCanvasCollisionRenderer(canvasRef, hoverCell, canvasSize, dragPreviewRef)
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    managerRef.current?.onPointerMove(e.nativeEvent)
+    setCursor(managerRef.current?.getCursor() ?? 'crosshair')
+  }, [])
 
-  const { onWheel, onPanPointerDown, onPanPointerMove, onPanPointerUp } = useCanvasPanZoom(canvasRef)
-  const { onPointerDown: onTilePointerDown, onPointerMove: onTilePointerMove, onPointerUp: onTilePointerUp } = useCanvasPointer(canvasRef)
-  const { onEntityPointerDown, onEntityPointerMove, onEntityPointerUp } = useCanvasEntityPointer(canvasRef)
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    managerRef.current?.onPointerUp(e.nativeEvent)
+  }, [])
 
-  const mode = state.editorMode
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (state.resizeMode && onResizePointerDown(e)) return
-    onPanPointerDown(e)
-    if (e.button === 0 && !state.resizeMode) {
-      if (mode === 'entity') onEntityPointerDown(e)
-      else if (mode === 'collision') onCollisionPointerDown(e)
-      else onTilePointerDown(e)
-    }
-  }
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (state.resizeMode) {
-      if (onResizePointerMove(e)) return
-      updateHover(e.clientX, e.clientY)
-      onPanPointerMove(e)
-      return
-    }
-
-    onPanPointerMove(e)
-    if (mode === 'entity') onEntityPointerMove(e)
-    else if (mode === 'collision') onCollisionPointerMove(e)
-    else onTilePointerMove(e)
-
-    // Track hover cell
-    const grid = screenToGrid(e.clientX, e.clientY)
-    if (grid && grid.row >= 0 && grid.row < state.gridRows && grid.col >= 0 && grid.col < state.gridCols) {
-      setHoverCell(prev => (prev && prev.row === grid.row && prev.col === grid.col) ? prev : grid)
-    } else {
-      setHoverCell(prev => prev === null ? prev : null)
-    }
-  }
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (state.resizeMode && onResizePointerUp()) return
-    onPanPointerUp(e)
-    if (mode === 'entity') onEntityPointerUp()
-    else if (mode === 'collision') onCollisionPointerUp()
-    else onTilePointerUp(e)
-  }
-
-  // Cursor logic
-  let cursor = 'crosshair'
-  if (resizeCursor) {
-    cursor = resizeCursor
-  } else if (mode === 'entity' && hoverCell) {
-    // Check if hovering over an entity
-    const onEntity = state.entities.some(e => {
-      const def = state.entityDefs.find(d => d.type === e.type)
-      if (!def) return false
-      return hoverCell.row >= e.row && hoverCell.row < e.row + def.height &&
-             hoverCell.col >= e.col && hoverCell.col < e.col + def.width
-    })
-    cursor = onEntity ? 'move' : 'crosshair'
-  } else if (mode === 'collision' && hoverCell) {
-    const onZone = state.zones.some(z =>
-      hoverCell.row >= z.row && hoverCell.row < z.row + z.height &&
-      hoverCell.col >= z.col && hoverCell.col < z.col + z.width
-    )
-    cursor = onZone && !state.selectedZoneDefType ? 'move' : 'crosshair'
-  } else if (state.activeTool === 'select' && state.selection && hoverCell) {
-    const { startRow, startCol, endRow, endCol } = state.selection
-    const minR = Math.min(startRow, endRow), maxR = Math.max(startRow, endRow)
-    const minC = Math.min(startCol, endCol), maxC = Math.max(startCol, endCol)
-    if (hoverCell.row >= minR && hoverCell.row <= maxR && hoverCell.col >= minC && hoverCell.col <= maxC) {
-      cursor = 'move'
-    }
-  }
+  const handlePointerLeave = useCallback(() => {
+    managerRef.current?.onPointerLeave()
+  }, [])
 
   return (
     <div ref={containerRef} className="w-full h-full overflow-hidden bg-neutral-950 relative" style={{ cursor }}>
       <canvas
         ref={canvasRef}
         style={{ width: canvasSize.w, height: canvasSize.h }}
-        onWheel={onWheel}
+        onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerLeave={() => { setHoverCell(null); updateHover(-9999, -9999) }}
+        onPointerLeave={handlePointerLeave}
         onContextMenu={e => e.preventDefault()}
       />
       <div className="absolute top-2 right-2 z-10">

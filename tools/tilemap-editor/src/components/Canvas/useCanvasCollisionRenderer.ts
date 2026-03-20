@@ -1,22 +1,19 @@
 import { useEffect } from 'react'
 import { useEditorState } from '../../state/EditorContext'
 import type { Zone } from '../../types/collision'
-import type { DragPreview } from './useCanvasCollisionPointer'
+import { COLLISION_CELL, type DragPreview } from './useCanvasCollisionPointer'
 
 /** Convert any CSS color string to rgba with given alpha */
 function colorWithAlpha(color: string, alpha: number): string {
-  // Use a temporary canvas to parse any CSS color
   const ctx = document.createElement('canvas').getContext('2d')!
   ctx.fillStyle = color
-  const parsed = ctx.fillStyle // normalized to #rrggbb or rgb(...)
-  // Extract RGB from hex
+  const parsed = ctx.fillStyle
   if (parsed.startsWith('#')) {
     const r = parseInt(parsed.slice(1, 3), 16)
     const g = parseInt(parsed.slice(3, 5), 16)
     const b = parseInt(parsed.slice(5, 7), 16)
     return `rgba(${r},${g},${b},${alpha})`
   }
-  // Fallback
   return `rgba(128,128,128,${alpha})`
 }
 
@@ -25,6 +22,7 @@ export function useCanvasCollisionRenderer(
   hoverCell: { row: number; col: number } | null,
   canvasSize: { w: number; h: number },
   dragPreviewRef: React.RefObject<DragPreview>,
+  renderTick: number,
 ) {
   const state = useEditorState()
 
@@ -44,7 +42,7 @@ export function useCanvasCollisionRenderer(
 
       const { tileSize, zones, zoneDefs, selectedZoneId, entities, entityDefs } = state
 
-      // Draw entity footprints (read-only indicator)
+      // Draw entity footprints
       for (const entity of entities) {
         const eDef = entityDefs.find(d => d.type === entity.type)
         if (!eDef) continue
@@ -59,14 +57,14 @@ export function useCanvasCollisionRenderer(
       }
 
       // Draw placed zones
+      const C = COLLISION_CELL
       for (const zone of zones) {
         const def = zoneDefs.find(d => d.type === zone.type)
         if (!def) continue
-        const selected = zone.id === selectedZoneId
-        drawZone(ctx, zone, def.color, tileSize, state.zoom, selected)
+        drawZone(ctx, zone, def.color, C, state.zoom, zone.id === selectedZoneId)
       }
 
-      // Ghost preview: hover 1x1 or drag rectangle
+      // Ghost preview
       const dragPreview = dragPreviewRef.current
       if (dragPreview && state.selectedZoneDefType) {
         const def = zoneDefs.find(d => d.type === state.selectedZoneDefType)
@@ -79,24 +77,12 @@ export function useCanvasCollisionRenderer(
           const h = maxR - minR + 1
 
           ctx.fillStyle = colorWithAlpha(def.color, 0.3)
-          ctx.fillRect(minC * tileSize, minR * tileSize, w * tileSize, h * tileSize)
+          ctx.fillRect(minC * C, minR * C, w * C, h * C)
           ctx.strokeStyle = colorWithAlpha(def.color, 0.7)
           ctx.lineWidth = 2 / state.zoom
           ctx.setLineDash([4 / state.zoom, 4 / state.zoom])
-          ctx.strokeRect(minC * tileSize, minR * tileSize, w * tileSize, h * tileSize)
+          ctx.strokeRect(minC * C, minR * C, w * C, h * C)
           ctx.setLineDash([])
-        }
-      } else if (hoverCell && state.selectedZoneDefType) {
-        const def = zoneDefs.find(d => d.type === state.selectedZoneDefType)
-        if (def) {
-          const { row, col } = hoverCell
-          if (row >= 0 && col >= 0 && row < state.gridRows && col < state.gridCols) {
-            ctx.fillStyle = colorWithAlpha(def.color, 0.3)
-            ctx.fillRect(col * tileSize, row * tileSize, tileSize, tileSize)
-            ctx.strokeStyle = colorWithAlpha(def.color, 0.7)
-            ctx.lineWidth = 2 / state.zoom
-            ctx.strokeRect(col * tileSize, row * tileSize, tileSize, tileSize)
-          }
         }
       }
 
@@ -104,21 +90,21 @@ export function useCanvasCollisionRenderer(
     })
 
     return () => cancelAnimationFrame(handle)
-  }, [canvasRef, state, hoverCell, canvasSize, dragPreviewRef])
+  }, [canvasRef, state, hoverCell, canvasSize, dragPreviewRef, renderTick])
 }
 
 function drawZone(
   ctx: CanvasRenderingContext2D,
   zone: Zone,
   color: string,
-  tileSize: number,
+  cellSize: number,
   zoom: number,
   selected: boolean,
 ) {
-  const x = zone.col * tileSize
-  const y = zone.row * tileSize
-  const w = zone.width * tileSize
-  const h = zone.height * tileSize
+  const x = zone.col * cellSize
+  const y = zone.row * cellSize
+  const w = zone.width * cellSize
+  const h = zone.height * cellSize
 
   // Fill
   ctx.fillStyle = colorWithAlpha(color, 0.35)
@@ -132,12 +118,4 @@ function drawZone(
   }
   ctx.strokeRect(x, y, w, h)
   ctx.setLineDash([])
-
-  // Label
-  const fontSize = Math.max(9, 11 / zoom)
-  ctx.font = `${fontSize}px 'Courier New', monospace`
-  ctx.fillStyle = colorWithAlpha(color, 0.9)
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'top'
-  ctx.fillText(zone.type, x + 3 / zoom, y + 2 / zoom)
 }
