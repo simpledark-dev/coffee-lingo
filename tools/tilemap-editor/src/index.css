@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+* {
+  border-radius: 0 !important;
+}
+
+canvas,
+img {
+  image-rendering: pixelated;
+}
+
+body {
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  background: #171717;
+  color: #f5f5f5;
+}
+
+/* Scrollbar styling for pixel look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #262626;
+}
+::-webkit-scrollbar-thumb {
+  background: #525252;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #737373;
+}
