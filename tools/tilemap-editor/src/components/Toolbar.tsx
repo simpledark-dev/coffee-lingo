@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   Pencil, Eraser, PaintBucket, Square, Pipette,
   Grid3x3, ZoomIn, ZoomOut, Undo2, Redo2,
-  Download, Upload, Move, Save, Layers, Box,
+  Download, Upload, Move, Save, Layers, Box, Shield,
 } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { Tooltip } from './Tooltip'
@@ -47,6 +47,11 @@ export function Toolbar() {
         <Tooltip text="Entity Mode" shortcut="M">
           <ToolBtn active={state.editorMode === 'entity'} onClick={() => dispatch({ type: 'SET_EDITOR_MODE', mode: 'entity' })}>
             <Box size={16} />
+          </ToolBtn>
+        </Tooltip>
+        <Tooltip text="Collision Mode" shortcut="C">
+          <ToolBtn active={state.editorMode === 'collision'} onClick={() => dispatch({ type: 'SET_EDITOR_MODE', mode: 'collision' })}>
+            <Shield size={16} />
           </ToolBtn>
         </Tooltip>
       </div>

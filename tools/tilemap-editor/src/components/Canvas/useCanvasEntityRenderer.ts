@@ -11,7 +11,7 @@ export function useCanvasEntityRenderer(
   const state = useEditorState()
 
   useEffect(() => {
-    if (state.editorMode !== 'entity') return
+    if (state.editorMode !== 'entity' && state.editorMode !== 'collision') return
     const canvas = canvasRef.current
     if (!canvas || canvasSize.w === 0) return
     const ctx = canvas.getContext('2d')
@@ -37,8 +37,8 @@ export function useCanvasEntityRenderer(
         drawEntity(ctx, entity.row, entity.col, def, tileSize, tilesetImages, entity.id === selectedEntityId)
       }
 
-      // Ghost preview
-      if (hoverCell && state.selectedEntityDefType) {
+      // Ghost preview (only in entity mode)
+      if (state.editorMode === 'entity' && hoverCell && state.selectedEntityDefType) {
         const def = entityDefs.find(d => d.type === state.selectedEntityDefType)
         if (def) {
           const { row, col } = hoverCell

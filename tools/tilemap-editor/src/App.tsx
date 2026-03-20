@@ -6,6 +6,8 @@ import { EntityList } from './components/EntityList'
 import { EditorCanvas } from './components/Canvas/EditorCanvas'
 import { TilePalette } from './components/TilePalette'
 import { EntityPalette } from './components/EntityPalette'
+import { ZonePalette } from './components/ZonePalette'
+import { ZoneList } from './components/ZoneList'
 import { ExportDialog } from './components/ExportDialog'
 import { ImportDialog } from './components/ImportDialog'
 import { CreateEntityDefDialog } from './components/CreateEntityDefDialog'
@@ -47,11 +49,19 @@ function KeyboardShortcuts() {
         case 's': dispatch({ type: 'SET_TOOL', tool: 'select' }); break
         case 'i': dispatch({ type: 'SET_TOOL', tool: 'eyedropper' }); break
         case 'r': dispatch({ type: 'TOGGLE_RESIZE_MODE' }); break
-        case 'm': dispatch({ type: 'SET_EDITOR_MODE', mode: state.editorMode === 'tile' ? 'entity' : 'tile' }); break
+        case 'm': {
+          const modes: ('tile' | 'entity' | 'collision')[] = ['tile', 'entity', 'collision']
+          const idx = modes.indexOf(state.editorMode)
+          dispatch({ type: 'SET_EDITOR_MODE', mode: modes[(idx + 1) % modes.length] })
+          break
+        }
+        case 'c': dispatch({ type: 'SET_EDITOR_MODE', mode: 'collision' }); break
         case 'delete':
         case 'backspace':
           if (state.editorMode === 'entity' && state.selectedEntityId) {
             dispatch({ type: 'DELETE_ENTITY', entityId: state.selectedEntityId })
+          } else if (state.editorMode === 'collision' && state.selectedZoneId) {
+            dispatch({ type: 'DELETE_ZONE', zoneId: state.selectedZoneId })
           } else if (state.selection) {
             dispatch({ type: 'DELETE_SELECTION' })
           }
@@ -114,7 +124,7 @@ function EditorLayout() {
     setPaletteWidth(prev => Math.max(160, Math.min(600, prev - dx)))
   }, [])
 
-  const isTileMode = state.editorMode === 'tile'
+  const mode = state.editorMode
 
   return (
     <div className="flex flex-col h-screen bg-neutral-900 text-neutral-100 select-none overflow-hidden">
@@ -122,7 +132,7 @@ function EditorLayout() {
       <div className="flex flex-1 min-h-0">
         {/* Left panel */}
         <div style={{ width: layerWidth }} className="shrink-0 flex flex-col">
-          {isTileMode ? <LayerPanel /> : <EntityList />}
+          {mode === 'tile' ? <LayerPanel /> : mode === 'entity' ? <EntityList /> : <ZoneList />}
         </div>
 
         <ResizeHandleX onResize={handleLayerResize} />
@@ -136,7 +146,7 @@ function EditorLayout() {
 
         {/* Right panel */}
         <div style={{ width: paletteWidth }} className="shrink-0">
-          {isTileMode ? <TilePalette /> : <EntityPalette />}
+          {mode === 'tile' ? <TilePalette /> : mode === 'entity' ? <EntityPalette /> : <ZonePalette />}
         </div>
       </div>
     </div>

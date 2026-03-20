@@ -5,6 +5,8 @@ import { useCanvasEntityRenderer } from './useCanvasEntityRenderer'
 import { useCanvasPanZoom } from './useCanvasPanZoom'
 import { useCanvasPointer } from './useCanvasPointer'
 import { useCanvasEntityPointer } from './useCanvasEntityPointer'
+import { useCanvasCollisionRenderer } from './useCanvasCollisionRenderer'
+import { useCanvasCollisionPointer } from './useCanvasCollisionPointer'
 import { useCanvasResize } from './useCanvasResize'
 import { Minimap } from './Minimap'
 import { tilesetImageStore } from '../TilePalette'
@@ -56,20 +58,24 @@ export function EditorCanvas() {
     onResizePointerDown, onResizePointerMove, onResizePointerUp,
   } = useCanvasResize(canvasRef)
 
+  const { onCollisionPointerDown, onCollisionPointerMove, onCollisionPointerUp, dragPreviewRef } = useCanvasCollisionPointer(canvasRef)
+
   useCanvasRenderer(canvasRef, tilesetImageStore, hoverCell, canvasSize, hoveredHandle)
   useCanvasEntityRenderer(canvasRef, tilesetImageStore, hoverCell, canvasSize)
+  useCanvasCollisionRenderer(canvasRef, hoverCell, canvasSize, dragPreviewRef)
 
   const { onWheel, onPanPointerDown, onPanPointerMove, onPanPointerUp } = useCanvasPanZoom(canvasRef)
   const { onPointerDown: onTilePointerDown, onPointerMove: onTilePointerMove, onPointerUp: onTilePointerUp } = useCanvasPointer(canvasRef)
   const { onEntityPointerDown, onEntityPointerMove, onEntityPointerUp } = useCanvasEntityPointer(canvasRef)
 
-  const isEntityMode = state.editorMode === 'entity'
+  const mode = state.editorMode
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (state.resizeMode && onResizePointerDown(e)) return
     onPanPointerDown(e)
     if (e.button === 0 && !state.resizeMode) {
-      if (isEntityMode) onEntityPointerDown(e)
+      if (mode === 'entity') onEntityPointerDown(e)
+      else if (mode === 'collision') onCollisionPointerDown(e)
       else onTilePointerDown(e)
     }
   }
@@ -83,7 +89,8 @@ export function EditorCanvas() {
     }
 
     onPanPointerMove(e)
-    if (isEntityMode) onEntityPointerMove(e)
+    if (mode === 'entity') onEntityPointerMove(e)
+    else if (mode === 'collision') onCollisionPointerMove(e)
     else onTilePointerMove(e)
 
     // Track hover cell
@@ -98,7 +105,8 @@ export function EditorCanvas() {
   const handlePointerUp = (e: React.PointerEvent) => {
     if (state.resizeMode && onResizePointerUp()) return
     onPanPointerUp(e)
-    if (isEntityMode) onEntityPointerUp()
+    if (mode === 'entity') onEntityPointerUp()
+    else if (mode === 'collision') onCollisionPointerUp()
     else onTilePointerUp(e)
   }
 
@@ -106,7 +114,7 @@ export function EditorCanvas() {
   let cursor = 'crosshair'
   if (resizeCursor) {
     cursor = resizeCursor
-  } else if (isEntityMode && hoverCell) {
+  } else if (mode === 'entity' && hoverCell) {
     // Check if hovering over an entity
     const onEntity = state.entities.some(e => {
       const def = state.entityDefs.find(d => d.type === e.type)
@@ -115,6 +123,12 @@ export function EditorCanvas() {
              hoverCell.col >= e.col && hoverCell.col < e.col + def.width
     })
     cursor = onEntity ? 'move' : 'crosshair'
+  } else if (mode === 'collision' && hoverCell) {
+    const onZone = state.zones.some(z =>
+      hoverCell.row >= z.row && hoverCell.row < z.row + z.height &&
+      hoverCell.col >= z.col && hoverCell.col < z.col + z.width
+    )
+    cursor = onZone && !state.selectedZoneDefType ? 'move' : 'crosshair'
   } else if (state.activeTool === 'select' && state.selection && hoverCell) {
     const { startRow, startCol, endRow, endCol } = state.selection
     const minR = Math.min(startRow, endRow), maxR = Math.max(startRow, endRow)

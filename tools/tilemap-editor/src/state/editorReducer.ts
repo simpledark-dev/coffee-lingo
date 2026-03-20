@@ -41,6 +41,10 @@ export function createInitialState(): EditorState {
     entities: [],
     selectedEntityDefType: null,
     selectedEntityId: null,
+    zoneDefs: [],
+    zones: [],
+    selectedZoneDefType: null,
+    selectedZoneId: null,
     exportDialogOpen: false,
     importDialogOpen: false,
     createEntityDefDialogOpen: false,
@@ -355,6 +359,10 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         entities: action.data.entities ?? [],
         selectedEntityId: null,
         selectedEntityDefType: null,
+        zoneDefs: action.data.zoneDefs ?? [],
+        zones: action.data.zones ?? [],
+        selectedZoneDefType: null,
+        selectedZoneId: null,
         undoStack: [],
         redoStack: [],
         importDialogOpen: false,
@@ -482,6 +490,60 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case 'SET_CREATE_ENTITY_DEF_DIALOG':
       return { ...state, createEntityDefDialogOpen: action.open }
+
+    // ── Zone Defs ──
+    case 'ADD_ZONE_DEF':
+      if (state.zoneDefs.some(d => d.type === action.def.type)) return state
+      return { ...state, zoneDefs: [...state.zoneDefs, action.def] }
+
+    case 'REMOVE_ZONE_DEF':
+      return {
+        ...state,
+        zoneDefs: state.zoneDefs.filter(d => d.type !== action.zoneType),
+        zones: state.zones.filter(z => z.type !== action.zoneType),
+        selectedZoneDefType: state.selectedZoneDefType === action.zoneType ? null : state.selectedZoneDefType,
+      }
+
+    case 'SELECT_ZONE_DEF':
+      return { ...state, selectedZoneDefType: action.zoneType, selectedZoneId: null }
+
+    // ── Zones ──
+    case 'PLACE_ZONE': {
+      const zoneDef = state.zoneDefs.find(d => d.type === state.selectedZoneDefType)
+      if (!zoneDef) return state
+      const { row, col, width, height } = action
+      if (row < 0 || col < 0 || row + height > state.gridRows || col + width > state.gridCols) return state
+      const zone = { id: generateId(), type: zoneDef.type, row, col, width, height, properties: { ...zoneDef.properties } }
+      return { ...state, zones: [...state.zones, zone] }
+    }
+
+    case 'SELECT_ZONE':
+      return { ...state, selectedZoneId: action.zoneId }
+
+    case 'MOVE_ZONE': {
+      const zone = state.zones.find(z => z.id === action.zoneId)
+      if (!zone) return state
+      if (action.row < 0 || action.col < 0 || action.row + zone.height > state.gridRows || action.col + zone.width > state.gridCols) return state
+      return {
+        ...state,
+        zones: state.zones.map(z => z.id === action.zoneId ? { ...z, row: action.row, col: action.col } : z),
+      }
+    }
+
+    case 'DELETE_ZONE':
+      return {
+        ...state,
+        zones: state.zones.filter(z => z.id !== action.zoneId),
+        selectedZoneId: state.selectedZoneId === action.zoneId ? null : state.selectedZoneId,
+      }
+
+    case 'UPDATE_ZONE_PROPS':
+      return {
+        ...state,
+        zones: state.zones.map(z =>
+          z.id === action.zoneId ? { ...z, properties: { ...z.properties, ...action.properties } } : z
+        ),
+      }
 
     // ── Tilesets ──
     case 'ADD_TILESET':

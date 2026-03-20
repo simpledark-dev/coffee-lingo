@@ -51,6 +51,8 @@ export interface TilemapJSON {
   }[]
   entityDefs?: import('./entity').EntityDef[]
   entities?: import('./entity').Entity[]
+  zoneDefs?: import('./collision').ZoneDef[]
+  zones?: import('./collision').Zone[]
 }
 
 // v1 format for backward compat import
@@ -79,7 +81,7 @@ export interface Selection {
 
 // ── Editor Mode ─────────────────────────────────────────
 
-export type EditorMode = 'tile' | 'entity'
+export type EditorMode = 'tile' | 'entity' | 'collision'
 
 // ── Editor State ────────────────────────────────────────
 
@@ -125,6 +127,12 @@ export interface EditorState {
   entities: import('./entity').Entity[]
   selectedEntityDefType: string | null
   selectedEntityId: string | null
+
+  // Collision zones
+  zoneDefs: import('./collision').ZoneDef[]
+  zones: import('./collision').Zone[]
+  selectedZoneDefType: string | null
+  selectedZoneId: string | null
 
   // UI
   exportDialogOpen: boolean
@@ -174,6 +182,14 @@ export type EditorAction =
   | { type: 'MOVE_ENTITY'; entityId: string; row: number; col: number }
   | { type: 'DELETE_ENTITY'; entityId: string }
   | { type: 'UPDATE_ENTITY_PROPS'; entityId: string; properties: Record<string, unknown> }
+  | { type: 'ADD_ZONE_DEF'; def: import('./collision').ZoneDef }
+  | { type: 'REMOVE_ZONE_DEF'; zoneType: string }
+  | { type: 'SELECT_ZONE_DEF'; zoneType: string | null }
+  | { type: 'PLACE_ZONE'; row: number; col: number; width: number; height: number }
+  | { type: 'SELECT_ZONE'; zoneId: string | null }
+  | { type: 'MOVE_ZONE'; zoneId: string; row: number; col: number }
+  | { type: 'DELETE_ZONE'; zoneId: string }
+  | { type: 'UPDATE_ZONE_PROPS'; zoneId: string; properties: Record<string, unknown> }
   | { type: 'ADD_TILESET'; tileset: TilesetConfig }
   | { type: 'REMOVE_TILESET'; tilesetId: string }
   | { type: 'SET_EXPORT_DIALOG'; open: boolean }
