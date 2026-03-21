@@ -147,6 +147,15 @@ function TileGrid({ tilesetId, image, tileSize, state, dispatch }: {
     return { r, c }
   }, [pan, zoom, tileSize, cols, rows])
 
+  // Set canvas resolution only when size changes
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || canvasSize.w === 0) return
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = canvasSize.w * dpr
+    canvas.height = canvasSize.h * dpr
+  }, [canvasSize.w, canvasSize.h])
+
   // Draw
   const draw = useCallback((highlightOverride?: typeof selRect) => {
     const canvas = canvasRef.current
@@ -155,10 +164,7 @@ function TileGrid({ tilesetId, image, tileSize, state, dispatch }: {
     if (!ctx) return
 
     const dpr = window.devicePixelRatio || 1
-    canvas.width = canvasSize.w * dpr
-    canvas.height = canvasSize.h * dpr
-    ctx.scale(dpr, dpr)
-
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
 
     ctx.save()
@@ -166,30 +172,28 @@ function TileGrid({ tilesetId, image, tileSize, state, dispatch }: {
     ctx.scale(zoom, zoom)
     ctx.imageSmoothingEnabled = false
 
-    // Draw tiles
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        ctx.drawImage(
-          image,
-          c * tileSize, r * tileSize, tileSize, tileSize,
-          c * tileSize, r * tileSize, tileSize, tileSize,
-        )
-      }
-    }
+    // Draw entire tileset image in one call
+    ctx.drawImage(image, 0, 0)
 
-    // Grid lines
+    // Grid lines — only draw visible range
+    const invZoom = 1 / zoom
+    const startC = Math.max(0, Math.floor(-pan.x / zoom / tileSize))
+    const startR = Math.max(0, Math.floor(-pan.y / zoom / tileSize))
+    const endC = Math.min(cols, Math.ceil((-pan.x + canvasSize.w) / zoom / tileSize))
+    const endR = Math.min(rows, Math.ceil((-pan.y + canvasSize.h) / zoom / tileSize))
+
     ctx.strokeStyle = 'rgba(255,255,255,0.07)'
-    ctx.lineWidth = 1 / zoom
-    for (let r = 0; r <= rows; r++) {
+    ctx.lineWidth = invZoom
+    for (let r = startR; r <= endR; r++) {
       ctx.beginPath()
-      ctx.moveTo(0, r * tileSize)
-      ctx.lineTo(cols * tileSize, r * tileSize)
+      ctx.moveTo(startC * tileSize, r * tileSize)
+      ctx.lineTo(endC * tileSize, r * tileSize)
       ctx.stroke()
     }
-    for (let c = 0; c <= cols; c++) {
+    for (let c = startC; c <= endC; c++) {
       ctx.beginPath()
-      ctx.moveTo(c * tileSize, 0)
-      ctx.lineTo(c * tileSize, rows * tileSize)
+      ctx.moveTo(c * tileSize, startR * tileSize)
+      ctx.lineTo(c * tileSize, endR * tileSize)
       ctx.stroke()
     }
 
