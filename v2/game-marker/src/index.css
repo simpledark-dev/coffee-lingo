@@ -34,3 +34,22 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #737373;
 }
+
+.input-field {
+  width: 100%;
+  padding: 4px 8px;
+  background: #171717;
+  border: 1px solid #404040;
+  color: #e5e5e5;
+  font-size: 12px;
+  font-family: inherit;
+}
+.input-field:focus {
+  outline: none;
+  border-color: #0ea5e9;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}

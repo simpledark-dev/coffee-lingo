@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { EditorProvider, useEditorDispatch, useEditorState } from '../state/EditorContext'
-import { TilesetProvider, useTilesetConfigs, useTilesetLoading } from '../state/TilesetContext'
+import { useTilesetConfigs, useTilesetLoading } from '../state/TilesetContext'
+import { useProject } from '../state/ProjectContext'
+import { useToast } from '../components/Toast'
 import { Toolbar } from '../components/Toolbar'
 import { LayerPanel } from '../components/LayerPanel'
 import { EntityList } from '../components/EntityList'
@@ -9,28 +11,33 @@ import { TilePalette } from '../components/TilePalette'
 import { EntityPalette } from '../components/EntityPalette'
 import { ZonePalette } from '../components/ZonePalette'
 import { ZoneList } from '../components/ZoneList'
-import { ExportDialog } from '../components/ExportDialog'
-import { ImportDialog } from '../components/ImportDialog'
-import { CreateEntityDefDialog } from '../components/CreateEntityDefDialog'
-import { EntityCollisionModal } from '../components/EntityCollisionModal'
 import { EntityCollisionList } from '../components/EntityCollisionList'
-import { saveToLocalStorage, loadFromLocalStorage } from '../utils/localStorage'
+import { EntityCollisionModal } from '../components/EntityCollisionModal'
+import { listMaps } from '../storage/db'
 
 function AutoLoad() {
   const dispatch = useEditorDispatch()
+  const { currentProject } = useProject()
   const loaded = useRef(false)
   useEffect(() => {
-    if (loaded.current) return
+    if (loaded.current || !currentProject) return
     loaded.current = true
-    const data = loadFromLocalStorage()
-    if (data) dispatch({ type: 'IMPORT_MAP', data })
-  }, [dispatch])
+    listMaps(currentProject.id).then(maps => {
+      if (maps.length > 0) {
+        // Load the most recently updated map
+        const latest = maps.sort((a, b) => b.updatedAt - a.updatedAt)[0]
+        dispatch({ type: 'IMPORT_MAP', data: latest.data })
+      }
+    })
+  }, [dispatch, currentProject])
   return null
 }
 
 function KeyboardShortcuts() {
   const dispatch = useEditorDispatch()
   const state = useEditorState()
+  const { currentProject } = useProject()
+  const toast = useToast()
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -39,7 +46,18 @@ function KeyboardShortcuts() {
       if (e.ctrlKey || e.metaKey) {
         if (e.key === 'z') { e.preventDefault(); dispatch({ type: 'UNDO' }) }
         if (e.key === 'y') { e.preventDefault(); dispatch({ type: 'REDO' }) }
-        if (e.key === 's') { e.preventDefault(); saveToLocalStorage(state) }
+        if (e.key === 's') {
+          e.preventDefault()
+          if (currentProject) {
+            import('../utils/exportJson').then(({ exportJson }) =>
+              import('../storage/db').then(({ saveMap }) => {
+                saveMap(currentProject.id, state.mapName || 'Untitled', exportJson(state))
+                  .then(() => toast('Map saved', 'success'))
+                  .catch(() => toast('Failed to save', 'error'))
+              })
+            )
+          }
+        }
         if (e.key === 'c' && state.selection) { e.preventDefault(); dispatch({ type: 'COPY_SELECTION' }) }
         if (e.key === 'v' && state.clipboard) { e.preventDefault(); dispatch({ type: 'PASTE_SELECTION', row: 0, col: 0 }) }
         return
@@ -181,17 +199,12 @@ function TilesetSync() {
 
 export function EditorPage() {
   return (
-    <TilesetProvider>
-      <EditorProvider>
-        <TilesetSync />
-        <AutoLoad />
-        <KeyboardShortcuts />
-        <EditorLayout />
-        <ExportDialog />
-        <ImportDialog />
-        <CreateEntityDefDialog />
-        <EntityCollisionModal />
-      </EditorProvider>
-    </TilesetProvider>
+    <EditorProvider>
+      <TilesetSync />
+      <AutoLoad />
+      <KeyboardShortcuts />
+      <EditorLayout />
+      <EntityCollisionModal />
+    </EditorProvider>
   )
 }

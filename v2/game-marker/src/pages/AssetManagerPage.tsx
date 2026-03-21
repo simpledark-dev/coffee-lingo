@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useProject } from '../state/ProjectContext'
+import { useDialog } from '../components/Dialog'
 import { getAssetBlobUrl } from '../storage/blobUrlCache'
 import type { ProjectAsset } from '../types/project'
 import { Upload, Trash2, Pencil, Check, X, Search, Plus } from 'lucide-react'
 
 /** "tileset" is always present as a built-in category (used by the editor). */
-const BUILTIN_CATEGORIES = ['tileset']
+const BUILTIN_CATEGORIES = ['tileset', 'sprite-sheet']
 
 export function AssetManagerPage() {
   const { assets, loadingAssets, addAsset, updateAsset, deleteAsset } = useProject()
+  const { confirm } = useDialog()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [search, setSearch] = useState('')
@@ -56,7 +58,7 @@ export function AssetManagerPage() {
   }, [addAsset, uploadCategory])
 
   const handleDelete = useCallback(async (id: string) => {
-    if (!confirm('Delete this asset?')) return
+    if (!await confirm('Delete Asset', 'Delete this asset?')) return
     await deleteAsset(id)
     if (selectedId === id) setSelectedId(null)
   }, [deleteAsset, selectedId])
@@ -319,9 +321,9 @@ function AssetRow({
   }
 
   return (
-    <button
+    <div
       onClick={onSelect}
-      className={`w-full text-left px-3 py-2 border-b border-neutral-800 flex items-center gap-2.5 group hover:bg-neutral-800 ${isSelected ? 'bg-neutral-800 border-l-2 border-l-sky-500' : ''}`}
+      className={`w-full text-left px-3 py-2 border-b border-neutral-800 flex items-center gap-2.5 group hover:bg-neutral-800 cursor-pointer ${isSelected ? 'bg-neutral-800 border-l-2 border-l-sky-500' : ''}`}
     >
       {thumb ? (
         <img src={thumb} className="w-8 h-8 object-cover bg-neutral-700 shrink-0" style={{ imageRendering: 'pixelated' }} />
@@ -348,7 +350,7 @@ function AssetRow({
           <Trash2 size={11} />
         </button>
       </div>
-    </button>
+    </div>
   )
 }
 

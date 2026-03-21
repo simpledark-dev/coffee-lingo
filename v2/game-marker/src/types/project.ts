@@ -3,6 +3,7 @@ import type { TilemapJSON } from './editor'
 export interface Project {
   id: string
   name: string
+  tileSize: number        // global tile size in px (default 32)
   createdAt: number
   updatedAt: number
 }

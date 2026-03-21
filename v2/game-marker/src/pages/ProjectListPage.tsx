@@ -1,11 +1,13 @@
 import { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useProject } from '../state/ProjectContext'
+import { useDialog } from '../components/Dialog'
 import { FolderPlus, Trash2, FolderOpen, Upload, Download } from 'lucide-react'
 import { exportProjectZip, downloadZip, importProjectZip, readZipFile } from '../storage/db'
 
 export function ProjectListPage() {
   const { projects, loadingProjects, createProject, deleteProject } = useProject()
+  const { confirm, alert } = useDialog()
   const navigate = useNavigate()
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
@@ -32,7 +34,7 @@ export function ProjectListPage() {
       navigate(`/project/${project.id}/assets`)
     } catch (e) {
       console.error('Import failed:', e)
-      alert('Failed to import project: ' + (e instanceof Error ? e.message : 'Unknown error'))
+      await alert('Import Failed', 'Failed to import project: ' + (e instanceof Error ? e.message : 'Unknown error'))
     }
     setImporting(false)
     if (importInputRef.current) importInputRef.current.value = ''
@@ -54,7 +56,7 @@ export function ProjectListPage() {
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
-    if (!confirm('Delete this project and all its assets?')) return
+    if (!await confirm('Delete Project', 'Delete this project and all its assets?')) return
     await deleteProject(id)
   }
 

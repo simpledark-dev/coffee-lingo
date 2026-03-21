@@ -1,8 +1,10 @@
 import { useRef, useEffect, useState } from 'react'
 import { useEditorState, useEditorDispatch } from '../../state/EditorContext'
+import { useEntityDefs } from '../../state/EntityContext'
 import { CanvasManager } from './CanvasManager'
 import { Minimap } from './Minimap'
 import { useTilesetImages } from '../../state/TilesetContext'
+import { useEntityImages } from '../../state/useEntityImages'
 
 export function EditorCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -11,14 +13,18 @@ export function EditorCanvas() {
   const state = useEditorState()
   const dispatch = useEditorDispatch()
   const tilesetImageStore = useTilesetImages()
+  const entityDefs = useEntityDefs()
+  const entityImages = useEntityImages()
   const [cursor, setCursor] = useState('crosshair')
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 })
   const centered = useRef(false)
 
-  // Center map on first load
+  // Center map on first load (only if no saved viewport)
   useEffect(() => {
     if (centered.current || canvasSize.w === 0 || canvasSize.h === 0) return
     centered.current = true
+    // Skip auto-center if viewport was restored from save
+    if (state.panX !== 0 || state.panY !== 0) return
     const mapW = state.gridCols * state.tileSize
     const mapH = state.gridRows * state.tileSize
     const padding = 40
@@ -41,6 +47,15 @@ export function EditorCanvas() {
   useEffect(() => {
     managerRef.current?.syncState(state, tilesetImageStore)
   }, [state])
+
+  // Sync entity defs + images → manager
+  useEffect(() => {
+    managerRef.current?.syncEntityDefs(entityDefs)
+  }, [entityDefs])
+
+  useEffect(() => {
+    managerRef.current?.syncEntityImages(entityImages)
+  }, [entityImages])
 
   // Track container size
   useEffect(() => {

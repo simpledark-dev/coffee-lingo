@@ -37,9 +37,8 @@ export function createInitialState(): EditorState {
     redoStack: [],
     editorMode: 'tile',
     resizeMode: false,
-    entityDefs: [],
     entities: [],
-    selectedEntityDefType: null,
+    selectedEntityDefId: null,
     selectedEntityId: null,
     zoneDefs: [],
     zones: [],
@@ -48,7 +47,6 @@ export function createInitialState(): EditorState {
     selectedEntityDefForCollision: null,
     exportDialogOpen: false,
     importDialogOpen: false,
-    createEntityDefDialogOpen: false,
   }
 }
 
@@ -356,14 +354,16 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         tileSize: action.data.tileSize,
         layers: hydratedLayers,
         activeLayerId: hydratedLayers[0]?.id ?? state.activeLayerId,
-        entityDefs: action.data.entityDefs ?? [],
-        entities: action.data.entities ?? [],
+        entities: (action.data.entities ?? []) as import('../types/entity').Entity[],
         selectedEntityId: null,
-        selectedEntityDefType: null,
+        selectedEntityDefId: null,
         zoneDefs: action.data.zoneDefs ?? [],
         zones: action.data.zones ?? [],
         selectedZoneDefType: null,
         selectedZoneId: null,
+        zoom: action.data.viewport?.zoom ?? state.zoom,
+        panX: action.data.viewport?.panX ?? state.panX,
+        panY: action.data.viewport?.panY ?? state.panY,
         undoStack: [],
         redoStack: [],
         importDialogOpen: false,
@@ -415,38 +415,17 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'SET_EDITOR_MODE':
       return { ...state, editorMode: action.mode, resizeMode: false }
 
-    // ── Entity Defs ──
-    case 'ADD_ENTITY_DEF':
-      if (state.entityDefs.some(d => d.type === action.def.type)) return state
-      return { ...state, entityDefs: [...state.entityDefs, action.def] }
-
-    case 'REMOVE_ENTITY_DEF':
-      return {
-        ...state,
-        entityDefs: state.entityDefs.filter(d => d.type !== action.entityType),
-        entities: state.entities.filter(e => e.type !== action.entityType),
-        selectedEntityDefType: state.selectedEntityDefType === action.entityType ? null : state.selectedEntityDefType,
-      }
-
+    // ── Entity Def Selection ──
     case 'SELECT_ENTITY_DEF':
-      return { ...state, selectedEntityDefType: action.entityType, selectedEntityId: null }
+      return { ...state, selectedEntityDefId: action.entityDefId, selectedEntityId: null }
 
     // ── Entities ──
     case 'PLACE_ENTITY': {
-      const def = state.entityDefs.find(d => d.type === state.selectedEntityDefType)
-      if (!def) return state
-      // Check overlap
+      const def = action.def
       const newR = action.row, newC = action.col
-      const overlaps = state.entities.some(e => {
-        const eDef = state.entityDefs.find(d => d.type === e.type)
-        if (!eDef) return false
-        return newR < e.row + eDef.height && newR + def.height > e.row &&
-               newC < e.col + eDef.width && newC + def.width > e.col
-      })
-      if (overlaps) return state
       // Check bounds
-      if (newR < 0 || newC < 0 || newR + def.height > state.gridRows || newC + def.width > state.gridCols) return state
-      const entity = { id: generateId(), type: def.type, row: newR, col: newC, properties: { ...def.properties } }
+      if (newR < 0 || newC < 0 || newR + def.visual.height > state.gridRows || newC + def.visual.width > state.gridCols) return state
+      const entity = { id: generateId(), defId: def.id, row: newR, col: newC, properties: { ...def.properties } }
       return { ...state, entities: [...state.entities, entity] }
     }
 
@@ -456,18 +435,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'MOVE_ENTITY': {
       const entity = state.entities.find(e => e.id === action.entityId)
       if (!entity) return state
-      const def = state.entityDefs.find(d => d.type === entity.type)
+      const def = action.entityDefs.find(d => d.id === entity.defId)
       if (!def) return state
-      if (action.row < 0 || action.col < 0 || action.row + def.height > state.gridRows || action.col + def.width > state.gridCols) return state
-      // Check overlap with other entities
-      const overlaps2 = state.entities.some(e => {
-        if (e.id === action.entityId) return false
-        const eDef = state.entityDefs.find(d => d.type === e.type)
-        if (!eDef) return false
-        return action.row < e.row + eDef.height && action.row + def.height > e.row &&
-               action.col < e.col + eDef.width && action.col + def.width > e.col
-      })
-      if (overlaps2) return state
+      if (action.row < 0 || action.col < 0 || action.row + def.visual.height > state.gridRows || action.col + def.visual.width > state.gridCols) return state
       return {
         ...state,
         entities: state.entities.map(e => e.id === action.entityId ? { ...e, row: action.row, col: action.col } : e),
@@ -488,9 +458,6 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
           e.id === action.entityId ? { ...e, properties: { ...e.properties, ...action.properties } } : e
         ),
       }
-
-    case 'SET_CREATE_ENTITY_DEF_DIALOG':
-      return { ...state, createEntityDefDialogOpen: action.open }
 
     // ── Zone Defs ──
     case 'ADD_ZONE_DEF':
@@ -550,15 +517,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     // ── Entity Collision ──
     case 'SELECT_ENTITY_DEF_FOR_COLLISION':
-      return { ...state, selectedEntityDefForCollision: action.entityType }
-
-    case 'UPDATE_ENTITY_DEF_COLLISION':
-      return {
-        ...state,
-        entityDefs: state.entityDefs.map(def =>
-          def.type === action.entityType ? { ...def, collisionZones: action.collisionZones } : def
-        ),
-      }
+      return { ...state, selectedEntityDefForCollision: action.entityDefId }
 
     // ── Tilesets ──
     case 'ADD_TILESET':

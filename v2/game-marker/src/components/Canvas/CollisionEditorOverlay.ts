@@ -67,7 +67,7 @@ export class CollisionEditorOverlay {
     this.entityDef = entityDef
     this.tileSize = tileSize
     this.tilesetImages = images
-    this.zones = entityDef.collisionZones ? entityDef.collisionZones.map(z => ({ ...z })) : []
+    this.zones = entityDef.collision?.zones ? entityDef.collision.zones.map(z => ({ ...z })) : []
     this.selectedZoneIdx = -1
     this.clickStart = null
     this.preview = null
@@ -120,8 +120,8 @@ export class CollisionEditorOverlay {
   private computeViewport() {
     if (!this.entityDef || this.w === 0 || this.h === 0) return
     const ts = this.tileSize
-    const totalW = this.entityDef.width * ts + PADDING_CELLS * COLLISION_CELL * 2
-    const totalH = this.entityDef.height * ts + PADDING_CELLS * COLLISION_CELL * 2
+    const totalW = this.entityDef.visual.width * ts + PADDING_CELLS * COLLISION_CELL * 2
+    const totalH = this.entityDef.visual.height * ts + PADDING_CELLS * COLLISION_CELL * 2
     const margin = 80
     this.scale = Math.min((this.w - margin) / totalW, (this.h - margin) / totalH, 8)
     this.offsetX = (this.w - totalW * this.scale) / 2 + PADDING_CELLS * COLLISION_CELL * this.scale
@@ -243,8 +243,8 @@ export class CollisionEditorOverlay {
 
     const def = this.entityDef
     const ts = this.tileSize
-    const ew = def.width * ts
-    const eh = def.height * ts
+    const ew = def.visual.width * ts
+    const eh = def.visual.height * ts
     const pad = PADDING_CELLS * COLLISION_CELL
 
     // Background
@@ -256,14 +256,15 @@ export class CollisionEditorOverlay {
     ctx.fillRect(0, 0, ew, eh)
 
     // Sprite
-    const img = this.tilesetImages.get(def.tilesetId)
+    const img = this.tilesetImages.get(def.visual.assetId)
     if (img) {
       const tsCols = Math.floor(img.naturalWidth / ts)
       if (tsCols > 0) {
-        const baseCol = def.tileIndex % tsCols
-        const baseRow = Math.floor(def.tileIndex / tsCols)
-        for (let dr = 0; dr < def.height; dr++) {
-          for (let dc = 0; dc < def.width; dc++) {
+        const tileIndex = def.visual.tileIndex ?? 0
+        const baseCol = tileIndex % tsCols
+        const baseRow = Math.floor(tileIndex / tsCols)
+        for (let dr = 0; dr < def.visual.height; dr++) {
+          for (let dc = 0; dc < def.visual.width; dc++) {
             ctx.drawImage(img, (baseCol + dc) * ts, (baseRow + dr) * ts, ts, ts, dc * ts, dr * ts, ts, ts)
           }
         }

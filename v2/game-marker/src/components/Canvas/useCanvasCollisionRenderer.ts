@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useEditorState } from '../../state/EditorContext'
+import type { EntityDef } from '../../types/entity'
 import type { Zone } from '../../types/collision'
 import { COLLISION_CELL, type DragPreview } from './useCanvasCollisionPointer'
 
@@ -23,6 +24,7 @@ export function useCanvasCollisionRenderer(
   canvasSize: { w: number; h: number },
   dragPreviewRef: React.RefObject<DragPreview>,
   renderTick: number,
+  entityDefs: EntityDef[],
 ) {
   const state = useEditorState()
 
@@ -40,18 +42,18 @@ export function useCanvasCollisionRenderer(
       ctx.translate(state.panX, state.panY)
       ctx.scale(state.zoom, state.zoom)
 
-      const { tileSize, zones, zoneDefs, selectedZoneId, entities, entityDefs } = state
+      const { tileSize, zones, zoneDefs, selectedZoneId, entities } = state
 
       // Draw entity footprints
       for (const entity of entities) {
-        const eDef = entityDefs.find(d => d.type === entity.type)
+        const eDef = entityDefs.find(d => d.id === entity.defId)
         if (!eDef) continue
         ctx.strokeStyle = 'rgba(255,255,255,0.15)'
         ctx.lineWidth = 1 / state.zoom
         ctx.setLineDash([3 / state.zoom, 3 / state.zoom])
         ctx.strokeRect(
           entity.col * tileSize, entity.row * tileSize,
-          eDef.width * tileSize, eDef.height * tileSize,
+          eDef.visual.width * tileSize, eDef.visual.height * tileSize,
         )
         ctx.setLineDash([])
       }
@@ -90,7 +92,7 @@ export function useCanvasCollisionRenderer(
     })
 
     return () => cancelAnimationFrame(handle)
-  }, [canvasRef, state, hoverCell, canvasSize, dragPreviewRef, renderTick])
+  }, [canvasRef, state, hoverCell, canvasSize, dragPreviewRef, renderTick, entityDefs])
 }
 
 function drawZone(

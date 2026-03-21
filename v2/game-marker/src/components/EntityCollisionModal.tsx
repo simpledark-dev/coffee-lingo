@@ -1,33 +1,32 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
+import { useEntityContext } from '../state/EntityContext'
+import { useEntityImages } from '../state/useEntityImages'
 import { CollisionEditorOverlay } from './Canvas/CollisionEditorOverlay'
-import { useTilesetImages } from '../state/TilesetContext'
 
 export function EntityCollisionModal() {
   const state = useEditorState()
-  const entityType = state.selectedEntityDefForCollision
-  if (!entityType) return null
+  const entityDefId = state.selectedEntityDefForCollision
+  if (!entityDefId) return null
 
   return createPortal(
-    <FloatingWindow />,
+    <FloatingWindow entityDefId={entityDefId} />,
     document.body,
   )
 }
 
-function FloatingWindow() {
+function FloatingWindow({ entityDefId }: { entityDefId: string }) {
   const state = useEditorState()
   const dispatch = useEditorDispatch()
-  const tilesetImageStore = useTilesetImages()
+  const { entityDefs, updateEntityDef } = useEntityContext()
+  const entityImages = useEntityImages()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<CollisionEditorOverlay | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const windowRef = useRef<HTMLDivElement>(null)
 
-  const entityType = state.selectedEntityDefForCollision!
-  const entityDef = state.entityDefs.find(d => d.type === entityType)
+  const entityDef = entityDefs.find(d => d.id === entityDefId)
 
-  // Draggable window position
   const [pos, setPos] = useState({ x: 100, y: 80 })
   const [size] = useState({ w: 650, h: 550 })
   const isDragging = useRef(false)
@@ -45,7 +44,7 @@ function FloatingWindow() {
 
     const rect = container.getBoundingClientRect()
     overlay.resize(Math.round(rect.width), Math.round(rect.height))
-    overlay.open(entityDef, state.tileSize, tilesetImageStore)
+    overlay.open(entityDef, state.tileSize, entityImages)
 
     const observer = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect
@@ -58,7 +57,7 @@ function FloatingWindow() {
       overlay.destroy()
       overlayRef.current = null
     }
-  }, [entityType]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [entityDefId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync zone state
   useEffect(() => {
@@ -67,17 +66,17 @@ function FloatingWindow() {
 
   const handleDone = useCallback(() => {
     const overlay = overlayRef.current
-    if (!overlay) return
-    dispatch({ type: 'UPDATE_ENTITY_DEF_COLLISION', entityType, collisionZones: overlay.getZones() })
-    dispatch({ type: 'SELECT_ENTITY_DEF_FOR_COLLISION', entityType: null })
-  }, [entityType, dispatch])
+    if (!overlay || !entityDef) return
+    updateEntityDef({ ...entityDef, collision: { zones: overlay.getZones() } })
+    dispatch({ type: 'SELECT_ENTITY_DEF_FOR_COLLISION', entityDefId: null })
+  }, [entityDef, dispatch, updateEntityDef])
 
   const handleClear = useCallback(() => {
     overlayRef.current?.clearZones()
   }, [])
 
   const handleClose = useCallback(() => {
-    dispatch({ type: 'SELECT_ENTITY_DEF_FOR_COLLISION', entityType: null })
+    dispatch({ type: 'SELECT_ENTITY_DEF_FOR_COLLISION', entityDefId: null })
   }, [dispatch])
 
   // ESC
@@ -109,23 +108,22 @@ function FloatingWindow() {
 
   return (
     <div
-      ref={windowRef}
-      className="fixed z-50 bg-neutral-900 border border-neutral-600 rounded-lg shadow-2xl flex flex-col overflow-hidden"
+      className="fixed z-50 bg-neutral-900 border border-neutral-600 shadow-2xl flex flex-col overflow-hidden"
       style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
     >
-      {/* Title bar - draggable */}
+      {/* Title bar */}
       <div
         className="flex items-center justify-between px-2 py-1.5 bg-neutral-800 border-b border-neutral-700 cursor-move select-none shrink-0"
         onPointerDown={onTitlePointerDown}
         onPointerMove={onTitlePointerMove}
         onPointerUp={onTitlePointerUp}
       >
-        <span className="text-xs text-neutral-300 font-medium">{entityType} — Collision</span>
+        <span className="text-xs text-neutral-300 font-medium">{entityDef?.name ?? entityDefId} — Collision</span>
         <div className="flex items-center gap-1">
-          <button onClick={handleClear} className="text-[10px] px-1.5 py-0.5 bg-neutral-700 text-neutral-300 border border-neutral-600 hover:bg-neutral-600 rounded">
+          <button onClick={handleClear} className="text-[10px] px-1.5 py-0.5 bg-neutral-700 text-neutral-300 border border-neutral-600 hover:bg-neutral-600">
             Clear
           </button>
-          <button onClick={handleDone} className="text-[10px] px-1.5 py-0.5 bg-sky-700 text-white border border-sky-600 hover:bg-sky-600 rounded">
+          <button onClick={handleDone} className="text-[10px] px-1.5 py-0.5 bg-sky-700 text-white border border-sky-600 hover:bg-sky-600">
             Done
           </button>
           <button onClick={handleClose} className="text-[10px] px-1 text-neutral-400 hover:text-neutral-200">

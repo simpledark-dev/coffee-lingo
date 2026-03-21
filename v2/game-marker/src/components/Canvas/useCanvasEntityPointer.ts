@@ -1,7 +1,8 @@
 import { useCallback, useRef } from 'react'
 import { useEditorState, useEditorDispatch } from '../../state/EditorContext'
+import type { EntityDef } from '../../types/entity'
 
-export function useCanvasEntityPointer(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
+export function useCanvasEntityPointer(canvasRef: React.RefObject<HTMLCanvasElement | null>, entityDefs: EntityDef[]) {
   const state = useEditorState()
   const dispatch = useEditorDispatch()
   const isDragging = useRef(false)
@@ -23,14 +24,14 @@ export function useCanvasEntityPointer(canvasRef: React.RefObject<HTMLCanvasElem
     // Check in reverse order (top entities first)
     for (let i = state.entities.length - 1; i >= 0; i--) {
       const e = state.entities[i]
-      const def = state.entityDefs.find(d => d.type === e.type)
+      const def = entityDefs.find(d => d.id === e.defId)
       if (!def) continue
-      if (row >= e.row && row < e.row + def.height && col >= e.col && col < e.col + def.width) {
+      if (row >= e.row && row < e.row + def.visual.height && col >= e.col && col < e.col + def.visual.width) {
         return e
       }
     }
     return null
-  }, [state.entities, state.entityDefs])
+  }, [state.entities, entityDefs])
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0 || state.editorMode !== 'entity') return
@@ -47,15 +48,17 @@ export function useCanvasEntityPointer(canvasRef: React.RefObject<HTMLCanvasElem
       dragOffset.current = { row: grid.row - entity.row, col: grid.col - entity.col }
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
       dispatch({ type: 'PUSH_HISTORY' })
-    } else if (state.selectedEntityDefType) {
+    } else if (state.selectedEntityDefId) {
       // Place new entity
+      const def = entityDefs.find(d => d.id === state.selectedEntityDefId)
+      if (!def) return
       dispatch({ type: 'PUSH_HISTORY' })
-      dispatch({ type: 'PLACE_ENTITY', row: grid.row, col: grid.col })
+      dispatch({ type: 'PLACE_ENTITY', row: grid.row, col: grid.col, def })
     } else {
       // Deselect
       dispatch({ type: 'SELECT_ENTITY', entityId: null })
     }
-  }, [state.editorMode, state.selectedEntityDefType, screenToGrid, getEntityAt, dispatch])
+  }, [state.editorMode, state.selectedEntityDefId, screenToGrid, getEntityAt, dispatch, entityDefs])
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!isDragging.current || !dragEntityId.current) return
@@ -63,7 +66,7 @@ export function useCanvasEntityPointer(canvasRef: React.RefObject<HTMLCanvasElem
     if (!grid) return
     const newRow = grid.row - dragOffset.current.row
     const newCol = grid.col - dragOffset.current.col
-    dispatch({ type: 'MOVE_ENTITY', entityId: dragEntityId.current, row: newRow, col: newCol })
+    dispatch({ type: 'MOVE_ENTITY', entityId: dragEntityId.current, row: newRow, col: newCol, entityDefs })
   }, [screenToGrid, dispatch])
 
   const onPointerUp = useCallback(() => {

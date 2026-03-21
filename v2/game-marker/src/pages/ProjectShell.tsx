@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { Outlet, useParams, useNavigate } from 'react-router-dom'
 import { useProject } from '../state/ProjectContext'
+import { EntityProvider } from '../state/EntityContext'
+import { TilesetProvider } from '../state/TilesetContext'
 import { TopNav } from '../components/TopNav'
 
 /**
@@ -33,11 +35,15 @@ export function ProjectShell() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-neutral-900 text-neutral-100">
-      <TopNav />
-      <div className="flex-1 min-h-0">
-        <Outlet />
-      </div>
-    </div>
+    <TilesetProvider>
+      <EntityProvider>
+        <div className="flex flex-col h-screen bg-neutral-900 text-neutral-100">
+          <TopNav />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <Outlet />
+          </div>
+        </div>
+      </EntityProvider>
+    </TilesetProvider>
   )
 }

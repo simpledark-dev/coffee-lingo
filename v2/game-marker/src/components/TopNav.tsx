@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useProject } from '../state/ProjectContext'
-import { ArrowLeft, FolderOpen, Images, Map, Download } from 'lucide-react'
+import { ArrowLeft, FolderOpen, Images, Box, Map, Settings, Download } from 'lucide-react'
 import { exportProjectZip, downloadZip } from '../storage/db'
 
 export function TopNav() {
@@ -53,6 +53,16 @@ export function TopNav() {
       </NavLink>
 
       <NavLink
+        to={`/project/${currentProject.id}/entities`}
+        className={({ isActive }) =>
+          `flex items-center gap-1.5 px-3 h-full hover:bg-neutral-700 ${isActive ? 'text-sky-400 bg-neutral-750' : 'text-neutral-400 hover:text-neutral-200'}`
+        }
+      >
+        <Box size={14} />
+        Entities
+      </NavLink>
+
+      <NavLink
         to={`/project/${currentProject.id}/editor`}
         className={({ isActive }) =>
           `flex items-center gap-1.5 px-3 h-full hover:bg-neutral-700 ${isActive ? 'text-sky-400 bg-neutral-750' : 'text-neutral-400 hover:text-neutral-200'}`
@@ -60,6 +70,16 @@ export function TopNav() {
       >
         <Map size={14} />
         Editor
+      </NavLink>
+
+      <NavLink
+        to={`/project/${currentProject.id}/settings`}
+        className={({ isActive }) =>
+          `flex items-center gap-1.5 px-3 h-full hover:bg-neutral-700 ${isActive ? 'text-sky-400 bg-neutral-750' : 'text-neutral-400 hover:text-neutral-200'}`
+        }
+      >
+        <Settings size={14} />
+        Settings
       </NavLink>
 
       <div className="flex-1" />

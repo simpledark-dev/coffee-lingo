@@ -1,41 +1,34 @@
-import { useEffect, useRef } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
-import { Tooltip } from './Tooltip'
-import { useTilesetImages } from '../state/TilesetContext'
+import { useEntityContext } from '../state/EntityContext'
+import { useEntityImages } from '../state/useEntityImages'
+import { computeAnimFrames } from '../types/entity'
+import type { EntityDef } from '../types/entity'
 
 export function EntityPalette() {
   const state = useEditorState()
   const dispatch = useEditorDispatch()
+  const { entityDefs } = useEntityContext()
 
   return (
     <div className="h-full bg-neutral-800 flex flex-col">
       <div className="flex items-center justify-between px-2 py-1.5 border-b border-neutral-700 shrink-0">
         <span className="text-xs text-neutral-400 uppercase tracking-wider">Entity Defs</span>
-        <Tooltip text="New Entity Type" side="left">
-          <button
-            onClick={() => dispatch({ type: 'SET_CREATE_ENTITY_DEF_DIALOG', open: true })}
-            className="p-0.5 text-neutral-400 hover:text-neutral-100 bg-neutral-700 hover:bg-neutral-600"
-          >
-            <Plus size={14} />
-          </button>
-        </Tooltip>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {state.entityDefs.length === 0 ? (
+        {entityDefs.length === 0 ? (
           <div className="p-3 text-xs text-neutral-500 text-center">
-            No entity types defined yet. Click + to create one.
+            No entity types defined. Create them in the Entity page.
           </div>
         ) : (
-          state.entityDefs.map(def => (
+          entityDefs.map(def => (
             <EntityDefItem
-              key={def.type}
+              key={def.id}
               def={def}
-              active={state.selectedEntityDefType === def.type}
+              active={state.selectedEntityDefId === def.id}
               tileSize={state.tileSize}
-              onSelect={() => dispatch({ type: 'SELECT_ENTITY_DEF', entityType: state.selectedEntityDefType === def.type ? null : def.type })}
-              onDelete={() => dispatch({ type: 'REMOVE_ENTITY_DEF', entityType: def.type })}
+              onSelect={() => dispatch({ type: 'SELECT_ENTITY_DEF', entityDefId: state.selectedEntityDefId === def.id ? null : def.id })}
             />
           ))
         )}
@@ -44,51 +37,74 @@ export function EntityPalette() {
   )
 }
 
-function EntityDefItem({ def, active, tileSize, onSelect, onDelete }: {
-  def: import('../types/entity').EntityDef
+function EntityDefItem({ def, active, tileSize, onSelect }: {
+  def: EntityDef
   active: boolean
   tileSize: number
   onSelect: () => void
-  onDelete: () => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const tilesetImages = useTilesetImages()
-  const previewSize = 28
+  const entityImages = useEntityImages()
+  const previewSize = 32
+  const [frameIdx, setFrameIdx] = useState(0)
+  const rafId = useRef(0)
+  const lastTime = useRef(0)
 
-  const pw = previewSize * def.width
-  const ph = previewSize * def.height
-  // Fit preview into a square
-  const scale = Math.min(previewSize / pw, previewSize / ph)
-  const drawW = pw * scale
-  const drawH = ph * scale
+  const img = entityImages.get(def.visual.assetId)
+  const sheetCols = img ? Math.floor(img.naturalWidth / tileSize) : 0
+  const frames = def.visual.mode === 'animated' ? computeAnimFrames(def.visual, sheetCols) : []
+  const isAnimated = frames.length > 1
+
+  // Animation loop
+  const tick = useCallback((time: number) => {
+    if (!lastTime.current) lastTime.current = time
+    if (time - lastTime.current >= (def.visual.frameDuration ?? 100)) {
+      lastTime.current = time
+      setFrameIdx(prev => (prev + 1) % frames.length)
+    }
+    rafId.current = requestAnimationFrame(tick)
+  }, [frames.length, def.visual.frameDuration])
 
   useEffect(() => {
+    if (isAnimated) {
+      rafId.current = requestAnimationFrame(tick)
+    }
+    return () => cancelAnimationFrame(rafId.current)
+  }, [isAnimated, tick])
+
+  // Draw
+  useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas || !img) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    const img = tilesetImages.get(def.tilesetId)
-    if (!img) return
 
-    canvas.width = previewSize
-    canvas.height = previewSize
-    ctx.imageSmoothingEnabled = false
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = previewSize * dpr
+    canvas.height = previewSize * dpr
+    ctx.scale(dpr, dpr)
     ctx.clearRect(0, 0, previewSize, previewSize)
+    ctx.imageSmoothingEnabled = false
 
-    const tsCols = Math.floor(img.naturalWidth / tileSize)
-    if (tsCols <= 0) return
-    const baseCol = def.tileIndex % tsCols
-    const baseRow = Math.floor(def.tileIndex / tsCols)
-    const ox = (previewSize - drawW) / 2
-    const oy = (previewSize - drawH) / 2
-    const cellW = drawW / def.width
-    const cellH = drawH / def.height
-    for (let dr = 0; dr < def.height; dr++) {
-      for (let dc = 0; dc < def.width; dc++) {
-        ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize, ox + dc * cellW, oy + dr * cellH, cellW, cellH)
+    const tileIndex = isAnimated ? frames[frameIdx % frames.length] : (def.visual.tileIndex ?? 0)
+    if (sheetCols <= 0) return
+    const baseCol = tileIndex % sheetCols
+    const baseRow = Math.floor(tileIndex / sheetCols)
+
+    const pw = previewSize * def.visual.width
+    const ph = previewSize * def.visual.height
+    const scale = Math.min(previewSize / pw, previewSize / ph)
+    const dw = pw * scale, dh = ph * scale
+    const ox = (previewSize - dw) / 2, oy = (previewSize - dh) / 2
+    const cellW = dw / def.visual.width, cellH = dh / def.visual.height
+
+    for (let dr = 0; dr < def.visual.height; dr++) {
+      for (let dc = 0; dc < def.visual.width; dc++) {
+        ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize,
+          ox + dc * cellW, oy + dr * cellH, cellW, cellH)
       }
     }
-  }, [def, tileSize, drawW, drawH, tilesetImages])
+  }, [def, tileSize, img, sheetCols, frameIdx, frames, isAnimated])
 
   return (
     <div
@@ -97,19 +113,13 @@ function EntityDefItem({ def, active, tileSize, onSelect, onDelete }: {
         active ? 'bg-sky-900/40 border-l-2 border-l-sky-500' : 'hover:bg-neutral-700/50'
       }`}
     >
-      <canvas ref={canvasRef} style={{ width: previewSize, height: previewSize }} className="shrink-0" />
+      <canvas ref={canvasRef} style={{ width: previewSize, height: previewSize, imageRendering: 'pixelated' }} className="shrink-0" />
       <div className="flex-1 min-w-0">
-        <div className="text-xs text-neutral-100 truncate">{def.type}</div>
-        <div className="text-[10px] text-neutral-500">{def.width}x{def.height}</div>
+        <div className="text-xs text-neutral-100 truncate">{def.name}</div>
+        <div className="text-[10px] text-neutral-500">
+          {def.visual.mode === 'animated' ? `anim · ${frames.length}f` : `${def.visual.width}x${def.visual.height}`}
+        </div>
       </div>
-      <Tooltip text="Delete" side="left" delay={600}>
-        <button
-          onClick={e => { e.stopPropagation(); onDelete() }}
-          className="p-0.5 text-neutral-500 hover:text-red-400"
-        >
-          <Trash2 size={12} />
-        </button>
-      </Tooltip>
     </div>
   )
 }

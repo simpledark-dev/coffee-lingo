@@ -1,12 +1,14 @@
-import { useState } from 'react'
 import {
   Pencil, Eraser, PaintBucket, Square, Pipette,
   Grid3x3, ZoomIn, ZoomOut, Undo2, Redo2,
-  Download, Upload, Move, Save, Layers, Box, Shield,
+  Move, Save, Layers, Box, Shield,
 } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
+import { useProject } from '../state/ProjectContext'
 import { Tooltip } from './Tooltip'
-import { saveToLocalStorage } from '../utils/localStorage'
+import { useToast } from './Toast'
+import { exportJson } from '../utils/exportJson'
+import { saveMap } from '../storage/db'
 import type { ToolType } from '../types/editor'
 
 const TOOLS: { type: ToolType; icon: typeof Pencil; label: string; shortcut: string }[] = [
@@ -33,7 +35,20 @@ function ToolBtn({ active, onClick, children }: {
 export function Toolbar() {
   const state = useEditorState()
   const dispatch = useEditorDispatch()
-  const [saved, setSaved] = useState(false)
+  const { currentProject } = useProject()
+  const toast = useToast()
+
+  const handleSave = async () => {
+    if (!currentProject) return
+    try {
+      const data = exportJson(state)
+      await saveMap(currentProject.id, state.mapName || 'Untitled', data)
+      toast('Map saved', 'success')
+    } catch (e) {
+      toast('Failed to save map', 'error')
+      console.error(e)
+    }
+  }
 
   return (
     <div className="flex items-center gap-1 px-2 h-10 bg-neutral-800 border-b border-neutral-700 shrink-0">
@@ -133,66 +148,26 @@ export function Toolbar() {
         </ToolBtn>
       </Tooltip>
 
-      <div className="flex-1" />
+      <div className="w-px h-6 bg-neutral-600 mx-1" />
 
-      {/* Save / Export / Import */}
-      <Tooltip text="Save" shortcut="Ctrl+S">
-        <ToolBtn onClick={() => { saveToLocalStorage(state); setSaved(true); setTimeout(() => setSaved(false), 1500) }}>
+      {/* Save */}
+      <Tooltip text="Save Map" shortcut="Ctrl+S">
+        <ToolBtn onClick={handleSave}>
           <Save size={16} />
         </ToolBtn>
       </Tooltip>
-      {saved && <span className="text-xs text-green-400">Saved!</span>}
-      <Tooltip text="Export">
-        <ToolBtn onClick={() => dispatch({ type: 'SET_EXPORT_DIALOG', open: true })}>
-          <Download size={16} />
-        </ToolBtn>
-      </Tooltip>
-      <Tooltip text="Import JSON">
-        <ToolBtn onClick={() => dispatch({ type: 'SET_IMPORT_DIALOG', open: true })}>
-          <Upload size={16} />
-        </ToolBtn>
-      </Tooltip>
 
-      <div className="w-px h-6 bg-neutral-600 mx-1" />
+      <div className="flex-1" />
 
-      {/* Map size controls */}
+      {/* Map size (read-only) */}
       <div className="flex items-center gap-1">
-        <label className="text-xs text-neutral-500">Map</label>
-        <Tooltip text="Columns" side="top">
-          <input
-            type="number"
-            value={state.gridCols}
-            onChange={e => dispatch({ type: 'SET_GRID_SIZE', cols: Math.max(1, +e.target.value || 1), rows: state.gridRows })}
-            className="w-10 bg-neutral-900 border border-neutral-700 text-xs text-neutral-100 px-1 py-0.5 text-center"
-            min={1}
-          />
-        </Tooltip>
-        <span className="text-xs text-neutral-500">x</span>
-        <Tooltip text="Rows" side="top">
-          <input
-            type="number"
-            value={state.gridRows}
-            onChange={e => dispatch({ type: 'SET_GRID_SIZE', cols: state.gridCols, rows: Math.max(1, +e.target.value || 1) })}
-            className="w-10 bg-neutral-900 border border-neutral-700 text-xs text-neutral-100 px-1 py-0.5 text-center"
-            min={1}
-          />
-        </Tooltip>
+        <span className="text-xs text-neutral-500">Map</span>
+        <span className="text-xs text-neutral-400 tabular-nums">{state.gridCols}x{state.gridRows}</span>
       </div>
 
       <div className="flex items-center gap-1 ml-1">
-        <label className="text-xs text-neutral-500">Tile</label>
-        <Tooltip text="Tile size (px)" side="top">
-          <input
-            type="number"
-            value={state.tileSize}
-            onChange={e => dispatch({ type: 'SET_TILE_SIZE', size: +e.target.value || 32 })}
-            className="w-10 bg-neutral-900 border border-neutral-700 text-xs text-neutral-100 px-1 py-0.5 text-center"
-            min={8}
-            max={128}
-            step={8}
-          />
-        </Tooltip>
-        <span className="text-xs text-neutral-500">px</span>
+        <span className="text-xs text-neutral-500">Tile</span>
+        <span className="text-xs text-neutral-400 tabular-nums">{state.tileSize}px</span>
       </div>
     </div>
   )

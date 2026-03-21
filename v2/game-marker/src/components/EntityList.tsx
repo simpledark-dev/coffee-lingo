@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Trash2, Box, ChevronDown, ChevronRight } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
+import { useEntityContext } from '../state/EntityContext'
 import { Tooltip } from './Tooltip'
 
 export function EntityList() {
   const state = useEditorState()
   const dispatch = useEditorDispatch()
+  const { getDefById } = useEntityContext()
   const [inspectorOpen, setInspectorOpen] = useState<string | null>(null)
 
   return (
@@ -40,7 +42,7 @@ export function EntityList() {
                   >
                     {isInspecting ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   </button>
-                  <span className="flex-1 text-xs truncate">{entity.type}</span>
+                  <span className="flex-1 text-xs truncate">{getDefById(entity.defId)?.name ?? entity.defId}</span>
                   <span className="text-[10px] text-neutral-500">{entity.row},{entity.col}</span>
                   <Tooltip text="Delete Entity" side="right" delay={600}>
                     <button
@@ -68,6 +70,7 @@ export function EntityList() {
 function EntityInspector({ entityId }: { entityId: string }) {
   const state = useEditorState()
   const dispatch = useEditorDispatch()
+  const { entityDefs } = useEntityContext()
   const entity = state.entities.find(e => e.id === entityId)
   if (!entity) return null
 
@@ -99,14 +102,14 @@ function EntityInspector({ entityId }: { entityId: string }) {
         <input
           type="number"
           value={entity.row}
-          onChange={e => dispatch({ type: 'MOVE_ENTITY', entityId, row: +e.target.value || 0, col: entity.col })}
+          onChange={e => dispatch({ type: 'MOVE_ENTITY', entityId, row: +e.target.value || 0, col: entity.col, entityDefs })}
           className="w-12 bg-neutral-800 border border-neutral-700 text-[10px] text-neutral-100 px-1 text-center"
         />
         <label className="text-[10px] text-neutral-500 w-8">Col</label>
         <input
           type="number"
           value={entity.col}
-          onChange={e => dispatch({ type: 'MOVE_ENTITY', entityId, row: entity.row, col: +e.target.value || 0 })}
+          onChange={e => dispatch({ type: 'MOVE_ENTITY', entityId, row: entity.row, col: +e.target.value || 0, entityDefs })}
           className="w-12 bg-neutral-800 border border-neutral-700 text-[10px] text-neutral-100 px-1 text-center"
         />
       </div>

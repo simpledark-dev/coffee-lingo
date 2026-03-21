@@ -36,7 +36,7 @@ export interface Layer {
 // ── JSON Format (v2 - compact) ──────────────────────────
 
 export interface TilemapJSON {
-  version: 2
+  version: 2 | 3
   name: string
   gridCols: number
   gridRows: number
@@ -49,10 +49,14 @@ export interface TilemapJSON {
     locked: boolean
     tiles: number[]          // flat: [row, col, tilesetIdx, tileIndex, ...]
   }[]
-  entityDefs?: import('./entity').EntityDef[]
-  entities?: import('./entity').Entity[]
+  // v2 legacy format (entityDefs with type as key, entities with type field)
+  entityDefs?: import('./entity').LegacyEntityDef[]
+  // v3 format: entities use defId, defs stored separately in IDB
+  entities?: import('./entity').Entity[] | import('./entity').LegacyEntity[]
   zoneDefs?: import('./collision').ZoneDef[]
   zones?: import('./collision').Zone[]
+  // Viewport (optional, for restoring editor view)
+  viewport?: { zoom: number; panX: number; panY: number }
 }
 
 // v1 format for backward compat import
@@ -122,13 +126,12 @@ export interface EditorState {
   editorMode: EditorMode
   resizeMode: boolean
 
-  // Entities
-  entityDefs: import('./entity').EntityDef[]
+  // Entities (defs live in EntityContext, only instances here)
   entities: import('./entity').Entity[]
-  selectedEntityDefType: string | null
+  selectedEntityDefId: string | null
   selectedEntityId: string | null
 
-  // Collision zones
+  // Collision zones (map-level zones only)
   zoneDefs: import('./collision').ZoneDef[]
   zones: import('./collision').Zone[]
   selectedZoneDefType: string | null
@@ -138,7 +141,6 @@ export interface EditorState {
   // UI
   exportDialogOpen: boolean
   importDialogOpen: boolean
-  createEntityDefDialogOpen: boolean
 }
 
 // ── Actions ─────────────────────────────────────────────
@@ -175,12 +177,10 @@ export type EditorAction =
   | { type: 'TOGGLE_GRID' }
   | { type: 'TOGGLE_RESIZE_MODE' }
   | { type: 'SET_EDITOR_MODE'; mode: EditorMode }
-  | { type: 'ADD_ENTITY_DEF'; def: import('./entity').EntityDef }
-  | { type: 'REMOVE_ENTITY_DEF'; entityType: string }
-  | { type: 'SELECT_ENTITY_DEF'; entityType: string | null }
-  | { type: 'PLACE_ENTITY'; row: number; col: number }
+  | { type: 'SELECT_ENTITY_DEF'; entityDefId: string | null }
+  | { type: 'PLACE_ENTITY'; row: number; col: number; def: import('./entity').EntityDef }
   | { type: 'SELECT_ENTITY'; entityId: string | null }
-  | { type: 'MOVE_ENTITY'; entityId: string; row: number; col: number }
+  | { type: 'MOVE_ENTITY'; entityId: string; row: number; col: number; entityDefs: import('./entity').EntityDef[] }
   | { type: 'DELETE_ENTITY'; entityId: string }
   | { type: 'UPDATE_ENTITY_PROPS'; entityId: string; properties: Record<string, unknown> }
   | { type: 'ADD_ZONE_DEF'; def: import('./collision').ZoneDef }
@@ -191,10 +191,8 @@ export type EditorAction =
   | { type: 'MOVE_ZONE'; zoneId: string; row: number; col: number }
   | { type: 'DELETE_ZONE'; zoneId: string }
   | { type: 'UPDATE_ZONE_PROPS'; zoneId: string; properties: Record<string, unknown> }
-  | { type: 'SELECT_ENTITY_DEF_FOR_COLLISION'; entityType: string | null }
-  | { type: 'UPDATE_ENTITY_DEF_COLLISION'; entityType: string; collisionZones: import('./entity').EntityDef['collisionZones'] }
+  | { type: 'SELECT_ENTITY_DEF_FOR_COLLISION'; entityDefId: string | null }
   | { type: 'ADD_TILESET'; tileset: TilesetConfig }
   | { type: 'REMOVE_TILESET'; tilesetId: string }
   | { type: 'SET_EXPORT_DIALOG'; open: boolean }
   | { type: 'SET_IMPORT_DIALOG'; open: boolean }
-  | { type: 'SET_CREATE_ENTITY_DEF_DIALOG'; open: boolean }
