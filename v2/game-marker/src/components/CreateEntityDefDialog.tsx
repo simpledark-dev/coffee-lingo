@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
-import { TILESET_PATHS } from '../config/tilesets'
-import { tilesetImageStore } from './TilePalette'
+import { useTilesetConfigs, useTilesetImages, useTilesetNames } from '../state/TilesetContext'
 import type { EntityDef } from '../types/entity'
 
 export function CreateEntityDefDialog() {
   const state = useEditorState()
   const dispatch = useEditorDispatch()
   const [typeName, setTypeName] = useState('')
-  const [activeTileset, setActiveTileset] = useState(TILESET_PATHS[0]?.id ?? '')
+  const tilesetConfigs = useTilesetConfigs()
+  const tilesetNames = useTilesetNames()
+  const [activeTileset, setActiveTileset] = useState(tilesetConfigs[0]?.id ?? '')
   const [selection, setSelection] = useState<{ tileIndex: number; w: number; h: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -74,7 +75,7 @@ export function CreateEntityDefDialog() {
                 onChange={e => { setActiveTileset(e.target.value); setSelection(null) }}
                 className="flex-1 bg-neutral-900 border border-neutral-700 text-xs text-neutral-100 px-2 py-1"
               >
-                {TILESET_PATHS.map(t => <option key={t.id} value={t.id}>{t.id}</option>)}
+                {tilesetConfigs.map(t => <option key={t.id} value={t.id}>{tilesetNames.get(t.id) ?? t.id}</option>)}
               </select>
             </div>
             <div className="text-[10px] text-neutral-500 mb-1">Drag to select region. Scroll to zoom. Right-click drag to pan.</div>
@@ -110,7 +111,8 @@ function EntityTilePicker({ tilesetId, tileSize, selection, onSelect }: {
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const image = tilesetImageStore.get(tilesetId)
+  const tilesetImages = useTilesetImages()
+  const image = tilesetImages.get(tilesetId)
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 })
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })

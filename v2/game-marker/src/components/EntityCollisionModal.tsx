@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { CollisionEditorOverlay } from './Canvas/CollisionEditorOverlay'
-import { tilesetImageStore } from './TilePalette'
+import { useTilesetImages } from '../state/TilesetContext'
 
 export function EntityCollisionModal() {
   const state = useEditorState()
@@ -18,6 +18,7 @@ export function EntityCollisionModal() {
 function FloatingWindow() {
   const state = useEditorState()
   const dispatch = useEditorDispatch()
+  const tilesetImageStore = useTilesetImages()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<CollisionEditorOverlay | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)

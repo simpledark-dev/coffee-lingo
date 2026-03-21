@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { Tooltip } from './Tooltip'
-import { tilesetImageStore } from './TilePalette'
+import { useTilesetImages } from '../state/TilesetContext'
 
 export function EntityPalette() {
   const state = useEditorState()
@@ -52,6 +52,7 @@ function EntityDefItem({ def, active, tileSize, onSelect, onDelete }: {
   onDelete: () => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const tilesetImages = useTilesetImages()
   const previewSize = 28
 
   const pw = previewSize * def.width
@@ -66,7 +67,7 @@ function EntityDefItem({ def, active, tileSize, onSelect, onDelete }: {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    const img = tilesetImageStore.get(def.tilesetId)
+    const img = tilesetImages.get(def.tilesetId)
     if (!img) return
 
     canvas.width = previewSize
@@ -87,7 +88,7 @@ function EntityDefItem({ def, active, tileSize, onSelect, onDelete }: {
         ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize, ox + dc * cellW, oy + dr * cellH, cellW, cellH)
       }
     }
-  }, [def, tileSize, drawW, drawH])
+  }, [def, tileSize, drawW, drawH, tilesetImages])
 
   return (
     <div

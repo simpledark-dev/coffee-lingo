@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import { useEditorState, useEditorDispatch } from '../../state/EditorContext'
 import { CanvasManager } from './CanvasManager'
 import { Minimap } from './Minimap'
-import { tilesetImageStore } from '../TilePalette'
+import { useTilesetImages } from '../../state/TilesetContext'
 
 export function EditorCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -10,6 +10,7 @@ export function EditorCanvas() {
   const managerRef = useRef<CanvasManager | null>(null)
   const state = useEditorState()
   const dispatch = useEditorDispatch()
+  const tilesetImageStore = useTilesetImages()
   const [cursor, setCursor] = useState('crosshair')
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 })
   const centered = useRef(false)

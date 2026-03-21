@@ -1,9 +1,10 @@
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
-import { tilesetImageStore } from './TilePalette'
+import { useTilesetImages } from '../state/TilesetContext'
 
 export function EntityCollisionList() {
   const state = useEditorState()
   const dispatch = useEditorDispatch()
+  const tilesetImageStore = useTilesetImages()
   const { entityDefs, tileSize } = state
 
   return (

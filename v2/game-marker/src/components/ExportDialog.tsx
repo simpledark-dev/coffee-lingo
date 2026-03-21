@@ -2,11 +2,12 @@ import { X } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { exportJson, downloadJson } from '../utils/exportJson'
 import { exportPng, downloadBlob } from '../utils/exportPng'
-import { tilesetImageStore } from './TilePalette'
+import { useTilesetImages } from '../state/TilesetContext'
 
 export function ExportDialog() {
   const state = useEditorState()
   const dispatch = useEditorDispatch()
+  const tilesetImageStore = useTilesetImages()
 
   if (!state.exportDialogOpen) return null
 
