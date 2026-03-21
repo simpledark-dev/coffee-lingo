@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { useEntityContext } from '../state/EntityContext'
 import { useEntityImages } from '../state/useEntityImages'
-import { computeAnimFrames } from '../types/entity'
+import { computeAnimFrames, getDefVisual } from '../types/entity'
 import type { EntityDef } from '../types/entity'
 
 export function EntityPalette() {
@@ -50,20 +50,22 @@ function EntityDefItem({ def, active, tileSize, onSelect }: {
   const rafId = useRef(0)
   const lastTime = useRef(0)
 
-  const img = entityImages.get(def.visual.assetId)
+  const visual = getDefVisual(def)
+  const img = entityImages.get(visual.assetId)
   const sheetCols = img ? Math.floor(img.naturalWidth / tileSize) : 0
-  const frames = def.visual.mode === 'animated' ? computeAnimFrames(def.visual, sheetCols) : []
+  const sheetRows = img ? Math.floor(img.naturalHeight / tileSize) : 0
+  const frames = visual.mode === 'animated' ? computeAnimFrames(visual, sheetCols, sheetRows) : []
   const isAnimated = frames.length > 1
 
   // Animation loop
   const tick = useCallback((time: number) => {
     if (!lastTime.current) lastTime.current = time
-    if (time - lastTime.current >= (def.visual.frameDuration ?? 100)) {
+    if (time - lastTime.current >= (visual.frameDuration ?? 100)) {
       lastTime.current = time
       setFrameIdx(prev => (prev + 1) % frames.length)
     }
     rafId.current = requestAnimationFrame(tick)
-  }, [frames.length, def.visual.frameDuration])
+  }, [frames.length, visual.frameDuration])
 
   useEffect(() => {
     if (isAnimated) {
@@ -86,20 +88,20 @@ function EntityDefItem({ def, active, tileSize, onSelect }: {
     ctx.clearRect(0, 0, previewSize, previewSize)
     ctx.imageSmoothingEnabled = false
 
-    const tileIndex = isAnimated ? frames[frameIdx % frames.length] : (def.visual.tileIndex ?? 0)
+    const tileIndex = isAnimated ? frames[frameIdx % frames.length] : (visual.tileIndex ?? 0)
     if (sheetCols <= 0) return
     const baseCol = tileIndex % sheetCols
     const baseRow = Math.floor(tileIndex / sheetCols)
 
-    const pw = previewSize * def.visual.width
-    const ph = previewSize * def.visual.height
+    const pw = previewSize * visual.width
+    const ph = previewSize * visual.height
     const scale = Math.min(previewSize / pw, previewSize / ph)
     const dw = pw * scale, dh = ph * scale
     const ox = (previewSize - dw) / 2, oy = (previewSize - dh) / 2
-    const cellW = dw / def.visual.width, cellH = dh / def.visual.height
+    const cellW = dw / visual.width, cellH = dh / visual.height
 
-    for (let dr = 0; dr < def.visual.height; dr++) {
-      for (let dc = 0; dc < def.visual.width; dc++) {
+    for (let dr = 0; dr < visual.height; dr++) {
+      for (let dc = 0; dc < visual.width; dc++) {
         ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize,
           ox + dc * cellW, oy + dr * cellH, cellW, cellH)
       }
@@ -117,7 +119,7 @@ function EntityDefItem({ def, active, tileSize, onSelect }: {
       <div className="flex-1 min-w-0">
         <div className="text-xs text-neutral-100 truncate">{def.name}</div>
         <div className="text-[10px] text-neutral-500">
-          {def.visual.mode === 'animated' ? `anim · ${frames.length}f` : `${def.visual.width}x${def.visual.height}`}
+          {visual.mode === 'animated' ? `anim · ${frames.length}f` : `${visual.width}x${visual.height}`}
         </div>
       </div>
     </div>

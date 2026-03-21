@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { useEntityContext } from '../state/EntityContext'
 import { useEntityImages } from '../state/useEntityImages'
-import { computeAnimFrames } from '../types/entity'
+import { computeAnimFrames, getDefVisual } from '../types/entity'
 
 export function EntityCollisionList() {
   const state = useEditorState()
@@ -51,19 +51,21 @@ function CollisionThumb({ def, tileSize, images, onClick }: {
   const rafId = useRef(0)
   const lastTime = useRef(0)
 
-  const img = images.get(def.visual.assetId)
+  const visual = getDefVisual(def)
+  const img = images.get(visual.assetId)
   const sheetCols = img ? Math.floor(img.naturalWidth / tileSize) : 0
-  const frames = def.visual.mode === 'animated' ? computeAnimFrames(def.visual, sheetCols) : []
+  const sheetRows = img ? Math.floor(img.naturalHeight / tileSize) : 0
+  const frames = visual.mode === 'animated' ? computeAnimFrames(visual, sheetCols, sheetRows) : []
   const isAnimated = frames.length > 1
 
   const tick = useCallback((time: number) => {
     if (!lastTime.current) lastTime.current = time
-    if (time - lastTime.current >= (def.visual.frameDuration ?? 100)) {
+    if (time - lastTime.current >= (visual.frameDuration ?? 100)) {
       lastTime.current = time
       setFrameIdx(prev => (prev + 1) % frames.length)
     }
     rafId.current = requestAnimationFrame(tick)
-  }, [frames.length, def.visual.frameDuration])
+  }, [frames.length, visual.frameDuration])
 
   useEffect(() => {
     if (isAnimated) { rafId.current = requestAnimationFrame(tick) }
@@ -84,21 +86,21 @@ function CollisionThumb({ def, tileSize, images, onClick }: {
     ctx.clearRect(0, 0, thumbSize, thumbSize)
     ctx.imageSmoothingEnabled = false
 
-    const tileIndex = isAnimated ? frames[frameIdx % frames.length] : (def.visual.tileIndex ?? 0)
+    const tileIndex = isAnimated ? frames[frameIdx % frames.length] : (visual.tileIndex ?? 0)
     const baseCol = tileIndex % sheetCols
     const baseRow = Math.floor(tileIndex / sheetCols)
 
-    const srcW = def.visual.width * tileSize
-    const srcH = def.visual.height * tileSize
+    const srcW = visual.width * tileSize
+    const srcH = visual.height * tileSize
     const scale = Math.min(thumbSize / srcW, thumbSize / srcH)
     const dw = srcW * scale, dh = srcH * scale
     const ox = (thumbSize - dw) / 2, oy = (thumbSize - dh) / 2
 
-    for (let dr = 0; dr < def.visual.height; dr++) {
-      for (let dc = 0; dc < def.visual.width; dc++) {
+    for (let dr = 0; dr < visual.height; dr++) {
+      for (let dc = 0; dc < visual.width; dc++) {
         ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize,
-          ox + dc * (dw / def.visual.width), oy + dr * (dh / def.visual.height),
-          dw / def.visual.width, dh / def.visual.height)
+          ox + dc * (dw / visual.width), oy + dr * (dh / visual.height),
+          dw / visual.width, dh / visual.height)
       }
     }
 

@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
 import { useEditorState, useEditorDispatch } from '../../state/EditorContext'
+import { getDefVisual } from '../../types/entity'
 import type { EntityDef } from '../../types/entity'
 
 export function useCanvasEntityPointer(canvasRef: React.RefObject<HTMLCanvasElement | null>, entityDefs: EntityDef[]) {
@@ -26,7 +27,7 @@ export function useCanvasEntityPointer(canvasRef: React.RefObject<HTMLCanvasElem
       const e = state.entities[i]
       const def = entityDefs.find(d => d.id === e.defId)
       if (!def) continue
-      if (row >= e.row && row < e.row + def.visual.height && col >= e.col && col < e.col + def.visual.width) {
+      if (row >= e.row && row < e.row + getDefVisual(def).height && col >= e.col && col < e.col + getDefVisual(def).width) {
         return e
       }
     }

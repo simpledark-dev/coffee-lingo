@@ -1,4 +1,5 @@
 import type { EditorState, EditorAction } from '../../types/editor'
+import { getDefVisual } from '../../types/entity'
 import type { EntityDef } from '../../types/entity'
 import { tools } from '../../tools'
 
@@ -128,7 +129,7 @@ export class CanvasManager {
     if (s.editorMode === 'entity' && h) {
       const on = s.entities.some(e => {
         const d = this.entityDefs.find(dd => dd.id === e.defId)
-        return d && h.row >= e.row && h.row < e.row + d.visual.height && h.col >= e.col && h.col < e.col + d.visual.width
+        return d && h.row >= e.row && h.row < e.row + getDefVisual(d).height && h.col >= e.col && h.col < e.col + getDefVisual(d).width
       })
       return on ? 'move' : 'crosshair'
     }
@@ -325,7 +326,7 @@ export class CanvasManager {
       const ent = s.entities[i]
       const def = this.entityDefs.find(d => d.id === ent.defId)
       if (!def) continue
-      if (row >= ent.row && row < ent.row + def.visual.height && col >= ent.col && col < ent.col + def.visual.width) {
+      if (row >= ent.row && row < ent.row + getDefVisual(def).height && col >= ent.col && col < ent.col + getDefVisual(def).width) {
         clicked = ent; break
       }
     }
@@ -371,8 +372,8 @@ export class CanvasManager {
         const ent = s.entities[i]
         const def = this.entityDefs.find(d => d.id === ent.defId)
         if (!def) continue
-        if (tileGrid.row >= ent.row && tileGrid.row < ent.row + def.visual.height &&
-            tileGrid.col >= ent.col && tileGrid.col < ent.col + def.visual.width) {
+        if (tileGrid.row >= ent.row && tileGrid.row < ent.row + getDefVisual(def).height &&
+            tileGrid.col >= ent.col && tileGrid.col < ent.col + getDefVisual(def).width) {
           // Entity collision editor removed from canvas dispatch
           return
         }
@@ -657,11 +658,11 @@ export class CanvasManager {
       ctx.strokeStyle = sel ? '#f59e0b' : 'rgba(255,255,255,0.3)'
       ctx.lineWidth = sel ? 2 : 1
       ctx.setLineDash(sel ? [] : [3, 3])
-      ctx.strokeRect(entity.col * tileSize, entity.row * tileSize, def.visual.width * tileSize, def.visual.height * tileSize)
+      ctx.strokeRect(entity.col * tileSize, entity.row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
       ctx.setLineDash([])
       if (sel) {
         ctx.fillStyle = 'rgba(245,158,11,0.1)'
-        ctx.fillRect(entity.col * tileSize, entity.row * tileSize, def.visual.width * tileSize, def.visual.height * tileSize)
+        ctx.fillRect(entity.col * tileSize, entity.row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
       }
     }
 
@@ -670,33 +671,33 @@ export class CanvasManager {
       const def = entityDefs.find(d => d.id === s.selectedEntityDefId)
       if (def) {
         const { row, col } = this.hoverCell
-        if (row >= 0 && col >= 0 && row + def.visual.height <= s.gridRows && col + def.visual.width <= s.gridCols) {
+        if (row >= 0 && col >= 0 && row + getDefVisual(def).height <= s.gridRows && col + getDefVisual(def).width <= s.gridCols) {
           const overlaps = entities.some(e => {
             const ed = entityDefs.find(d => d.id === e.defId)
-            return ed && row < e.row + ed.visual.height && row + def.visual.height > e.row && col < e.col + ed.visual.width && col + def.visual.width > e.col
+            return ed && row < e.row + getDefVisual(ed).height && row + getDefVisual(def).height > e.row && col < e.col + getDefVisual(ed).width && col + getDefVisual(def).width > e.col
           })
           ctx.globalAlpha = 0.5
           this.drawEntitySprite(ctx, row, col, def, tileSize)
           ctx.globalAlpha = 1
           ctx.fillStyle = overlaps ? 'rgba(239,68,68,0.15)' : 'rgba(56,189,248,0.15)'
-          ctx.fillRect(col * tileSize, row * tileSize, def.visual.width * tileSize, def.visual.height * tileSize)
+          ctx.fillRect(col * tileSize, row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
           ctx.strokeStyle = overlaps ? 'rgba(239,68,68,0.5)' : 'rgba(56,189,248,0.5)'
           ctx.lineWidth = 2 / this.zoom
-          ctx.strokeRect(col * tileSize, row * tileSize, def.visual.width * tileSize, def.visual.height * tileSize)
+          ctx.strokeRect(col * tileSize, row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
         }
       }
     }
   }
 
   private drawEntitySprite(ctx: CanvasRenderingContext2D, row: number, col: number, def: EntityDef, tileSize: number) {
-    const img = this.entityImages.get(def.visual.assetId) ?? this.tilesetImages.get(def.visual.assetId)
+    const img = this.entityImages.get(getDefVisual(def).assetId) ?? this.tilesetImages.get(getDefVisual(def).assetId)
     if (!img) return
     const tsCols = Math.floor(img.naturalWidth / tileSize)
     if (tsCols <= 0) return
-    const baseCol = (def.visual.tileIndex ?? 0) % tsCols
-    const baseRow = Math.floor((def.visual.tileIndex ?? 0) / tsCols)
-    for (let dr = 0; dr < def.visual.height; dr++) {
-      for (let dc = 0; dc < def.visual.width; dc++) {
+    const baseCol = (getDefVisual(def).tileIndex ?? 0) % tsCols
+    const baseRow = Math.floor((getDefVisual(def).tileIndex ?? 0) / tsCols)
+    for (let dr = 0; dr < getDefVisual(def).height; dr++) {
+      for (let dc = 0; dc < getDefVisual(def).width; dc++) {
         ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize, (col + dc) * tileSize, (row + dr) * tileSize, tileSize, tileSize)
       }
     }
@@ -720,7 +721,7 @@ export class CanvasManager {
       ctx.strokeStyle = 'rgba(255,255,255,0.15)'
       ctx.lineWidth = 1 / this.zoom
       ctx.setLineDash([3 / this.zoom, 3 / this.zoom])
-      ctx.strokeRect(ex, ey, def.visual.width * tileSize, def.visual.height * tileSize)
+      ctx.strokeRect(ex, ey, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
       ctx.setLineDash([])
 
       // Entity collision zones (amber)

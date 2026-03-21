@@ -15,7 +15,8 @@ export function AnimationPreview({ visual, image, tileSize = 32 }: {
   const rafId = useRef(0)
 
   const sheetCols = image ? Math.floor(image.naturalWidth / tileSize) : 0
-  const frames = visual.mode === 'animated' ? computeAnimFrames(visual, sheetCols) : []
+  const sheetRows = image ? Math.floor(image.naturalHeight / tileSize) : 0
+  const frames = visual.mode === 'animated' ? computeAnimFrames(visual, sheetCols, sheetRows) : []
   const duration = visual.frameDuration ?? 100
   const loop = visual.loop ?? 'loop'
   const size = 128

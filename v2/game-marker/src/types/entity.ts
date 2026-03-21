@@ -14,17 +14,20 @@ export interface EntityVisual {
 
 /**
  * Compute tile indices for each frame of an animated entity.
- * Frames go right from tileIndex, wrapping to next row when hitting sheet edge.
+ * Frames go right from tileIndex by frame width, wrapping to next row when hitting sheet edge.
+ * If frames exceed the sheet, wraps back to the start position.
  */
 export function computeAnimFrames(
   visual: EntityVisual,
   sheetWidthTiles: number,
+  sheetHeightTiles?: number,
 ): number[] {
   const count = visual.frameCount ?? 1
   if (count <= 0 || sheetWidthTiles <= 0) return []
   const startTile = visual.tileIndex ?? 0
   const startCol = startTile % sheetWidthTiles
   const startRow = Math.floor(startTile / sheetWidthTiles)
+
   const frames: number[] = []
   let col = startCol, row = startRow
   for (let i = 0; i < count; i++) {
@@ -33,6 +36,10 @@ export function computeAnimFrames(
     if (col + visual.width > sheetWidthTiles) {
       col = 0
       row += visual.height
+      // If no room for next row, wrap back to top
+      if (sheetHeightTiles != null && row + visual.height > sheetHeightTiles) {
+        row = 0
+      }
     }
   }
   return frames
@@ -52,11 +59,23 @@ export interface EntityDef {
   type: string             // classification label
   tags: string[]
   description: string
-  visual: EntityVisual
+  states: Record<string, EntityVisual>  // keyed by state name (e.g. "idle", "walk")
+  defaultState: string                   // key into states
   collision?: {
     zones: EntityCollisionZone[]
   }
   properties: Record<string, unknown>
+}
+
+/** Get the visual for a given state (or default state). */
+export function getDefVisual(def: EntityDef, state?: string): EntityVisual {
+  const key = state ?? def.defaultState
+  if (def.states[key]) return def.states[key]
+  // Fallback: first available state
+  const keys = Object.keys(def.states)
+  if (keys.length > 0) return def.states[keys[0]]
+  // Ultimate fallback
+  return { mode: 'static', assetId: '', width: 1, height: 1 }
 }
 
 export interface Entity {

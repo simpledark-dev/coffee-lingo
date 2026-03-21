@@ -7,7 +7,7 @@ import { useProject } from '../state/ProjectContext'
 import { useTilesetConfigs, useTilesetNames, useTilesetImages } from '../state/TilesetContext'
 import { EntityTilePicker } from '../components/entity/EntityTilePicker'
 import { AnimationCanvas } from '../components/entity/AnimationCanvas'
-import { computeAnimFrames } from '../types/entity'
+import { computeAnimFrames, getDefVisual } from '../types/entity'
 import { getAssetBlobUrl } from '../storage/blobUrlCache'
 import type { EntityDef, EntityVisual } from '../types/entity'
 
@@ -29,7 +29,8 @@ export function EntityManagerPage() {
     const def = await addEntityDef({
       name: 'New Entity',
       type: '', tags: [], description: '',
-      visual: { mode: 'static', assetId: '', width: 1, height: 1 },
+      states: { default: { mode: 'static', assetId: '', width: 1, height: 1 } },
+      defaultState: 'default',
       properties: {},
     })
     setSelectedId(def.id)
@@ -67,7 +68,7 @@ export function EntityManagerPage() {
               <div className="flex-1 min-w-0">
                 <div className="text-xs text-neutral-200 truncate">{d.name}</div>
                 <div className="text-[10px] text-neutral-500">
-                  {d.visual.mode === 'static' ? `${d.visual.width}x${d.visual.height}` : `anim · ${d.visual.frameCount ?? 1}f`}
+                  {Object.keys(d.states).length} state{Object.keys(d.states).length !== 1 ? 's' : ''}
                 </div>
               </div>
               <div onClick={e => { e.stopPropagation(); handleDelete(d.id) }}
@@ -106,25 +107,33 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
   const tileSize = currentProject?.tileSize ?? 32
 
   const [name, setName] = useState(def.name)
-  const [visual, setVisual] = useState<EntityVisual>({ ...def.visual })
-  const [editing, setEditing] = useState(!def.visual.assetId) // start in edit mode if no asset
+  const [selectedState, setSelectedState] = useState(def.defaultState)
+  const [visual, setVisual] = useState<EntityVisual>({ ...getDefVisual(def) })
+  const [editing, setEditing] = useState(!getDefVisual(def).assetId)
 
-  // Sprite sheet image for animated mode
+  const stateNames = Object.keys(def.states)
+
+  // Sprite sheet image
   const [sheetImage, setSheetImage] = useState<HTMLImageElement | null>(null)
 
   useEffect(() => {
     setName(def.name)
-    setVisual({ ...def.visual })
-    setEditing(!def.visual.assetId)
+    setSelectedState(def.defaultState)
+    setVisual({ ...getDefVisual(def) })
+    setEditing(!getDefVisual(def).assetId)
   }, [def.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When switching states, load that state's visual
+  useEffect(() => {
+    const v = def.states[selectedState]
+    if (v) setVisual({ ...v })
+  }, [selectedState]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load sprite sheet image
   useEffect(() => {
     if (!visual.assetId) { setSheetImage(null); return }
-    // Try tileset images first
     const existing = tilesetImages.get(visual.assetId)
     if (existing) { setSheetImage(existing); return }
-    // Fallback: load from blob URL
     let cancelled = false
     getAssetBlobUrl(visual.assetId).then(url => {
       if (cancelled) return
@@ -135,14 +144,49 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
     return () => { cancelled = true }
   }, [visual.assetId, tilesetImages])
 
-  const saveDef = useCallback(async (v: EntityVisual, n?: string) => {
-    await onUpdate({ ...def, name: (n ?? name).trim() || def.name, visual: v })
-  }, [def, name, onUpdate])
+  const saveState = useCallback(async (v: EntityVisual) => {
+    const newStates = { ...def.states, [selectedState]: v }
+    await onUpdate({ ...def, name: name.trim() || def.name, states: newStates })
+  }, [def, name, selectedState, onUpdate])
 
   const handleDone = useCallback(() => {
-    saveDef(visual, name)
+    saveState(visual)
     setEditing(false)
-  }, [saveDef, visual, name])
+  }, [saveState, visual])
+
+  const handleAddState = useCallback(async (stateName: string) => {
+    const key = stateName.trim()
+    if (!key || def.states[key]) return
+    const newStates = { ...def.states, [key]: { mode: 'static' as const, assetId: '', width: 1, height: 1 } }
+    await onUpdate({ ...def, states: newStates })
+    setSelectedState(key)
+    setEditing(true)
+  }, [def, onUpdate])
+
+  const handleDeleteState = useCallback(async () => {
+    if (stateNames.length <= 1) return
+    if (selectedState === def.defaultState) return
+    const newStates = { ...def.states }
+    delete newStates[selectedState]
+    await onUpdate({ ...def, states: newStates })
+    setSelectedState(def.defaultState)
+  }, [def, selectedState, stateNames, onUpdate])
+
+  const handleSetDefault = useCallback(async () => {
+    await onUpdate({ ...def, defaultState: selectedState })
+  }, [def, selectedState, onUpdate])
+
+  const handleRenameState = useCallback(async (oldName: string, newName: string) => {
+    const key = newName.trim()
+    if (!key || key === oldName || def.states[key]) return
+    const newStates: Record<string, EntityVisual> = {}
+    for (const [k, v] of Object.entries(def.states)) {
+      newStates[k === oldName ? key : k] = v
+    }
+    const newDefault = def.defaultState === oldName ? key : def.defaultState
+    await onUpdate({ ...def, states: newStates, defaultState: newDefault })
+    if (selectedState === oldName) setSelectedState(key)
+  }, [def, selectedState, onUpdate])
 
   const spriteSheetAssets = assets.filter(a => a.category === 'sprite-sheet')
   const isConfigured = visual.assetId && visual.tileIndex != null
@@ -155,21 +199,31 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
       tilesetConfigs={tilesetConfigs} tilesetNames={tilesetNames}
       spriteSheetAssets={spriteSheetAssets}
       isConfigured={!!isConfigured}
+      stateName={selectedState}
       onDone={handleDone}
-      onCancel={() => { setName(def.name); setVisual({ ...def.visual }); setEditing(false) }}
+      onCancel={() => { setVisual({ ...def.states[selectedState] ?? getDefVisual(def) }); setEditing(false) }}
     />
   }
 
   return <ViewMode
     visual={visual} name={name}
     tileSize={tileSize} image={sheetImage}
+    stateNames={stateNames}
+    selectedState={selectedState}
+    defaultState={def.defaultState}
+    isDefault={selectedState === def.defaultState}
+    onSelectState={setSelectedState}
+    onAddState={handleAddState}
+    onDeleteState={handleDeleteState}
+    onSetDefault={handleSetDefault}
+    onRenameState={handleRenameState}
     onEdit={() => setEditing(true)}
   />
 }
 
 // ── Edit Mode: tile picker + config ──────────────────────
 
-function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, tilesetNames, spriteSheetAssets, isConfigured, onDone, onCancel }: {
+function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, tilesetNames, spriteSheetAssets, isConfigured, stateName, onDone, onCancel }: {
   name: string; setName: (n: string) => void
   visual: EntityVisual; setVisual: (fn: (v: EntityVisual) => EntityVisual) => void
   tileSize: number
@@ -177,6 +231,7 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
   tilesetNames: Map<string, string>
   spriteSheetAssets: { id: string; name: string }[]
   isConfigured: boolean
+  stateName: string
   onDone: () => void
   onCancel: () => void
 }) {
@@ -187,6 +242,10 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
         <input value={name} onChange={e => setName(e.target.value)}
           className="px-2 py-1 bg-neutral-900 border border-neutral-700 text-sm text-neutral-100 w-44 focus:outline-none focus:border-sky-500"
           placeholder="Entity name" />
+
+        <span className="px-2 py-0.5 bg-amber-900/50 border border-amber-700/50 text-amber-300 text-[12px]">
+          {stateName}
+        </span>
 
         <div className="flex gap-0.5">
           <button onClick={() => setVisual(v => ({ ...v, mode: 'static' }))}
@@ -199,25 +258,21 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
 
         <div className="w-px h-5 bg-neutral-700" />
 
-        {visual.mode === 'static' ? (
-          <select value={visual.assetId}
-            onChange={e => setVisual(v => ({ ...v, assetId: e.target.value, tileIndex: 0 }))}
-            className="px-2 py-1 bg-neutral-900 border border-neutral-700 text-xs text-neutral-200">
-            <option value="">-- Tileset --</option>
+        <select value={visual.assetId}
+          onChange={e => setVisual(v => ({ ...v, assetId: e.target.value, tileIndex: 0, ...(v.mode === 'animated' ? { frameCount: 1 } : {}) }))}
+          className="px-2 py-1 bg-neutral-900 border border-neutral-700 text-xs text-neutral-200">
+          <option value="">-- Asset --</option>
+          {tilesetConfigs.length > 0 && <optgroup label="Tileset">
             {tilesetConfigs.map(t => (
               <option key={t.id} value={t.id}>{tilesetNames.get(t.id) ?? t.id}</option>
             ))}
-          </select>
-        ) : (
-          <select value={visual.assetId}
-            onChange={e => setVisual(v => ({ ...v, assetId: e.target.value, tileIndex: 0, frameCount: 1 }))}
-            className="px-2 py-1 bg-neutral-900 border border-neutral-700 text-xs text-neutral-200">
-            <option value="">-- Sprite Sheet --</option>
+          </optgroup>}
+          {spriteSheetAssets.length > 0 && <optgroup label="Sprite Sheet">
             {spriteSheetAssets.map(a => (
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
-          </select>
-        )}
+          </optgroup>}
+        </select>
 
         {visual.mode === 'animated' && (
           <>
@@ -274,22 +329,37 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
 
 // ── View Mode: animation preview + frame strip ───────────
 
-function ViewMode({ visual, name, tileSize, image, onEdit }: {
+function ViewMode({ visual, name, tileSize, image, stateNames, selectedState, defaultState, isDefault, onSelectState, onAddState, onDeleteState, onSetDefault, onRenameState, onEdit }: {
   visual: EntityVisual; name: string
   tileSize: number; image: HTMLImageElement | null
-  onEdit: () => void
+  stateNames: string[]; selectedState: string; defaultState: string; isDefault: boolean
+  onSelectState: (s: string) => void
+  onAddState: (name: string) => void; onDeleteState: () => void; onSetDefault: () => void
+  onRenameState: (oldName: string, newName: string) => void; onEdit: () => void
 }) {
   const sheetCols = image ? Math.floor(image.naturalWidth / tileSize) : 0
-  const frames = visual.mode === 'animated' ? computeAnimFrames(visual, sheetCols) : [visual.tileIndex ?? 0]
+  const sheetRows = image ? Math.floor(image.naturalHeight / tileSize) : 0
+  const frames = visual.mode === 'animated' ? computeAnimFrames(visual, sheetCols, sheetRows) : [visual.tileIndex ?? 0]
   const [currentFrame, setCurrentFrame] = useState(0)
   const [forcedFrame, setForcedFrame] = useState<number | null>(null)
 
+  // Reset when visual changes (state switch)
+  useEffect(() => { setForcedFrame(null); setCurrentFrame(0) }, [visual])
+
+  const [addingState, setAddingState] = useState(false)
+  const [newStateName, setNewStateName] = useState('')
+  const [renamingState, setRenamingState] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const { confirm } = useDialog()
+
   const handleFrameClick = (i: number) => {
-    // Click same frame again → resume playing
-    if (forcedFrame === i) {
-      setForcedFrame(null)
-    } else {
-      setForcedFrame(i)
+    if (forcedFrame === i) setForcedFrame(null)
+    else setForcedFrame(i)
+  }
+
+  const handleDeleteState = async () => {
+    if (await confirm('Delete State', `Delete state "${selectedState}"?`)) {
+      onDeleteState()
     }
   }
 
@@ -299,7 +369,7 @@ function ViewMode({ visual, name, tileSize, image, onEdit }: {
       <div className="shrink-0 flex items-center gap-3 px-3 py-2 border-b border-neutral-700 bg-neutral-800">
         <span className="text-sm text-neutral-100 font-bold">{name}</span>
         <span className="text-xs text-neutral-500">
-          {visual.mode === 'static' ? `Static · ${visual.width}x${visual.height}` : `Animated · ${frames.length} frames · ${visual.frameDuration ?? 100}ms`}
+          {visual.mode === 'static' ? `Static · ${visual.width}x${visual.height}` : `Animated · ${frames.length}f · ${visual.frameDuration ?? 100}ms`}
         </span>
         <div className="flex-1" />
         <button onClick={onEdit}
@@ -322,26 +392,95 @@ function ViewMode({ visual, name, tileSize, image, onEdit }: {
         )}
       </div>
 
-      {/* Bottom: frame strip */}
-      {visual.mode === 'animated' && frames.length > 1 && image && (
-        <div className="shrink-0 border-t border-neutral-700 bg-neutral-800 px-2 py-2">
-          <div className="flex gap-1 overflow-x-auto">
-            {frames.map((tileIdx, i) => (
-              <FrameThumb
-                key={i}
-                index={i}
-                tileIndex={tileIdx}
-                frameW={visual.width}
-                frameH={visual.height}
-                tileSize={tileSize}
-                image={image}
-                active={forcedFrame != null ? forcedFrame === i : currentFrame === i}
-                onClick={() => handleFrameClick(i)}
-              />
-            ))}
-          </div>
+      {/* Bottom: states + frames strip */}
+      <div className="shrink-0 border-t border-neutral-700 bg-neutral-800">
+        {/* State tabs */}
+        <div className="flex items-center gap-1 px-2 pt-2 pb-1">
+          {stateNames.map(s => (
+            renamingState === s ? (
+              <div key={s} className="flex items-center gap-0.5">
+                <input value={renameValue} onChange={e => setRenameValue(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && renameValue.trim()) { onRenameState(s, renameValue.trim()); setRenamingState(null) }
+                    if (e.key === 'Escape') setRenamingState(null)
+                  }}
+                  className="w-24 px-2 py-1 bg-neutral-900 border border-amber-600 text-xs text-neutral-200 focus:outline-none"
+                  autoFocus />
+                <button onClick={() => { if (renameValue.trim()) { onRenameState(s, renameValue.trim()); setRenamingState(null) } }}
+                  className="px-1 py-1 text-green-400 hover:text-green-300"><Check size={14} /></button>
+              </div>
+            ) : (
+              <button key={s}
+                onClick={() => { onSelectState(s); setForcedFrame(null) }}
+                onDoubleClick={() => { setRenamingState(s); setRenameValue(s) }}
+                className={`px-3 py-1.5 text-xs border flex items-center gap-1.5 ${selectedState === s
+                  ? 'bg-amber-800/60 border-amber-600 text-amber-200'
+                  : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700'}`}>
+                {s}
+                {s === defaultState && <span className="text-amber-500 ml-0.5">*</span>}
+              </button>
+            )
+          ))}
+
+          {addingState ? (
+            <div className="flex items-center gap-1">
+              <input value={newStateName} onChange={e => setNewStateName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newStateName.trim()) { onAddState(newStateName.trim()); setAddingState(false); setNewStateName('') }
+                  if (e.key === 'Escape') { setAddingState(false); setNewStateName('') }
+                }}
+                placeholder="state name"
+                className="w-28 px-2 py-1 bg-neutral-900 border border-neutral-600 text-xs text-neutral-200 focus:outline-none focus:border-sky-500"
+                autoFocus />
+              <button onClick={() => { if (newStateName.trim()) { onAddState(newStateName.trim()); setAddingState(false); setNewStateName('') } }}
+                className="px-1.5 py-1 text-green-400 hover:text-green-300"><Check size={14} /></button>
+              <button onClick={() => { setAddingState(false); setNewStateName('') }}
+                className="px-1.5 py-1 text-xs text-neutral-500 hover:text-neutral-300">x</button>
+            </div>
+          ) : (
+            <button onClick={() => setAddingState(true)}
+              className="px-3 py-1.5 text-xs bg-neutral-800 border border-dashed border-neutral-600 text-neutral-500 hover:text-neutral-200 hover:border-neutral-400">
+              + State
+            </button>
+          )}
+
+          <div className="flex-1" />
+
+          {!isDefault && (
+            <button onClick={onSetDefault}
+              className="text-xs px-2 py-1 text-neutral-500 hover:text-amber-300">
+              Set Default
+            </button>
+          )}
+          {!isDefault && stateNames.length > 1 && (
+            <button onClick={handleDeleteState}
+              className="text-xs px-2 py-1 text-neutral-500 hover:text-red-400">
+              Delete
+            </button>
+          )}
         </div>
-      )}
+
+        {/* Frame strip (animated only) */}
+        {visual.mode === 'animated' && frames.length > 1 && image && (
+          <div className="px-2 pb-2 border-t border-neutral-700 pt-2">
+            <div className="flex gap-1.5 overflow-x-auto">
+              {frames.map((tileIdx, i) => (
+                <FrameThumb
+                  key={i}
+                  index={i}
+                  tileIndex={tileIdx}
+                  frameW={visual.width}
+                  frameH={visual.height}
+                  tileSize={tileSize}
+                  image={image}
+                  active={forcedFrame != null ? forcedFrame === i : currentFrame === i}
+                  onClick={() => handleFrameClick(i)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -353,7 +492,7 @@ function FrameThumb({ index, tileIndex, frameW, frameH, tileSize, image, active,
   tileSize: number; image: HTMLImageElement; active: boolean; onClick: () => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const thumbSize = 48
+  const thumbSize = 72
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -400,6 +539,7 @@ function PickerArea({ visual, tileSize, onSelect }: {
   visual: EntityVisual; tileSize: number
   onSelect: (sel: { tileIndex: number; w: number; h: number }) => void
 }) {
+  const entityImages = useEntityImages()
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
 
@@ -417,15 +557,22 @@ function PickerArea({ visual, tileSize, onSelect }: {
   return (
     <div ref={containerRef} className="flex-1 min-h-0">
       {size.w > 0 && size.h > 0 && (
-        <div className="bg-neutral-950" style={{ width: size.w, height: size.h }}>
+        <div className="bg-neutral-950 relative" style={{ width: size.w, height: size.h }}>
           {visual.assetId ? (
-            <EntityTilePicker
-              assetId={visual.assetId}
-              tileSize={tileSize}
-              selection={visual.tileIndex != null ? { tileIndex: visual.tileIndex, w: visual.width, h: visual.height } : null}
-              onSelect={onSelect}
-              frameCount={visual.mode === 'animated' ? visual.frameCount : undefined}
-            />
+            <>
+              <EntityTilePicker
+                assetId={visual.assetId}
+                tileSize={tileSize}
+                selection={visual.tileIndex != null ? { tileIndex: visual.tileIndex, w: visual.width, h: visual.height } : null}
+                onSelect={onSelect}
+                frameCount={visual.mode === 'animated' ? visual.frameCount : undefined}
+              />
+              {visual.tileIndex != null && (
+                <div className="absolute bottom-4 right-4 z-10">
+                  <EditPreviewMini visual={visual} tileSize={tileSize} images={entityImages} />
+                </div>
+              )}
+            </>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">
               Select an asset above
@@ -433,6 +580,109 @@ function PickerArea({ visual, tileSize, onSelect }: {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Mini preview for edit mode (like minimap) ────────────
+
+function EditPreviewMini({ visual, tileSize, images }: {
+  visual: EntityVisual; tileSize: number; images: Map<string, HTMLImageElement>
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [frameIdx, setFrameIdx] = useState(0)
+  const rafId = useRef(0)
+  const lastTime = useRef(0)
+  const previewSize = 128
+  const [fallbackImg, setFallbackImg] = useState<HTMLImageElement | null>(null)
+
+  // Load image from blob URL if not in images map
+  useEffect(() => {
+    if (!visual.assetId || images.has(visual.assetId)) { setFallbackImg(null); return }
+    let cancelled = false
+    getAssetBlobUrl(visual.assetId).then(url => {
+      if (cancelled) return
+      const i = new Image()
+      i.onload = () => { if (!cancelled) setFallbackImg(i) }
+      i.src = url
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [visual.assetId, images])
+
+  const img = images.get(visual.assetId) ?? fallbackImg
+  const sheetCols = img ? Math.floor(img.naturalWidth / tileSize) : 0
+  const sheetRows = img ? Math.floor(img.naturalHeight / tileSize) : 0
+  const frames = visual.mode === 'animated' ? computeAnimFrames(visual, sheetCols, sheetRows) : []
+  const isAnimated = frames.length > 1
+  const animLoop = visual.loop ?? 'loop'
+  const [miniPlaying, setMiniPlaying] = useState(true)
+
+  const tick = useCallback((time: number) => {
+    if (!lastTime.current) lastTime.current = time
+    if (time - lastTime.current >= (visual.frameDuration ?? 100)) {
+      lastTime.current = time
+      setFrameIdx(prev => {
+        const next = prev + 1
+        if (next >= frames.length) {
+          if (animLoop === 'once') { setMiniPlaying(false); return prev }
+          if (animLoop === 'pingpong') return Math.max(0, frames.length - 2)
+          return 0
+        }
+        return next
+      })
+    }
+    if (miniPlaying) rafId.current = requestAnimationFrame(tick)
+  }, [frames.length, visual.frameDuration, animLoop, miniPlaying])
+
+  useEffect(() => {
+    if (isAnimated && miniPlaying) { lastTime.current = 0; rafId.current = requestAnimationFrame(tick) }
+    return () => cancelAnimationFrame(rafId.current)
+  }, [isAnimated, miniPlaying, tick])
+
+  useEffect(() => { setFrameIdx(0); setMiniPlaying(true) }, [visual.tileIndex, visual.frameCount, visual.assetId, visual.loop, visual.frameDuration])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !img || sheetCols <= 0) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = previewSize * dpr
+    canvas.height = previewSize * dpr
+    ctx.scale(dpr, dpr)
+    ctx.clearRect(0, 0, previewSize, previewSize)
+    ctx.imageSmoothingEnabled = false
+
+    const tileIndex = isAnimated ? frames[frameIdx % frames.length] : (visual.tileIndex ?? 0)
+    const baseCol = tileIndex % sheetCols
+    const baseRow = Math.floor(tileIndex / sheetCols)
+    const pw = previewSize * visual.width, ph = previewSize * visual.height
+    const scale = Math.min(previewSize / pw, previewSize / ph)
+    const dw = pw * scale, dh = ph * scale
+    const ox = (previewSize - dw) / 2, oy = (previewSize - dh) / 2
+    const cellW = dw / visual.width, cellH = dh / visual.height
+
+    for (let dr = 0; dr < visual.height; dr++) {
+      for (let dc = 0; dc < visual.width; dc++) {
+        ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize,
+          ox + dc * cellW, oy + dr * cellH, cellW, cellH)
+      }
+    }
+  }, [visual, tileSize, img, sheetCols, frameIdx, frames, isAnimated])
+
+  if (!img) return null
+
+  return (
+    <div className="bg-neutral-900/90 border border-neutral-700 shadow-lg flex flex-col items-center p-1.5 gap-1">
+      <canvas ref={canvasRef}
+        style={{ width: previewSize, height: previewSize, imageRendering: 'pixelated' }} />
+      <div className="text-[10px] text-neutral-400 text-center">
+        {isAnimated ? (
+          <>{(frameIdx % frames.length) + 1}/{frames.length} · {visual.frameDuration ?? 100}ms · {visual.loop ?? 'loop'}</>
+        ) : (
+          <>{visual.width}x{visual.height}</>
+        )}
+      </div>
     </div>
   )
 }
@@ -446,19 +696,21 @@ function EntityThumb({ def, tileSize, size = 28 }: { def: EntityDef; tileSize: n
   const rafId = useRef(0)
   const lastTime = useRef(0)
 
-  const img = entityImages.get(def.visual.assetId)
+  const visual = getDefVisual(def)
+  const img = entityImages.get(visual.assetId)
   const sheetCols = img ? Math.floor(img.naturalWidth / tileSize) : 0
-  const frames = def.visual.mode === 'animated' ? computeAnimFrames(def.visual, sheetCols) : []
+  const sheetRows = img ? Math.floor(img.naturalHeight / tileSize) : 0
+  const frames = visual.mode === 'animated' ? computeAnimFrames(visual, sheetCols, sheetRows) : []
   const isAnimated = frames.length > 1
 
   const tick = useCallback((time: number) => {
     if (!lastTime.current) lastTime.current = time
-    if (time - lastTime.current >= (def.visual.frameDuration ?? 100)) {
+    if (time - lastTime.current >= (visual.frameDuration ?? 100)) {
       lastTime.current = time
       setFrameIdx(prev => (prev + 1) % frames.length)
     }
     rafId.current = requestAnimationFrame(tick)
-  }, [frames.length, def.visual.frameDuration])
+  }, [frames.length, visual.frameDuration])
 
   useEffect(() => {
     if (isAnimated) { rafId.current = requestAnimationFrame(tick) }
@@ -477,22 +729,22 @@ function EntityThumb({ def, tileSize, size = 28 }: { def: EntityDef; tileSize: n
     ctx.clearRect(0, 0, size, size)
     ctx.imageSmoothingEnabled = false
 
-    const tileIndex = isAnimated ? frames[frameIdx % frames.length] : (def.visual.tileIndex ?? 0)
+    const tileIndex = isAnimated ? frames[frameIdx % frames.length] : (visual.tileIndex ?? 0)
     const baseCol = tileIndex % sheetCols
     const baseRow = Math.floor(tileIndex / sheetCols)
-    const pw = size * def.visual.width, ph = size * def.visual.height
+    const pw = size * visual.width, ph = size * visual.height
     const scale = Math.min(size / pw, size / ph)
     const dw = pw * scale, dh = ph * scale
     const ox = (size - dw) / 2, oy = (size - dh) / 2
-    const cellW = dw / def.visual.width, cellH = dh / def.visual.height
+    const cellW = dw / visual.width, cellH = dh / visual.height
 
-    for (let dr = 0; dr < def.visual.height; dr++) {
-      for (let dc = 0; dc < def.visual.width; dc++) {
+    for (let dr = 0; dr < visual.height; dr++) {
+      for (let dc = 0; dc < visual.width; dc++) {
         ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize,
           ox + dc * cellW, oy + dr * cellH, cellW, cellH)
       }
     }
-  }, [def, tileSize, img, sheetCols, frameIdx, frames, isAnimated, size])
+  }, [def, tileSize, img, sheetCols, frameIdx, frames, isAnimated, size, visual])
 
   return <canvas ref={canvasRef} style={{ width: size, height: size, imageRendering: 'pixelated' }} className="shrink-0 bg-neutral-700" />
 }

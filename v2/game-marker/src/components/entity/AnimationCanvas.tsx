@@ -31,7 +31,8 @@ export function AnimationCanvas({ visual, image, tileSize = 32, onFrameChange, f
   const fitted = useRef(false)
 
   const sheetCols = Math.floor(image.naturalWidth / tileSize)
-  const frames = visual.mode === 'animated' ? computeAnimFrames(visual, sheetCols) : [visual.tileIndex ?? 0]
+  const sheetRows = Math.floor(image.naturalHeight / tileSize)
+  const frames = visual.mode === 'animated' ? computeAnimFrames(visual, sheetCols, sheetRows) : [visual.tileIndex ?? 0]
   const duration = visual.frameDuration ?? 100
   const loop = visual.loop ?? 'loop'
 
@@ -89,6 +90,9 @@ export function AnimationCanvas({ visual, image, tileSize = 32, onFrameChange, f
     }
     return () => cancelAnimationFrame(rafId.current)
   }, [isPlaying, tick, frames.length])
+
+  // Reset animation when visual changes (e.g. state switch)
+  useEffect(() => { setFrameIdx(0); setPlaying(true); lastTime.current = 0 }, [visual.tileIndex, visual.frameCount, visual.assetId, visual.loop])
 
   // Notify parent of frame change
   useEffect(() => { onFrameChange?.(displayFrame) }, [displayFrame, onFrameChange])
@@ -185,19 +189,20 @@ export function AnimationCanvas({ visual, image, tileSize = 32, onFrameChange, f
         onPointerDown={e => e.stopPropagation()}>
         {frames.length > 1 && (
           <button onClick={() => {
-              if (isForced) { onClearForced?.(); setPlaying(true) }
-              else { setPlaying(!playing) }
+              if (isForced) { onClearForced?.(); setPlaying(true); setFrameIdx(0) }
+              else if (!playing) { setFrameIdx(0); setPlaying(true) }
+              else { setPlaying(false) }
               lastTime.current = 0
             }}
             className="text-neutral-400 hover:text-neutral-200">
             {isPlaying ? <Pause size={14} /> : <Play size={14} />}
           </button>
         )}
-        <span className="text-[10px] text-neutral-500">
+        <span className="text-[12px] text-neutral-500">
           {frames.length > 1 ? `Frame ${(displayFrame % frames.length) + 1}/${frames.length}` : 'Static'}
         </span>
-        <span className="text-[10px] text-neutral-600">{Math.round(zoom * 100)}%</span>
-        <span className="text-[10px] text-neutral-600">{frameW}x{frameH}px</span>
+        <span className="text-[12px] text-neutral-600">{Math.round(zoom * 100)}%</span>
+        <span className="text-[12px] text-neutral-600">{frameW}x{frameH}px</span>
       </div>
     </div>
   )

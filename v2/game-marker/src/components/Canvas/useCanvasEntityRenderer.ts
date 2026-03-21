@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useEditorState } from '../../state/EditorContext'
+import { getDefVisual } from '../../types/entity'
 import type { EntityDef } from '../../types/entity'
 
 export function useCanvasEntityRenderer(
@@ -40,13 +41,13 @@ export function useCanvasEntityRenderer(
         const def = entityDefs.find(d => d.id === state.selectedEntityDefId)
         if (def) {
           const { row, col } = hoverCell
-          if (row >= 0 && col >= 0 && row + def.visual.height <= state.gridRows && col + def.visual.width <= state.gridCols) {
+          if (row >= 0 && col >= 0 && row + getDefVisual(def).height <= state.gridRows && col + getDefVisual(def).width <= state.gridCols) {
             // Check overlap
             const overlaps = entities.some(e => {
               const eDef = entityDefs.find(d => d.id === e.defId)
               if (!eDef) return false
-              return row < e.row + eDef.visual.height && row + def.visual.height > e.row &&
-                     col < e.col + eDef.visual.width && col + def.visual.width > e.col
+              return row < e.row + getDefVisual(eDef).height && row + getDefVisual(def).height > e.row &&
+                     col < e.col + getDefVisual(eDef).width && col + getDefVisual(def).width > e.col
             })
 
             ctx.globalAlpha = 0.5
@@ -55,10 +56,10 @@ export function useCanvasEntityRenderer(
 
             // Highlight zone
             ctx.fillStyle = overlaps ? 'rgba(239,68,68,0.15)' : 'rgba(56,189,248,0.15)'
-            ctx.fillRect(col * tileSize, row * tileSize, def.visual.width * tileSize, def.visual.height * tileSize)
+            ctx.fillRect(col * tileSize, row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
             ctx.strokeStyle = overlaps ? 'rgba(239,68,68,0.5)' : 'rgba(56,189,248,0.5)'
             ctx.lineWidth = 2 / state.zoom
-            ctx.strokeRect(col * tileSize, row * tileSize, def.visual.width * tileSize, def.visual.height * tileSize)
+            ctx.strokeRect(col * tileSize, row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
           }
         }
       }
@@ -84,12 +85,12 @@ function drawEntity(
   ctx.strokeStyle = selected ? '#f59e0b' : 'rgba(255,255,255,0.3)'
   ctx.lineWidth = selected ? 2 : 1
   ctx.setLineDash(selected ? [] : [3, 3])
-  ctx.strokeRect(col * tileSize, row * tileSize, def.visual.width * tileSize, def.visual.height * tileSize)
+  ctx.strokeRect(col * tileSize, row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
   ctx.setLineDash([])
 
   if (selected) {
     ctx.fillStyle = 'rgba(245,158,11,0.1)'
-    ctx.fillRect(col * tileSize, row * tileSize, def.visual.width * tileSize, def.visual.height * tileSize)
+    ctx.fillRect(col * tileSize, row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
   }
 }
 
@@ -100,15 +101,15 @@ function drawEntitySprite(
   tileSize: number,
   images: Map<string, HTMLImageElement>,
 ) {
-  const img = images.get(def.visual.assetId) // images should include both tileset + sprite-sheet
+  const img = images.get(getDefVisual(def).assetId) // images should include both tileset + sprite-sheet
   if (!img) return
   const tsCols = Math.floor(img.naturalWidth / tileSize)
   if (tsCols <= 0) return
   // tileIndex = top-left tile in tileset; draw width x height tiles from there
-  const baseCol = (def.visual.tileIndex ?? 0) % tsCols
-  const baseRow = Math.floor((def.visual.tileIndex ?? 0) / tsCols)
-  for (let dr = 0; dr < def.visual.height; dr++) {
-    for (let dc = 0; dc < def.visual.width; dc++) {
+  const baseCol = (getDefVisual(def).tileIndex ?? 0) % tsCols
+  const baseRow = Math.floor((getDefVisual(def).tileIndex ?? 0) / tsCols)
+  for (let dr = 0; dr < getDefVisual(def).height; dr++) {
+    for (let dc = 0; dc < getDefVisual(def).width; dc++) {
       const srcX = (baseCol + dc) * tileSize
       const srcY = (baseRow + dr) * tileSize
       ctx.drawImage(img, srcX, srcY, tileSize, tileSize, (col + dc) * tileSize, (row + dr) * tileSize, tileSize, tileSize)

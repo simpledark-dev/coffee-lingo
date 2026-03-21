@@ -117,6 +117,7 @@ export function EntityTilePicker({ assetId, tileSize, selection, onSelect, frame
         const cloneFrames = computeAnimFrames(
           { mode: 'animated', assetId: '', width: fw, height: fh, tileIndex: minR * cols + minC, frameCount },
           cols,
+          rows,
         )
         for (let i = 1; i < cloneFrames.length; i++) {
           const ci = cloneFrames[i]

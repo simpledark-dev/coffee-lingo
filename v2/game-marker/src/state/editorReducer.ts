@@ -1,6 +1,7 @@
 import type { EditorState, EditorAction, Layer } from '../types/editor'
 import { generateId } from '../utils/generateId'
 import { hydrateLayers } from '../utils/importJson'
+import { getDefVisual } from '../types/entity'
 
 const MAX_HISTORY = 50
 
@@ -424,7 +425,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       const def = action.def
       const newR = action.row, newC = action.col
       // Check bounds
-      if (newR < 0 || newC < 0 || newR + def.visual.height > state.gridRows || newC + def.visual.width > state.gridCols) return state
+      if (newR < 0 || newC < 0 || newR + getDefVisual(def).height > state.gridRows || newC + getDefVisual(def).width > state.gridCols) return state
       const entity = { id: generateId(), defId: def.id, row: newR, col: newC, properties: { ...def.properties } }
       return { ...state, entities: [...state.entities, entity] }
     }
@@ -437,7 +438,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       if (!entity) return state
       const def = action.entityDefs.find(d => d.id === entity.defId)
       if (!def) return state
-      if (action.row < 0 || action.col < 0 || action.row + def.visual.height > state.gridRows || action.col + def.visual.width > state.gridCols) return state
+      if (action.row < 0 || action.col < 0 || action.row + getDefVisual(def).height > state.gridRows || action.col + getDefVisual(def).width > state.gridCols) return state
       return {
         ...state,
         entities: state.entities.map(e => e.id === action.entityId ? { ...e, row: action.row, col: action.col } : e),

@@ -14,12 +14,14 @@ export function useEntityImages(): Map<string, HTMLImageElement> {
   const { assets } = useProject()
   const [extraImages, setExtraImages] = useState<Map<string, HTMLImageElement>>(new Map())
 
-  // Find asset IDs used by entities that are NOT in tilesetImages
+  // Find asset IDs used by ALL states of all entities that are NOT in tilesetImages
   useEffect(() => {
     const missing = new Set<string>()
     for (const def of entityDefs) {
-      if (def.visual.assetId && !tilesetImages.has(def.visual.assetId)) {
-        missing.add(def.visual.assetId)
+      for (const visual of Object.values(def.states)) {
+        if (visual.assetId && !tilesetImages.has(visual.assetId)) {
+          missing.add(visual.assetId)
+        }
       }
     }
     if (missing.size === 0) { setExtraImages(new Map()); return }

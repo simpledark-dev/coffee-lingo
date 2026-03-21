@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useEditorState } from '../../state/EditorContext'
+import { getDefVisual } from '../../types/entity'
 import type { EntityDef } from '../../types/entity'
 import type { Zone } from '../../types/collision'
 import { COLLISION_CELL, type DragPreview } from './useCanvasCollisionPointer'
@@ -53,7 +54,7 @@ export function useCanvasCollisionRenderer(
         ctx.setLineDash([3 / state.zoom, 3 / state.zoom])
         ctx.strokeRect(
           entity.col * tileSize, entity.row * tileSize,
-          eDef.visual.width * tileSize, eDef.visual.height * tileSize,
+          getDefVisual(eDef).width * tileSize, getDefVisual(eDef).height * tileSize,
         )
         ctx.setLineDash([])
       }

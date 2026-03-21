@@ -1,3 +1,4 @@
+import { getDefVisual } from '../../types/entity'
 import type { EntityDef } from '../../types/entity'
 import type { ZoneDef } from '../../types/collision'
 
@@ -120,8 +121,8 @@ export class CollisionEditorOverlay {
   private computeViewport() {
     if (!this.entityDef || this.w === 0 || this.h === 0) return
     const ts = this.tileSize
-    const totalW = this.entityDef.visual.width * ts + PADDING_CELLS * COLLISION_CELL * 2
-    const totalH = this.entityDef.visual.height * ts + PADDING_CELLS * COLLISION_CELL * 2
+    const totalW = getDefVisual(this.entityDef).width * ts + PADDING_CELLS * COLLISION_CELL * 2
+    const totalH = getDefVisual(this.entityDef).height * ts + PADDING_CELLS * COLLISION_CELL * 2
     const margin = 80
     this.scale = Math.min((this.w - margin) / totalW, (this.h - margin) / totalH, 8)
     this.offsetX = (this.w - totalW * this.scale) / 2 + PADDING_CELLS * COLLISION_CELL * this.scale
@@ -243,8 +244,8 @@ export class CollisionEditorOverlay {
 
     const def = this.entityDef
     const ts = this.tileSize
-    const ew = def.visual.width * ts
-    const eh = def.visual.height * ts
+    const ew = getDefVisual(def).width * ts
+    const eh = getDefVisual(def).height * ts
     const pad = PADDING_CELLS * COLLISION_CELL
 
     // Background
@@ -256,15 +257,15 @@ export class CollisionEditorOverlay {
     ctx.fillRect(0, 0, ew, eh)
 
     // Sprite
-    const img = this.tilesetImages.get(def.visual.assetId)
+    const img = this.tilesetImages.get(getDefVisual(def).assetId)
     if (img) {
       const tsCols = Math.floor(img.naturalWidth / ts)
       if (tsCols > 0) {
-        const tileIndex = def.visual.tileIndex ?? 0
+        const tileIndex = getDefVisual(def).tileIndex ?? 0
         const baseCol = tileIndex % tsCols
         const baseRow = Math.floor(tileIndex / tsCols)
-        for (let dr = 0; dr < def.visual.height; dr++) {
-          for (let dc = 0; dc < def.visual.width; dc++) {
+        for (let dr = 0; dr < getDefVisual(def).height; dr++) {
+          for (let dc = 0; dc < getDefVisual(def).width; dc++) {
             ctx.drawImage(img, (baseCol + dc) * ts, (baseRow + dr) * ts, ts, ts, dc * ts, dr * ts, ts, ts)
           }
         }
