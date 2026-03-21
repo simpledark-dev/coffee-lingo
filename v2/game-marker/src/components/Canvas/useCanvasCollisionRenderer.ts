@@ -43,20 +43,23 @@ export function useCanvasCollisionRenderer(
       ctx.translate(state.panX, state.panY)
       ctx.scale(state.zoom, state.zoom)
 
-      const { tileSize, zones, zoneDefs, selectedZoneId, entities } = state
+      const { tileSize, zones, zoneDefs, selectedZoneId } = state
 
       // Draw entity footprints
-      for (const entity of entities) {
-        const eDef = entityDefs.find(d => d.id === entity.defId)
-        if (!eDef) continue
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)'
-        ctx.lineWidth = 1 / state.zoom
-        ctx.setLineDash([3 / state.zoom, 3 / state.zoom])
-        ctx.strokeRect(
-          entity.col * tileSize, entity.row * tileSize,
-          getDefVisual(eDef).width * tileSize, getDefVisual(eDef).height * tileSize,
-        )
-        ctx.setLineDash([])
+      for (const elayer of state.entityLayers) {
+        if (!elayer.visible) continue
+        for (const entity of elayer.entities) {
+          const eDef = entityDefs.find(d => d.id === entity.defId)
+          if (!eDef) continue
+          ctx.strokeStyle = 'rgba(255,255,255,0.15)'
+          ctx.lineWidth = 1 / state.zoom
+          ctx.setLineDash([3 / state.zoom, 3 / state.zoom])
+          ctx.strokeRect(
+            entity.col * tileSize, entity.row * tileSize,
+            getDefVisual(eDef).width * tileSize, getDefVisual(eDef).height * tileSize,
+          )
+          ctx.setLineDash([])
+        }
       }
 
       // Draw placed zones

@@ -1,7 +1,7 @@
 import type { EditorState, EditorAction, Layer } from '../types/editor'
 import { generateId } from '../utils/generateId'
 import { hydrateLayers } from '../utils/importJson'
-import { getDefVisual } from '../types/entity'
+import { getDefVisual, type EntityLayer } from '../types/entity'
 
 const MAX_HISTORY = 50
 
@@ -17,6 +17,7 @@ function createLayer(name: string): Layer {
 
 export function createInitialState(): EditorState {
   const layer = createLayer('Layer 1')
+  const entityLayer: EntityLayer = { id: generateId(), name: 'Entities', visible: true, locked: false, entities: [] as import('../types/entity').Entity[] }
   return {
     mapName: 'Untitled',
     gridCols: 30,
@@ -38,7 +39,8 @@ export function createInitialState(): EditorState {
     redoStack: [],
     editorMode: 'tile',
     resizeMode: false,
-    entities: [],
+    entityLayers: [entityLayer],
+    activeEntityLayerId: entityLayer.id,
     selectedEntityDefId: null,
     selectedEntityId: null,
     zoneDefs: [],
@@ -58,6 +60,16 @@ function cloneLayers(layers: Layer[]): Layer[] {
 function getActiveLayer(state: EditorState): Layer | undefined {
   return state.layers.find(l => l.id === state.activeLayerId)
 }
+
+function findEntityInLayers(layers: EntityLayer[], entityId: string) {
+  for (const layer of layers) {
+    const entity = layer.entities.find(e => e.id === entityId)
+    if (entity) return { layer, entity }
+  }
+  return null
+}
+
+
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
@@ -347,6 +359,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     // ── Import ──
     case 'IMPORT_MAP': {
       const hydratedLayers = hydrateLayers(action.data)
+      const importedEntityLayers: EntityLayer[] = action.data.entityLayers
+        ?? [{ id: generateId(), name: 'Entities', visible: true, locked: false, entities: (action.data.entities ?? []) as import('../types/entity').Entity[] }]
       return {
         ...state,
         mapName: action.data.name,
@@ -355,7 +369,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         tileSize: action.data.tileSize,
         layers: hydratedLayers,
         activeLayerId: hydratedLayers[0]?.id ?? state.activeLayerId,
-        entities: (action.data.entities ?? []) as import('../types/entity').Entity[],
+        entityLayers: importedEntityLayers,
+        activeEntityLayerId: importedEntityLayers[0]?.id ?? state.activeEntityLayerId,
         selectedEntityId: null,
         selectedEntityDefId: null,
         zoneDefs: action.data.zoneDefs ?? [],
@@ -416,6 +431,45 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'SET_EDITOR_MODE':
       return { ...state, editorMode: action.mode, resizeMode: false }
 
+    // ── Entity Layers ──
+    case 'ADD_ENTITY_LAYER': {
+      const newLayer: EntityLayer = { id: generateId(), name: `Entity Layer ${state.entityLayers.length + 1}`, visible: true, locked: false, entities: [] }
+      return { ...state, entityLayers: [...state.entityLayers, newLayer], activeEntityLayerId: newLayer.id }
+    }
+
+    case 'REMOVE_ENTITY_LAYER': {
+      if (state.entityLayers.length <= 1) return state
+      const filtered = state.entityLayers.filter(l => l.id !== action.layerId)
+      return {
+        ...state,
+        entityLayers: filtered,
+        activeEntityLayerId: state.activeEntityLayerId === action.layerId ? filtered[filtered.length - 1].id : state.activeEntityLayerId,
+        selectedEntityId: null,
+      }
+    }
+
+    case 'REORDER_ENTITY_LAYER': {
+      const idx = state.entityLayers.findIndex(l => l.id === action.layerId)
+      if (idx === -1) return state
+      const newIdx = action.direction === 'up' ? idx + 1 : idx - 1
+      if (newIdx < 0 || newIdx >= state.entityLayers.length) return state
+      const newLayers = [...state.entityLayers]
+      ;[newLayers[idx], newLayers[newIdx]] = [newLayers[newIdx], newLayers[idx]]
+      return { ...state, entityLayers: newLayers }
+    }
+
+    case 'RENAME_ENTITY_LAYER':
+      return { ...state, entityLayers: state.entityLayers.map(l => l.id === action.layerId ? { ...l, name: action.name } : l) }
+
+    case 'TOGGLE_ENTITY_LAYER_VISIBILITY':
+      return { ...state, entityLayers: state.entityLayers.map(l => l.id === action.layerId ? { ...l, visible: !l.visible } : l) }
+
+    case 'TOGGLE_ENTITY_LAYER_LOCK':
+      return { ...state, entityLayers: state.entityLayers.map(l => l.id === action.layerId ? { ...l, locked: !l.locked } : l) }
+
+    case 'SET_ACTIVE_ENTITY_LAYER':
+      return { ...state, activeEntityLayerId: action.layerId }
+
     // ── Entity Def Selection ──
     case 'SELECT_ENTITY_DEF':
       return { ...state, selectedEntityDefId: action.entityDefId, selectedEntityId: null }
@@ -423,41 +477,54 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     // ── Entities ──
     case 'PLACE_ENTITY': {
       const def = action.def
+      const activeLayer = state.entityLayers.find(l => l.id === state.activeEntityLayerId)
+      if (!activeLayer || activeLayer.locked || !activeLayer.visible) return state
       const newR = action.row, newC = action.col
-      // Check bounds
       if (newR < 0 || newC < 0 || newR + getDefVisual(def).height > state.gridRows || newC + getDefVisual(def).width > state.gridCols) return state
       const entity = { id: generateId(), defId: def.id, row: newR, col: newC, properties: { ...def.properties } }
-      return { ...state, entities: [...state.entities, entity] }
+      return {
+        ...state,
+        entityLayers: state.entityLayers.map(l => l.id === state.activeEntityLayerId ? { ...l, entities: [...l.entities, entity] } : l),
+      }
     }
 
     case 'SELECT_ENTITY':
       return { ...state, selectedEntityId: action.entityId }
 
     case 'MOVE_ENTITY': {
-      const entity = state.entities.find(e => e.id === action.entityId)
-      if (!entity) return state
-      const def = action.entityDefs.find(d => d.id === entity.defId)
+      const found = findEntityInLayers(state.entityLayers, action.entityId)
+      if (!found) return state
+      const def = action.entityDefs.find(d => d.id === found.entity.defId)
       if (!def) return state
       if (action.row < 0 || action.col < 0 || action.row + getDefVisual(def).height > state.gridRows || action.col + getDefVisual(def).width > state.gridCols) return state
       return {
         ...state,
-        entities: state.entities.map(e => e.id === action.entityId ? { ...e, row: action.row, col: action.col } : e),
+        entityLayers: state.entityLayers.map(l => ({
+          ...l,
+          entities: l.entities.map(e => e.id === action.entityId ? { ...e, row: action.row, col: action.col } : e),
+        })),
       }
     }
 
     case 'DELETE_ENTITY':
       return {
         ...state,
-        entities: state.entities.filter(e => e.id !== action.entityId),
+        entityLayers: state.entityLayers.map(l => ({
+          ...l,
+          entities: l.entities.filter(e => e.id !== action.entityId),
+        })),
         selectedEntityId: state.selectedEntityId === action.entityId ? null : state.selectedEntityId,
       }
 
     case 'UPDATE_ENTITY_PROPS':
       return {
         ...state,
-        entities: state.entities.map(e =>
-          e.id === action.entityId ? { ...e, properties: { ...e.properties, ...action.properties } } : e
-        ),
+        entityLayers: state.entityLayers.map(l => ({
+          ...l,
+          entities: l.entities.map(e =>
+            e.id === action.entityId ? { ...e, properties: { ...e.properties, ...action.properties } } : e
+          ),
+        })),
       }
 
     // ── Zone Defs ──

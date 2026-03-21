@@ -51,8 +51,10 @@ export interface TilemapJSON {
   }[]
   // v2 legacy format (entityDefs with type as key, entities with type field)
   entityDefs?: import('./entity').LegacyEntityDef[]
-  // v3 format: entities use defId, defs stored separately in IDB
+  // Legacy flat entities (v2/v3)
   entities?: import('./entity').Entity[] | import('./entity').LegacyEntity[]
+  // Entity layers (v4+)
+  entityLayers?: import('./entity').EntityLayer[]
   zoneDefs?: import('./collision').ZoneDef[]
   zones?: import('./collision').Zone[]
   // Viewport (optional, for restoring editor view)
@@ -126,8 +128,9 @@ export interface EditorState {
   editorMode: EditorMode
   resizeMode: boolean
 
-  // Entities (defs live in EntityContext, only instances here)
-  entities: import('./entity').Entity[]
+  // Entity layers (defs live in EntityContext, instances organized in layers)
+  entityLayers: import('./entity').EntityLayer[]
+  activeEntityLayerId: string
   selectedEntityDefId: string | null
   selectedEntityId: string | null
 
@@ -177,6 +180,13 @@ export type EditorAction =
   | { type: 'TOGGLE_GRID' }
   | { type: 'TOGGLE_RESIZE_MODE' }
   | { type: 'SET_EDITOR_MODE'; mode: EditorMode }
+  | { type: 'ADD_ENTITY_LAYER' }
+  | { type: 'REMOVE_ENTITY_LAYER'; layerId: string }
+  | { type: 'REORDER_ENTITY_LAYER'; layerId: string; direction: 'up' | 'down' }
+  | { type: 'RENAME_ENTITY_LAYER'; layerId: string; name: string }
+  | { type: 'TOGGLE_ENTITY_LAYER_VISIBILITY'; layerId: string }
+  | { type: 'TOGGLE_ENTITY_LAYER_LOCK'; layerId: string }
+  | { type: 'SET_ACTIVE_ENTITY_LAYER'; layerId: string }
   | { type: 'SELECT_ENTITY_DEF'; entityDefId: string | null }
   | { type: 'PLACE_ENTITY'; row: number; col: number; def: import('./entity').EntityDef }
   | { type: 'SELECT_ENTITY'; entityId: string | null }

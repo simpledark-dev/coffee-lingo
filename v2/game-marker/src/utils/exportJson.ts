@@ -32,7 +32,7 @@ export function exportJson(state: EditorState): TilemapJSON {
         tiles,
       }
     }),
-    entities: state.entities.length > 0 ? state.entities : undefined,
+    entityLayers: state.entityLayers.length > 0 ? state.entityLayers : undefined,
     zoneDefs: state.zoneDefs.length > 0 ? state.zoneDefs : undefined,
     zones: state.zones.length > 0 ? state.zones : undefined,
     viewport: { zoom: state.zoom, panX: state.panX, panY: state.panY },

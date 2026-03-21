@@ -22,9 +22,11 @@ export function useCanvasEntityPointer(canvasRef: React.RefObject<HTMLCanvasElem
   }, [canvasRef, state.panX, state.panY, state.zoom, state.tileSize])
 
   const getEntityAt = useCallback((row: number, col: number) => {
-    // Check in reverse order (top entities first)
-    for (let i = state.entities.length - 1; i >= 0; i--) {
-      const e = state.entities[i]
+    // Only search active layer
+    const activeLayer = state.entityLayers.find(l => l.id === state.activeEntityLayerId)
+    if (!activeLayer || !activeLayer.visible || activeLayer.locked) return null
+    for (let i = activeLayer.entities.length - 1; i >= 0; i--) {
+      const e = activeLayer.entities[i]
       const def = entityDefs.find(d => d.id === e.defId)
       if (!def) continue
       if (row >= e.row && row < e.row + getDefVisual(def).height && col >= e.col && col < e.col + getDefVisual(def).width) {
@@ -32,7 +34,7 @@ export function useCanvasEntityPointer(canvasRef: React.RefObject<HTMLCanvasElem
       }
     }
     return null
-  }, [state.entities, entityDefs])
+  }, [state.entityLayers, state.activeEntityLayerId, entityDefs])
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0 || state.editorMode !== 'entity') return
@@ -42,7 +44,7 @@ export function useCanvasEntityPointer(canvasRef: React.RefObject<HTMLCanvasElem
     const entity = getEntityAt(grid.row, grid.col)
 
     if (entity) {
-      // Select and start drag
+      // Select entity (already on active layer)
       dispatch({ type: 'SELECT_ENTITY', entityId: entity.id })
       isDragging.current = true
       dragEntityId.current = entity.id

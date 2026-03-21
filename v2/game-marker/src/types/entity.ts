@@ -86,6 +86,14 @@ export interface Entity {
   properties: Record<string, unknown>
 }
 
+export interface EntityLayer {
+  id: string
+  name: string
+  visible: boolean
+  locked: boolean
+  entities: Entity[]
+}
+
 // ── Legacy types (for migration) ─────────────────────────
 
 export interface LegacyEntityDef {

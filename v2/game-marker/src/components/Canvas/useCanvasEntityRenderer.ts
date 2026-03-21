@@ -27,13 +27,16 @@ export function useCanvasEntityRenderer(
       ctx.scale(state.zoom, state.zoom)
       ctx.imageSmoothingEnabled = false
 
-      const { tileSize, entities, selectedEntityId } = state
+      const { tileSize, selectedEntityId } = state
 
       // Draw placed entities
-      for (const entity of entities) {
-        const def = entityDefs.find(d => d.id === entity.defId)
-        if (!def) continue
-        drawEntity(ctx, entity.row, entity.col, def, tileSize, tilesetImages, entity.id === selectedEntityId)
+      for (const elayer of state.entityLayers) {
+        if (!elayer.visible) continue
+        for (const entity of elayer.entities) {
+          const def = entityDefs.find(d => d.id === entity.defId)
+          if (!def) continue
+          drawEntity(ctx, entity.row, entity.col, def, tileSize, tilesetImages, entity.id === selectedEntityId)
+        }
       }
 
       // Ghost preview (only in entity mode)
@@ -42,22 +45,13 @@ export function useCanvasEntityRenderer(
         if (def) {
           const { row, col } = hoverCell
           if (row >= 0 && col >= 0 && row + getDefVisual(def).height <= state.gridRows && col + getDefVisual(def).width <= state.gridCols) {
-            // Check overlap
-            const overlaps = entities.some(e => {
-              const eDef = entityDefs.find(d => d.id === e.defId)
-              if (!eDef) return false
-              return row < e.row + getDefVisual(eDef).height && row + getDefVisual(def).height > e.row &&
-                     col < e.col + getDefVisual(eDef).width && col + getDefVisual(def).width > e.col
-            })
-
             ctx.globalAlpha = 0.5
             drawEntitySprite(ctx, row, col, def, tileSize, tilesetImages)
             ctx.globalAlpha = 1
 
-            // Highlight zone
-            ctx.fillStyle = overlaps ? 'rgba(239,68,68,0.15)' : 'rgba(56,189,248,0.15)'
+            ctx.fillStyle = 'rgba(56,189,248,0.15)'
             ctx.fillRect(col * tileSize, row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
-            ctx.strokeStyle = overlaps ? 'rgba(239,68,68,0.5)' : 'rgba(56,189,248,0.5)'
+            ctx.strokeStyle = 'rgba(56,189,248,0.5)'
             ctx.lineWidth = 2 / state.zoom
             ctx.strokeRect(col * tileSize, row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
           }
