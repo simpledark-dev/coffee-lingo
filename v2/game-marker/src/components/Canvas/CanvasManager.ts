@@ -1,5 +1,5 @@
 import type { EditorState, EditorAction } from '../../types/editor'
-import { getDefVisual } from '../../types/entity'
+import { getDefVisual, computeAnimFrames } from '../../types/entity'
 import type { EntityDef } from '../../types/entity'
 import { tools } from '../../tools'
 
@@ -57,6 +57,8 @@ export class CanvasManager {
 
   // Entity
   private entityDefs: EntityDef[] = []
+  private animFrameMap: Map<string, number> = new Map() // defId → current frame index
+  private lastAnimTime = 0
   private isDraggingEntity = false
   private dragEntityId: string | null = null
   private dragEntityOffset = { dRow: 0, dCol: 0 }
@@ -518,6 +520,7 @@ export class CanvasManager {
     ctx.scale(this.zoom, this.zoom)
     ctx.imageSmoothingEnabled = false
 
+    this.updateAnimFrames(s.tileSize)
     this.drawTiles(ctx, s)
     if (s.editorMode === 'entity' || s.editorMode === 'collision') {
       this.drawEntities(ctx, s)
@@ -689,15 +692,64 @@ export class CanvasManager {
     }
   }
 
+  private updateAnimFrames(tileSize: number) {
+    const now = performance.now()
+    if (!this.lastAnimTime) { this.lastAnimTime = now; return }
+
+    for (const def of this.entityDefs) {
+      const visual = getDefVisual(def)
+      if (visual.mode !== 'animated' || !visual.frameCount || visual.frameCount <= 1) continue
+
+      const duration = visual.frameDuration ?? 100
+      const elapsed = now - this.lastAnimTime
+      if (elapsed < duration) continue
+
+      const img = this.entityImages.get(visual.assetId) ?? this.tilesetImages.get(visual.assetId)
+      if (!img) continue
+      const sheetCols = Math.floor(img.naturalWidth / tileSize)
+      const sheetRows = Math.floor(img.naturalHeight / tileSize)
+      const frames = computeAnimFrames(visual, sheetCols, sheetRows)
+      if (frames.length <= 1) continue
+
+      const current = this.animFrameMap.get(def.id) ?? 0
+      const next = (current + 1) % frames.length
+      this.animFrameMap.set(def.id, next)
+    }
+
+    const minDuration = Math.min(
+      ...this.entityDefs
+        .map(d => getDefVisual(d))
+        .filter(v => v.mode === 'animated' && (v.frameCount ?? 0) > 1)
+        .map(v => v.frameDuration ?? 100),
+      Infinity,
+    )
+    if (now - this.lastAnimTime >= (minDuration === Infinity ? 100 : minDuration)) {
+      this.lastAnimTime = now
+    }
+  }
+
   private drawEntitySprite(ctx: CanvasRenderingContext2D, row: number, col: number, def: EntityDef, tileSize: number) {
-    const img = this.entityImages.get(getDefVisual(def).assetId) ?? this.tilesetImages.get(getDefVisual(def).assetId)
+    const visual = getDefVisual(def)
+    const img = this.entityImages.get(visual.assetId) ?? this.tilesetImages.get(visual.assetId)
     if (!img) return
     const tsCols = Math.floor(img.naturalWidth / tileSize)
     if (tsCols <= 0) return
-    const baseCol = (getDefVisual(def).tileIndex ?? 0) % tsCols
-    const baseRow = Math.floor((getDefVisual(def).tileIndex ?? 0) / tsCols)
-    for (let dr = 0; dr < getDefVisual(def).height; dr++) {
-      for (let dc = 0; dc < getDefVisual(def).width; dc++) {
+
+    // Get tile index — use animation frame if animated
+    let tileIndex = visual.tileIndex ?? 0
+    if (visual.mode === 'animated' && (visual.frameCount ?? 0) > 1) {
+      const tsRows = Math.floor(img.naturalHeight / tileSize)
+      const frames = computeAnimFrames(visual, tsCols, tsRows)
+      if (frames.length > 1) {
+        const fi = this.animFrameMap.get(def.id) ?? 0
+        tileIndex = frames[fi % frames.length]
+      }
+    }
+
+    const baseCol = tileIndex % tsCols
+    const baseRow = Math.floor(tileIndex / tsCols)
+    for (let dr = 0; dr < visual.height; dr++) {
+      for (let dc = 0; dc < visual.width; dc++) {
         ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize, (col + dc) * tileSize, (row + dr) * tileSize, tileSize, tileSize)
       }
     }

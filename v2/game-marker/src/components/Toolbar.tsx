@@ -148,16 +148,16 @@ export function Toolbar() {
         </ToolBtn>
       </Tooltip>
 
-      <div className="w-px h-6 bg-neutral-600 mx-1" />
+      <div className="flex-1" />
 
-      {/* Save */}
+          {/* Save */}
       <Tooltip text="Save Map" shortcut="Ctrl+S">
         <ToolBtn onClick={handleSave}>
           <Save size={16} />
         </ToolBtn>
       </Tooltip>
 
-      <div className="flex-1" />
+      <div className="w-px h-6 bg-neutral-600 mx-1" />
 
       {/* Map size (read-only) */}
       <div className="flex items-center gap-1">

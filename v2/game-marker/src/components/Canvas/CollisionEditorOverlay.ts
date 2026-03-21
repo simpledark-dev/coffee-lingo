@@ -77,6 +77,11 @@ export class CollisionEditorOverlay {
     this.loop()
   }
 
+  /** Update images without resetting zones */
+  updateImages(images: Map<string, HTMLImageElement>) {
+    this.tilesetImages = images
+  }
+
   close() {
     this.running = false
     cancelAnimationFrame(this.rafId)

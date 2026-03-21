@@ -76,7 +76,7 @@ export function LayerPanel() {
                   onClick={e => { e.stopPropagation(); dispatch({ type: 'TOGGLE_LAYER_LOCK', layerId: layer.id }) }}
                   className="p-0.5 text-neutral-400 hover:text-neutral-100"
                 >
-                  {layer.locked ? <Lock size={12} /> : <Unlock size={12} />}
+                  {layer.locked ? <Lock size={12} className='text-red-400'/> : <Unlock size={12} />}
                 </button>
               </Tooltip>
 

@@ -59,6 +59,11 @@ function FloatingWindow({ entityDefId }: { entityDefId: string }) {
     }
   }, [entityDefId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Update images when they load (fixes sprite not rendering if image loads after open)
+  useEffect(() => {
+    overlayRef.current?.updateImages(entityImages)
+  }, [entityImages])
+
   // Sync zone state
   useEffect(() => {
     overlayRef.current?.syncState(state.zoneDefs, state.selectedZoneDefType)
