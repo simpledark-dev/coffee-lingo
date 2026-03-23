@@ -42,7 +42,8 @@ export function Toolbar() {
     if (!currentProject) return
     try {
       const data = exportJson(state)
-      await saveMap(currentProject.id, state.mapName || 'Untitled', data)
+      const saved = await saveMap(currentProject.id, state.mapName || 'Untitled', data, state.currentMapId ?? undefined)
+      if (!state.currentMapId) dispatch({ type: 'SET_MAP_ID', mapId: saved.id })
       toast('Map saved', 'success')
     } catch (e) {
       toast('Failed to save map', 'error')

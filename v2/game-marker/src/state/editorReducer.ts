@@ -19,6 +19,7 @@ export function createInitialState(): EditorState {
   const layer = createLayer('Layer 1')
   const entityLayer: EntityLayer = { id: generateId(), name: 'Entities', visible: true, locked: false, entities: [] as import('../types/entity').Entity[] }
   return {
+    currentMapId: null,
     mapName: 'Untitled',
     gridCols: 30,
     gridRows: 30,
@@ -377,6 +378,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ?? [{ id: generateId(), name: 'Entities', visible: true, locked: false, entities: (action.data.entities ?? []) as import('../types/entity').Entity[] }]
       return {
         ...state,
+        currentMapId: action.mapId ?? state.currentMapId,
         mapName: action.data.name,
         gridCols: action.data.gridCols,
         gridRows: action.data.gridRows,
@@ -399,6 +401,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         importDialogOpen: false,
       }
     }
+
+    case 'SET_MAP_ID':
+      return { ...state, currentMapId: action.mapId }
 
     case 'SET_GRID_SIZE':
       return { ...state, gridCols: action.cols, gridRows: action.rows }

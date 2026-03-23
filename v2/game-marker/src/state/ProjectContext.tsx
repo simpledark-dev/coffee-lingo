@@ -59,6 +59,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const createProject = useCallback(async (name: string) => {
     const p = await db.createProject(name)
+    // Create default map
+    await db.saveMap(p.id, 'Map 1', {
+      version: 2, name: 'Map 1',
+      gridCols: 20, gridRows: 15, tileSize: p.tileSize,
+      tilesets: [],
+      layers: [{ id: crypto.randomUUID(), name: 'Layer 1', visible: true, locked: false, tiles: [] }],
+    })
     setProjects(prev => [p, ...prev])
     return p
   }, [])

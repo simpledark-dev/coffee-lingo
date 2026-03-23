@@ -93,6 +93,7 @@ export type EditorMode = 'tile' | 'entity' | 'collision'
 
 export interface EditorState {
   // Map metadata
+  currentMapId: string | null
   mapName: string
   gridCols: number
   gridRows: number
@@ -173,7 +174,8 @@ export type EditorAction =
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'PUSH_HISTORY' }
-  | { type: 'IMPORT_MAP'; data: TilemapJSON }
+  | { type: 'IMPORT_MAP'; data: TilemapJSON; mapId?: string }
+  | { type: 'SET_MAP_ID'; mapId: string }
   | { type: 'SET_GRID_SIZE'; cols: number; rows: number }
   | { type: 'RESIZE_MAP'; top: number; right: number; bottom: number; left: number }
   | { type: 'SET_TILE_SIZE'; size: number }

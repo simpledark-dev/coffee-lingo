@@ -14,6 +14,7 @@ import { ZoneList } from '../components/ZoneList'
 import { EntityCollisionList } from '../components/EntityCollisionList'
 import { EntityCollisionModal } from '../components/EntityCollisionModal'
 import { listMaps } from '../storage/db'
+import { MapTabBar } from '../components/MapTabBar'
 
 function AutoLoad() {
   const dispatch = useEditorDispatch()
@@ -24,9 +25,8 @@ function AutoLoad() {
     loaded.current = true
     listMaps(currentProject.id).then(maps => {
       if (maps.length > 0) {
-        // Load the most recently updated map
         const latest = maps.sort((a, b) => b.updatedAt - a.updatedAt)[0]
-        dispatch({ type: 'IMPORT_MAP', data: latest.data })
+        dispatch({ type: 'IMPORT_MAP', data: latest.data, mapId: latest.id })
       }
     })
   }, [dispatch, currentProject])
@@ -51,8 +51,11 @@ function KeyboardShortcuts() {
           if (currentProject) {
             import('../utils/exportJson').then(({ exportJson }) =>
               import('../storage/db').then(({ saveMap }) => {
-                saveMap(currentProject.id, state.mapName || 'Untitled', exportJson(state))
-                  .then(() => toast('Map saved', 'success'))
+                saveMap(currentProject.id, state.mapName || 'Untitled', exportJson(state), state.currentMapId ?? undefined)
+                  .then(saved => {
+                    if (!state.currentMapId) dispatch({ type: 'SET_MAP_ID', mapId: saved.id })
+                    toast('Map saved', 'success')
+                  })
                   .catch(() => toast('Failed to save', 'error'))
               })
             )
@@ -159,6 +162,7 @@ function EditorLayout() {
         <ResizeHandleX onResize={handleLayerResize} />
 
         <div className="flex-1 min-w-0 flex flex-col">
+          <MapTabBar />
           <div className="flex-1 min-h-0">
             <EditorCanvas />
           </div>
