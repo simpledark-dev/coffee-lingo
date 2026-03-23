@@ -14,17 +14,38 @@ export function TilePalette() {
   const tilesetNames = useTilesetNames()
 
   const loading = useTilesetLoading()
-  const [activeTileset, setActiveTileset] = useState<string>('')
+  const [activeTileset, setActiveTilesetRaw] = useState<string>(() => {
+    try { return sessionStorage.getItem('tilePalette:active') ?? '' } catch { return '' }
+  })
   // Pinned tabs — tileset IDs the user has opened as tabs
-  const [tabs, setTabs] = useState<string[]>([])
+  const [tabs, setTabsRaw] = useState<string[]>(() => {
+    try {
+      const raw = sessionStorage.getItem('tilePalette:tabs')
+      return raw ? JSON.parse(raw) : []
+    } catch { return [] }
+  })
   const tabBarRef = useRef<HTMLDivElement>(null)
+
+  // Wrap setters to persist
+  const setActiveTileset = useCallback((id: string) => {
+    setActiveTilesetRaw(id)
+    try { sessionStorage.setItem('tilePalette:active', id) } catch { /* */ }
+  }, [])
+
+  const setTabs = useCallback((update: string[] | ((prev: string[]) => string[])) => {
+    setTabsRaw(prev => {
+      const next = typeof update === 'function' ? update(prev) : update
+      try { sessionStorage.setItem('tilePalette:tabs', JSON.stringify(next)) } catch { /* */ }
+      return next
+    })
+  }, [])
 
   // Set initial active tileset once configs load
   useEffect(() => {
     if (configs.length > 0 && !activeTileset) {
       setActiveTileset(configs[0].id)
     }
-  }, [configs, activeTileset])
+  }, [configs, activeTileset, setActiveTileset])
 
   // Auto-add active tileset to tabs if not already there
   useEffect(() => {
@@ -33,14 +54,15 @@ export function TilePalette() {
     }
   }, [activeTileset]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Remove tabs whose tileset no longer exists
+  // Remove tabs whose tileset no longer exists (skip while loading)
   useEffect(() => {
+    if (loading || configs.length === 0) return
     const validIds = new Set(configs.map(c => c.id))
     setTabs(prev => {
       const next = prev.filter(id => validIds.has(id))
       return next.length !== prev.length ? next : prev
     })
-  }, [configs])
+  }, [configs, setTabs, loading])
 
   const handleCloseTab = (id: string) => {
     setTabs(prev => prev.filter(t => t !== id))

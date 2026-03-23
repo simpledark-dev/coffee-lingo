@@ -8,13 +8,9 @@ let endCol = 0
 let dragged = false
 
 function getTopTile(row: number, col: number, state: Parameters<ToolHandlers['onDown']>[2]): TilePlacement | null {
-  for (let i = state.layers.length - 1; i >= 0; i--) {
-    const layer = state.layers[i]
-    if (!layer.visible) continue
-    const tile = layer.tiles[`${row},${col}`]
-    if (tile) return tile
-  }
-  return null
+  const layer = state.layers.find(l => l.id === state.activeLayerId)
+  if (!layer) return null
+  return layer.tiles[`${row},${col}`] ?? null
 }
 
 export const eyedropperToolPatched: ToolHandlers = {
