@@ -105,6 +105,15 @@ export function Toolbar() {
             </ToolBtn>
           </Tooltip>
 
+          <Tooltip text="Entity Overlay">
+            <ToolBtn
+              active={state.showEntityOverlay}
+              onClick={() => dispatch({ type: 'TOGGLE_ENTITY_OVERLAY' })}
+            >
+              <Box size={16} />
+            </ToolBtn>
+          </Tooltip>
+
           {/* Resize mode */}
           <Tooltip text="Resize Map" shortcut="R">
             <ToolBtn

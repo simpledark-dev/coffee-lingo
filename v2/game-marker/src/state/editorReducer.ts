@@ -32,6 +32,7 @@ export function createInitialState(): EditorState {
     selection: null,
     clipboard: null,
     showGrid: true,
+    showEntityOverlay: false,
     zoom: 1,
     panX: 0,
     panY: 0,
@@ -436,6 +437,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case 'TOGGLE_GRID':
       return { ...state, showGrid: !state.showGrid }
+
+    case 'TOGGLE_ENTITY_OVERLAY':
+      return { ...state, showEntityOverlay: !state.showEntityOverlay }
 
     case 'TOGGLE_RESIZE_MODE':
       return { ...state, resizeMode: !state.resizeMode }

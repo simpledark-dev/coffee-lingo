@@ -542,7 +542,12 @@ export class CanvasManager {
 
     this.updateAnimFrames(s.tileSize)
     this.drawTiles(ctx, s)
-    if (s.editorMode === 'entity' || s.editorMode === 'collision') {
+    if (s.editorMode === 'tile' && s.showEntityOverlay) {
+      // Ghost entities in tile mode (non-interactive)
+      ctx.globalAlpha = 0.35
+      this.drawEntities(ctx, s)
+      ctx.globalAlpha = 1
+    } else if (s.editorMode === 'entity' || s.editorMode === 'collision') {
       this.drawEntities(ctx, s)
     }
     if (s.editorMode === 'collision') {

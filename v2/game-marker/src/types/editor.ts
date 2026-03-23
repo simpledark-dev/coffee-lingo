@@ -116,6 +116,7 @@ export interface EditorState {
 
   // View
   showGrid: boolean
+  showEntityOverlay: boolean
   zoom: number
   panX: number
   panY: number
@@ -179,6 +180,7 @@ export type EditorAction =
   | { type: 'SET_ZOOM'; zoom: number }
   | { type: 'SET_PAN'; x: number; y: number }
   | { type: 'TOGGLE_GRID' }
+  | { type: 'TOGGLE_ENTITY_OVERLAY' }
   | { type: 'TOGGLE_RESIZE_MODE' }
   | { type: 'SET_EDITOR_MODE'; mode: EditorMode }
   | { type: 'ADD_ENTITY_LAYER' }
