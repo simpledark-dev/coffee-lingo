@@ -91,6 +91,19 @@ export function AssetManagerPage() {
     if (selectedId === id) setSelectedId(null)
   }, [deleteAsset, selectedId])
 
+  const handleKeyNav = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+    e.preventDefault()
+    if (filtered.length === 0) return
+    const idx = selectedId ? filtered.findIndex(a => a.id === selectedId) : -1
+    const next = e.key === 'ArrowDown'
+      ? Math.min(idx + 1, filtered.length - 1)
+      : Math.max(idx - 1, 0)
+    const id = filtered[next].id
+    setSelectedId(id)
+    setSelectedIds(new Set([id]))
+  }, [filtered, selectedId])
+
   const handleAssetClick = useCallback((id: string, e: React.MouseEvent) => {
     if (e.ctrlKey || e.metaKey) {
       // Toggle multi-select
@@ -375,7 +388,7 @@ export function AssetManagerPage() {
         </div>
 
         {/* Asset list */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto outline-none" tabIndex={0} onKeyDown={handleKeyNav}>
           {loadingAssets ? (
             <div className="p-4 text-neutral-500 text-xs text-center">Loading...</div>
           ) : filtered.length === 0 ? (
@@ -441,7 +454,7 @@ function DraggableAssetRow(props: { asset: ProjectAsset; isSelected: boolean; is
   const { isMultiSelected, ...restProps } = props
   return (
     <div ref={setNodeRef} {...listeners} {...attributes} style={{ opacity: isDragging ? 0.4 : 1 }}
-      className={isMultiSelected && !props.isSelected ? 'bg-sky-900/20' : ''}>
+      className={`outline-none ${isMultiSelected && !props.isSelected ? 'bg-sky-900/20' : ''}`}>
       <AssetRow {...restProps} />
     </div>
   )
