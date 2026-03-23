@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react'
 import { useProject } from '../state/ProjectContext'
 import { useDialog } from '../components/Dialog'
 import { useToast } from '../components/Toast'
-import { getAssetBlobUrl } from '../storage/blobUrlCache'
+import { getAssetBlobUrl, getCachedBlobUrl } from '../storage/blobUrlCache'
 import type { ProjectAsset } from '../types/project'
 import { Upload, Trash2, Pencil, Check, X, Search, Plus, FolderOpen, FolderPlus } from 'lucide-react'
 import { DndContext, DragOverlay, useDraggable, useDroppable, type DragEndEvent, type DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
@@ -458,9 +458,34 @@ function DroppableFolder({ id, children }: { id: string; children: React.ReactNo
   )
 }
 
+// ── Lazy thumbnail hook (IntersectionObserver) ───────────
+
+function useLazyThumb(assetId: string, mimeType: string) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [thumb, setThumb] = useState<string | null>(() => getCachedBlobUrl(assetId) ?? null)
+
+  useEffect(() => {
+    if (thumb) return // already loaded (from cache)
+    const el = ref.current
+    if (!el) return
+    let cancelled = false
+    const io = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return
+      io.disconnect()
+      getAssetBlobUrl(assetId, mimeType).then(url => {
+        if (!cancelled) setThumb(url)
+      })
+    }, { rootMargin: '100px' })
+    io.observe(el)
+    return () => { cancelled = true; io.disconnect() }
+  }, [assetId, mimeType, thumb])
+
+  return { ref, thumb }
+}
+
 // ── Asset Row ────────────────────────────────────────────
 
-function AssetRow({
+const AssetRow = memo(function AssetRow({
   asset,
   isSelected,
   onSelect,
@@ -483,15 +508,7 @@ function AssetRow({
   const [editFolder, setEditFolder] = useState(asset.folder ?? '')
   const [editingNewCat, setEditingNewCat] = useState(false)
   const [newCatInput, setNewCatInput] = useState('')
-  const [thumb, setThumb] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    getAssetBlobUrl(asset.id, asset.mimeType).then(url => {
-      if (!cancelled) setThumb(url)
-    })
-    return () => { cancelled = true }
-  }, [asset.id, asset.mimeType])
+  const { ref: thumbRef, thumb } = useLazyThumb(asset.id, asset.mimeType)
 
   const handleSave = async () => {
     await onUpdate({ ...asset, name: editName.trim() || asset.name, category: editCategory, folder: editFolder })
@@ -578,13 +595,14 @@ function AssetRow({
 
   return (
     <div
+      ref={thumbRef}
       onClick={onSelect}
       className={`w-full text-left px-3 py-2 border-b border-neutral-800 flex items-center gap-2.5 group hover:bg-neutral-800 cursor-pointer ${isSelected ? 'bg-neutral-800 border-l-2 border-l-sky-500' : ''}`}
     >
       {thumb ? (
         <img src={thumb} className="w-8 h-8 object-cover bg-neutral-700 shrink-0" style={{ imageRendering: 'pixelated' }} />
       ) : (
-        <div className="w-8 h-8 bg-neutral-700 shrink-0" />
+        <div className="w-8 h-8 bg-neutral-700 shrink-0 animate-pulse" />
       )}
       <div className="flex-1 min-w-0">
         <div className="text-xs text-neutral-200 truncate">{asset.name}</div>
@@ -608,7 +626,7 @@ function AssetRow({
       </div>
     </div>
   )
-}
+})
 
 // ── Folder tree item ─────────────────────────────────────
 
