@@ -73,20 +73,28 @@ export function AnimationPreview({ visual, image, tileSize = 32 }: {
 
     const cols = Math.floor(image.naturalWidth / tileSize)
     if (cols <= 0) return
-    const baseCol = tileIndex % cols
-    const baseRow = Math.floor(tileIndex / cols)
     const w = visual.width * tileSize
     const h = visual.height * tileSize
     const scale = Math.min(size / w, size / h)
     const dw = w * scale, dh = h * scale
     const ox = (size - dw) / 2, oy = (size - dh) / 2
+    const cellW = dw / visual.width, cellH = dh / visual.height
 
     for (let dr = 0; dr < visual.height; dr++) {
       for (let dc = 0; dc < visual.width; dc++) {
+        let srcCol: number, srcRow: number
+        if (visual.tiles) {
+          const ti = visual.tiles[dr]?.[dc]
+          if (ti == null) continue
+          srcCol = ti % cols; srcRow = Math.floor(ti / cols)
+        } else {
+          const baseCol = tileIndex % cols
+          const baseRow = Math.floor(tileIndex / cols)
+          srcCol = baseCol + dc; srcRow = baseRow + dr
+        }
         ctx.drawImage(image,
-          (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize,
-          ox + dc * (dw / visual.width), oy + dr * (dh / visual.height),
-          dw / visual.width, dh / visual.height,
+          srcCol * tileSize, srcRow * tileSize, tileSize, tileSize,
+          ox + dc * cellW, oy + dr * cellH, cellW, cellH,
         )
       }
     }

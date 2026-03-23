@@ -744,6 +744,19 @@ export class CanvasManager {
     const tsCols = Math.floor(img.naturalWidth / tileSize)
     if (tsCols <= 0) return
 
+    // Composite static: per-cell tile indices
+    if (visual.tiles) {
+      for (let dr = 0; dr < visual.height; dr++) {
+        for (let dc = 0; dc < visual.width; dc++) {
+          const ti = visual.tiles[dr]?.[dc]
+          if (ti == null) continue
+          const sc = ti % tsCols, sr = Math.floor(ti / tsCols)
+          ctx.drawImage(img, sc * tileSize, sr * tileSize, tileSize, tileSize, (col + dc) * tileSize, (row + dr) * tileSize, tileSize, tileSize)
+        }
+      }
+      return
+    }
+
     // Get tile index — use animation frame if animated
     let tileIndex = visual.tileIndex ?? 0
     if (visual.mode === 'animated' && (visual.frameCount ?? 0) > 1) {

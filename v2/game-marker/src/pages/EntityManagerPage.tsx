@@ -6,9 +6,10 @@ import { useEntityImages } from '../state/useEntityImages'
 import { useProject } from '../state/ProjectContext'
 import { useTilesetConfigs, useTilesetNames, useTilesetImages } from '../state/TilesetContext'
 import { EntityTilePicker } from '../components/entity/EntityTilePicker'
+import { CompositeTileEditor } from '../components/entity/CompositeTileEditor'
 import { AssetPicker } from '../components/AssetPicker'
 import { AnimationCanvas } from '../components/entity/AnimationCanvas'
-import { computeAnimFrames, getDefVisual } from '../types/entity'
+import { computeAnimFrames, getDefVisual, createTilesGrid, resizeTilesGrid } from '../types/entity'
 import { getAssetBlobUrl } from '../storage/blobUrlCache'
 import type { EntityDef, EntityVisual } from '../types/entity'
 
@@ -190,7 +191,7 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
   }, [def, selectedState, onUpdate])
 
   const spriteSheetAssets = assets.filter(a => a.category === 'sprite-sheet')
-  const isConfigured = visual.assetId && visual.tileIndex != null
+  const isConfigured = visual.assetId && (visual.tileIndex != null || visual.tiles != null)
 
   if (editing) {
     return <EditMode
@@ -249,10 +250,13 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
         </span>
 
         <div className="flex gap-0.5">
-          <button onClick={() => setVisual(v => ({ ...v, mode: 'static' }))}
-            className={`px-2.5 py-1 text-xs border ${visual.mode === 'static' ? 'bg-sky-700 border-sky-600 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700'}`}>
+          <button onClick={() => setVisual(v => ({ ...v, mode: 'static', tiles: undefined }))}
+            className={`px-2.5 py-1 text-xs border ${visual.mode === 'static' && !visual.tiles ? 'bg-sky-700 border-sky-600 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700'}`}>
             Static</button>
-          <button onClick={() => setVisual(v => ({ ...v, mode: 'animated', frameCount: v.frameCount ?? 1 }))}
+          <button onClick={() => setVisual(v => ({ ...v, mode: 'static', tiles: v.tiles ?? createTilesGrid(v.width, v.height) }))}
+            className={`px-2.5 py-1 text-xs border ${visual.mode === 'static' && visual.tiles ? 'bg-purple-700 border-purple-600 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700'}`}>
+            Composite</button>
+          <button onClick={() => setVisual(v => ({ ...v, mode: 'animated', tiles: undefined, frameCount: v.frameCount ?? 1 }))}
             className={`px-2.5 py-1 text-xs border ${visual.mode === 'animated' ? 'bg-sky-700 border-sky-600 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700'}`}>
             Animated</button>
         </div>
@@ -295,7 +299,24 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
           </>
         )}
 
-        {visual.tileIndex != null && (
+        {visual.tiles && (
+          <>
+            <div className="flex items-center gap-1 text-xs text-neutral-400">
+              <span>W</span>
+              <input type="number" min={1} max={32} value={visual.width}
+                onChange={e => { const w = Math.max(1, +e.target.value || 1); setVisual(v => ({ ...v, width: w, tiles: resizeTilesGrid(v.tiles!, w, v.height) })) }}
+                className="w-12 px-1 py-0.5 bg-neutral-900 border border-neutral-700 text-xs text-neutral-200 text-center" />
+            </div>
+            <div className="flex items-center gap-1 text-xs text-neutral-400">
+              <span>H</span>
+              <input type="number" min={1} max={32} value={visual.height}
+                onChange={e => { const h = Math.max(1, +e.target.value || 1); setVisual(v => ({ ...v, height: h, tiles: resizeTilesGrid(v.tiles!, v.width, h) })) }}
+                className="w-12 px-1 py-0.5 bg-neutral-900 border border-neutral-700 text-xs text-neutral-200 text-center" />
+            </div>
+          </>
+        )}
+
+        {!visual.tiles && visual.tileIndex != null && (
           <span className="text-xs text-neutral-500">
             {visual.width}x{visual.height} tiles
             {visual.mode === 'animated' && ` · ${visual.frameCount ?? 1} frames`}
@@ -319,6 +340,7 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
         visual={visual}
         tileSize={tileSize}
         onSelect={sel => setVisual(v => ({ ...v, tileIndex: sel.tileIndex, width: sel.w, height: sel.h }))}
+        onTilesChange={tiles => setVisual(v => ({ ...v, tiles }))}
       />
     </div>
   )
@@ -532,9 +554,10 @@ function FrameThumb({ index, tileIndex, frameW, frameH, tileSize, image, active,
 
 // ── Picker area with explicit sizing ─────────────────────
 
-function PickerArea({ visual, tileSize, onSelect }: {
+function PickerArea({ visual, tileSize, onSelect, onTilesChange }: {
   visual: EntityVisual; tileSize: number
   onSelect: (sel: { tileIndex: number; w: number; h: number }) => void
+  onTilesChange?: (tiles: (number | null)[][]) => void
 }) {
   const entityImages = useEntityImages()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -555,7 +578,13 @@ function PickerArea({ visual, tileSize, onSelect }: {
     <div ref={containerRef} className="flex-1 min-h-0">
       {size.w > 0 && size.h > 0 && (
         <div className="bg-neutral-950 relative" style={{ width: size.w, height: size.h }}>
-          {visual.assetId ? (
+          {!visual.assetId ? (
+            <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">
+              Select an asset above
+            </div>
+          ) : visual.tiles && onTilesChange ? (
+            <CompositeTileEditor visual={visual} tileSize={tileSize} onChange={onTilesChange} />
+          ) : (
             <>
               <EntityTilePicker
                 assetId={visual.assetId}
@@ -571,10 +600,6 @@ function PickerArea({ visual, tileSize, onSelect }: {
                 </div>
               )}
             </>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">
-              Select an asset above
-            </div>
           )}
         </div>
       )}
@@ -662,7 +687,15 @@ function EditPreviewMini({ visual, tileSize, images }: {
 
     for (let dr = 0; dr < visual.height; dr++) {
       for (let dc = 0; dc < visual.width; dc++) {
-        ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize,
+        let srcCol: number, srcRow: number
+        if (visual.tiles) {
+          const ti = visual.tiles[dr]?.[dc]
+          if (ti == null) continue
+          srcCol = ti % sheetCols; srcRow = Math.floor(ti / sheetCols)
+        } else {
+          srcCol = baseCol + dc; srcRow = baseRow + dr
+        }
+        ctx.drawImage(img, srcCol * tileSize, srcRow * tileSize, tileSize, tileSize,
           ox + dc * cellW, oy + dr * cellH, cellW, cellH)
       }
     }
@@ -738,7 +771,15 @@ function EntityThumb({ def, tileSize, size = 28 }: { def: EntityDef; tileSize: n
 
     for (let dr = 0; dr < visual.height; dr++) {
       for (let dc = 0; dc < visual.width; dc++) {
-        ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize,
+        let srcCol: number, srcRow: number
+        if (visual.tiles) {
+          const ti = visual.tiles[dr]?.[dc]
+          if (ti == null) continue
+          srcCol = ti % sheetCols; srcRow = Math.floor(ti / sheetCols)
+        } else {
+          srcCol = baseCol + dc; srcRow = baseRow + dr
+        }
+        ctx.drawImage(img, srcCol * tileSize, srcRow * tileSize, tileSize, tileSize,
           ox + dc * cellW, oy + dr * cellH, cellW, cellH)
       }
     }

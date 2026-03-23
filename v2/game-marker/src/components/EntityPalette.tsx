@@ -102,7 +102,15 @@ function EntityDefItem({ def, active, tileSize, onSelect }: {
 
     for (let dr = 0; dr < visual.height; dr++) {
       for (let dc = 0; dc < visual.width; dc++) {
-        ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize,
+        let srcCol: number, srcRow: number
+        if (visual.tiles) {
+          const ti = visual.tiles[dr]?.[dc]
+          if (ti == null) continue
+          srcCol = ti % sheetCols; srcRow = Math.floor(ti / sheetCols)
+        } else {
+          srcCol = baseCol + dc; srcRow = baseRow + dr
+        }
+        ctx.drawImage(img, srcCol * tileSize, srcRow * tileSize, tileSize, tileSize,
           ox + dc * cellW, oy + dr * cellH, cellW, cellH)
       }
     }

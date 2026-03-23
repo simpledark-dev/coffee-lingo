@@ -96,11 +96,19 @@ function CollisionThumb({ def, tileSize, images, onClick }: {
     const dw = srcW * scale, dh = srcH * scale
     const ox = (thumbSize - dw) / 2, oy = (thumbSize - dh) / 2
 
+    const cellW = dw / visual.width, cellH = dh / visual.height
     for (let dr = 0; dr < visual.height; dr++) {
       for (let dc = 0; dc < visual.width; dc++) {
-        ctx.drawImage(img, (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize,
-          ox + dc * (dw / visual.width), oy + dr * (dh / visual.height),
-          dw / visual.width, dh / visual.height)
+        let srcCol: number, srcRow: number
+        if (visual.tiles) {
+          const ti = visual.tiles[dr]?.[dc]
+          if (ti == null) continue
+          srcCol = ti % sheetCols; srcRow = Math.floor(ti / sheetCols)
+        } else {
+          srcCol = baseCol + dc; srcRow = baseRow + dr
+        }
+        ctx.drawImage(img, srcCol * tileSize, srcRow * tileSize, tileSize, tileSize,
+          ox + dc * cellW, oy + dr * cellH, cellW, cellH)
       }
     }
 

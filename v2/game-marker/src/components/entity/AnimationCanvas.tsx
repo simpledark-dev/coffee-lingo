@@ -119,12 +119,20 @@ export function AnimationCanvas({ visual, image, tileSize = 32, onFrameChange, f
     const fi = displayFrame % Math.max(1, frames.length)
     const tileIndex = frames.length > 0 ? frames[fi] : (visual.tileIndex ?? 0)
     if (sheetCols > 0) {
-      const baseCol = tileIndex % sheetCols
-      const baseRow = Math.floor(tileIndex / sheetCols)
       for (let dr = 0; dr < visual.height; dr++) {
         for (let dc = 0; dc < visual.width; dc++) {
+          let srcCol: number, srcRow: number
+          if (visual.tiles) {
+            const ti = visual.tiles[dr]?.[dc]
+            if (ti == null) continue
+            srcCol = ti % sheetCols; srcRow = Math.floor(ti / sheetCols)
+          } else {
+            const baseCol = tileIndex % sheetCols
+            const baseRow = Math.floor(tileIndex / sheetCols)
+            srcCol = baseCol + dc; srcRow = baseRow + dr
+          }
           ctx.drawImage(image,
-            (baseCol + dc) * tileSize, (baseRow + dr) * tileSize, tileSize, tileSize,
+            srcCol * tileSize, srcRow * tileSize, tileSize, tileSize,
             dc * tileSize, dr * tileSize, tileSize, tileSize)
         }
       }

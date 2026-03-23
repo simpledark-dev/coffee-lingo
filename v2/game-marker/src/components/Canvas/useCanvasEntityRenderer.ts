@@ -96,15 +96,30 @@ function drawEntitySprite(
   tileSize: number,
   images: Map<string, HTMLImageElement>,
 ) {
-  const img = images.get(getDefVisual(def).assetId) // images should include both tileset + sprite-sheet
+  const visual = getDefVisual(def)
+  const img = images.get(visual.assetId) // images should include both tileset + sprite-sheet
   if (!img) return
   const tsCols = Math.floor(img.naturalWidth / tileSize)
   if (tsCols <= 0) return
+
+  // Composite static: per-cell tile indices
+  if (visual.tiles) {
+    for (let dr = 0; dr < visual.height; dr++) {
+      for (let dc = 0; dc < visual.width; dc++) {
+        const ti = visual.tiles[dr]?.[dc]
+        if (ti == null) continue
+        const sc = ti % tsCols, sr = Math.floor(ti / tsCols)
+        ctx.drawImage(img, sc * tileSize, sr * tileSize, tileSize, tileSize, (col + dc) * tileSize, (row + dr) * tileSize, tileSize, tileSize)
+      }
+    }
+    return
+  }
+
   // tileIndex = top-left tile in tileset; draw width x height tiles from there
-  const baseCol = (getDefVisual(def).tileIndex ?? 0) % tsCols
-  const baseRow = Math.floor((getDefVisual(def).tileIndex ?? 0) / tsCols)
-  for (let dr = 0; dr < getDefVisual(def).height; dr++) {
-    for (let dc = 0; dc < getDefVisual(def).width; dc++) {
+  const baseCol = (visual.tileIndex ?? 0) % tsCols
+  const baseRow = Math.floor((visual.tileIndex ?? 0) / tsCols)
+  for (let dr = 0; dr < visual.height; dr++) {
+    for (let dc = 0; dc < visual.width; dc++) {
       const srcX = (baseCol + dc) * tileSize
       const srcY = (baseRow + dr) * tileSize
       ctx.drawImage(img, srcX, srcY, tileSize, tileSize, (col + dc) * tileSize, (row + dr) * tileSize, tileSize, tileSize)

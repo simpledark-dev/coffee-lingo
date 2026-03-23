@@ -6,11 +6,25 @@ export interface EntityVisual {
   tileIndex?: number       // top-left tile of frame 0 (both modes)
   width: number            // frame width in tiles
   height: number           // frame height in tiles
+  // Composite static: per-cell tile indices (overrides tileIndex when present)
+  tiles?: (number | null)[][]  // [row][col] grid, null = transparent
   // Animated mode: frames auto-generated from tileIndex, going right then wrapping
   frameCount?: number      // total frames (animated only)
   frameDuration?: number   // ms per frame, default 100
   frameGap?: number        // extra tiles to skip between frames (default 0)
   loop?: 'loop' | 'pingpong' | 'once'
+}
+
+export function createTilesGrid(width: number, height: number): (number | null)[][] {
+  return Array.from({ length: height }, () => Array<number | null>(width).fill(null))
+}
+
+export function resizeTilesGrid(tiles: (number | null)[][], newWidth: number, newHeight: number): (number | null)[][] {
+  return Array.from({ length: newHeight }, (_, r) =>
+    Array.from({ length: newWidth }, (_, c) =>
+      r < tiles.length && c < (tiles[r]?.length ?? 0) ? tiles[r][c] : null
+    )
+  )
 }
 
 /**
