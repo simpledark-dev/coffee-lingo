@@ -21,44 +21,48 @@ export function useCanvasEntityPointer(canvasRef: React.RefObject<HTMLCanvasElem
     return { row, col }
   }, [canvasRef, state.panX, state.panY, state.zoom, state.tileSize])
 
-  const getEntityAt = useCallback((row: number, col: number) => {
-    // Only search active layer
-    const activeLayer = state.entityLayers.find(l => l.id === state.activeEntityLayerId)
-    if (!activeLayer || !activeLayer.visible || activeLayer.locked) return null
-    for (let i = activeLayer.entities.length - 1; i >= 0; i--) {
-      const e = activeLayer.entities[i]
-      const def = entityDefs.find(d => d.id === e.defId)
-      if (!def) continue
-      if (row >= e.row && row < e.row + getDefVisual(def).height && col >= e.col && col < e.col + getDefVisual(def).width) {
-        return e
+  const getEntityAt = useCallback((row: number, col: number): { entity: import('../../types/entity').Entity; layerId: string } | null => {
+    // Search ALL visible layers (reverse order = top layer first)
+    for (let li = state.entityLayers.length - 1; li >= 0; li--) {
+      const el = state.entityLayers[li]
+      if (!el.visible) continue
+      for (let i = el.entities.length - 1; i >= 0; i--) {
+        const e = el.entities[i]
+        const def = entityDefs.find(d => d.id === e.defId)
+        if (!def) continue
+        if (row >= e.row && row < e.row + getDefVisual(def).height && col >= e.col && col < e.col + getDefVisual(def).width) {
+          return { entity: e, layerId: el.id }
+        }
       }
     }
     return null
-  }, [state.entityLayers, state.activeEntityLayerId, entityDefs])
+  }, [state.entityLayers, entityDefs])
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0 || state.editorMode !== 'entity') return
     const grid = screenToGrid(e.clientX, e.clientY)
     if (!grid) return
 
-    const entity = getEntityAt(grid.row, grid.col)
-
-    if (entity) {
-      // Select entity (already on active layer)
-      dispatch({ type: 'SELECT_ENTITY', entityId: entity.id })
-      isDragging.current = true
-      dragEntityId.current = entity.id
-      dragOffset.current = { row: grid.row - entity.row, col: grid.col - entity.col }
-      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-      dispatch({ type: 'PUSH_HISTORY' })
-    } else if (state.selectedEntityDefId) {
-      // Place new entity
+    // If placing mode (def selected) → always place, don't select instances
+    if (state.selectedEntityDefId) {
       const def = entityDefs.find(d => d.id === state.selectedEntityDefId)
       if (!def) return
       dispatch({ type: 'PUSH_HISTORY' })
-      dispatch({ type: 'PLACE_ENTITY', row: grid.row, col: grid.col, def })
+      dispatch({ type: 'PLACE_ENTITY', row: grid.row, col: grid.col, def, entityDefs })
+      return
+    }
+
+    // Selection mode — click any entity across all visible layers
+    const hit = getEntityAt(grid.row, grid.col)
+    if (hit) {
+      dispatch({ type: 'SELECT_ENTITY', entityId: hit.entity.id })
+      dispatch({ type: 'SET_ACTIVE_ENTITY_LAYER', layerId: hit.layerId })
+      isDragging.current = true
+      dragEntityId.current = hit.entity.id
+      dragOffset.current = { row: grid.row - hit.entity.row, col: grid.col - hit.entity.col }
+      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+      dispatch({ type: 'PUSH_HISTORY' })
     } else {
-      // Deselect
       dispatch({ type: 'SELECT_ENTITY', entityId: null })
     }
   }, [state.editorMode, state.selectedEntityDefId, screenToGrid, getEntityAt, dispatch, entityDefs])

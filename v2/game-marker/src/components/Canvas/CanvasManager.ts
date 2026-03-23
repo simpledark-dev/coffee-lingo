@@ -326,32 +326,40 @@ export class CanvasManager {
     const s = this.state
     const { row, col } = this.screenToGrid(e.clientX, e.clientY)
 
-    // Find entity at click — only in active layer
+    // If placing mode (def selected) → always place, don't select instances
+    if (s.selectedEntityDefId) {
+      const def = this.entityDefs.find(d => d.id === s.selectedEntityDefId)
+      if (!def) return
+      this.dispatch({ type: 'PUSH_HISTORY' })
+      this.dispatch({ type: 'PLACE_ENTITY', row, col, def, entityDefs: this.entityDefs })
+      return
+    }
+
+    // Selection mode — search ALL visible layers
     let clicked: Entity | null = null
-    const activeLayer = s.entityLayers.find(l => l.id === s.activeEntityLayerId)
-    if (activeLayer && activeLayer.visible && !activeLayer.locked) {
-      for (let i = activeLayer.entities.length - 1; i >= 0; i--) {
-        const ent = activeLayer.entities[i]
+    let clickedLayerId: string | null = null
+    for (let li = s.entityLayers.length - 1; li >= 0; li--) {
+      const el = s.entityLayers[li]
+      if (!el.visible) continue
+      for (let i = el.entities.length - 1; i >= 0; i--) {
+        const ent = el.entities[i]
         const def = this.entityDefs.find(d => d.id === ent.defId)
         if (!def) continue
         if (row >= ent.row && row < ent.row + getDefVisual(def).height && col >= ent.col && col < ent.col + getDefVisual(def).width) {
-          clicked = ent; break
+          clicked = ent; clickedLayerId = el.id; break
         }
       }
+      if (clicked) break
     }
 
     if (clicked) {
       this.dispatch({ type: 'SELECT_ENTITY', entityId: clicked.id })
+      if (clickedLayerId) this.dispatch({ type: 'SET_ACTIVE_ENTITY_LAYER', layerId: clickedLayerId })
       this.isDraggingEntity = true
       this.dragEntityId = clicked.id
       this.dragEntityOffset = { dRow: row - clicked.row, dCol: col - clicked.col }
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
       this.dispatch({ type: 'PUSH_HISTORY' })
-    } else if (s.selectedEntityDefId) {
-      const def = this.entityDefs.find(d => d.id === s.selectedEntityDefId)
-      if (!def) return
-      this.dispatch({ type: 'PUSH_HISTORY' })
-      this.dispatch({ type: 'PLACE_ENTITY', row, col, def })
     } else {
       this.dispatch({ type: 'SELECT_ENTITY', entityId: null })
     }
@@ -689,13 +697,27 @@ export class CanvasManager {
       const def = entityDefs.find(d => d.id === s.selectedEntityDefId)
       if (def) {
         const { row, col } = this.hoverCell
-        if (row >= 0 && col >= 0 && row + getDefVisual(def).height <= s.gridRows && col + getDefVisual(def).width <= s.gridCols) {
+        const v = getDefVisual(def)
+        if (row >= 0 && col >= 0 && row + v.height <= s.gridRows && col + v.width <= s.gridCols) {
+          // Check overlap within active layer only
+          let overlaps = false
+          const activeEL = s.entityLayers.find(l => l.id === s.activeEntityLayerId)
+          if (activeEL) {
+            for (const e of activeEL.entities) {
+              const ed = entityDefs.find(d => d.id === e.defId)
+              if (!ed) continue
+              const ev = getDefVisual(ed)
+              if (row < e.row + ev.height && row + v.height > e.row && col < e.col + ev.width && col + v.width > e.col) {
+                overlaps = true; break
+              }
+            }
+          }
           ctx.globalAlpha = 0.5
           this.drawEntitySprite(ctx, row, col, def, tileSize)
           ctx.globalAlpha = 1
-          ctx.fillStyle = 'rgba(56,189,248,0.15)'
-          ctx.fillRect(col * tileSize, row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
-          ctx.strokeStyle = 'rgba(56,189,248,0.5)'
+          ctx.fillStyle = overlaps ? 'rgba(239,68,68,0.15)' : 'rgba(56,189,248,0.15)'
+          ctx.fillRect(col * tileSize, row * tileSize, v.width * tileSize, v.height * tileSize)
+          ctx.strokeStyle = overlaps ? 'rgba(239,68,68,0.5)' : 'rgba(56,189,248,0.5)'
           ctx.lineWidth = 2 / this.zoom
           ctx.strokeRect(col * tileSize, row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
         }

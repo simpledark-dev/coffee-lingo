@@ -188,7 +188,7 @@ export type EditorAction =
   | { type: 'TOGGLE_ENTITY_LAYER_LOCK'; layerId: string }
   | { type: 'SET_ACTIVE_ENTITY_LAYER'; layerId: string }
   | { type: 'SELECT_ENTITY_DEF'; entityDefId: string | null }
-  | { type: 'PLACE_ENTITY'; row: number; col: number; def: import('./entity').EntityDef }
+  | { type: 'PLACE_ENTITY'; row: number; col: number; def: import('./entity').EntityDef; entityDefs: import('./entity').EntityDef[] }
   | { type: 'SELECT_ENTITY'; entityId: string | null }
   | { type: 'MOVE_ENTITY'; entityId: string; row: number; col: number; entityDefs: import('./entity').EntityDef[] }
   | { type: 'DELETE_ENTITY'; entityId: string }

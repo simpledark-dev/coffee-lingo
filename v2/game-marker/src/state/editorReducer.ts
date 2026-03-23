@@ -480,7 +480,17 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       const activeLayer = state.entityLayers.find(l => l.id === state.activeEntityLayerId)
       if (!activeLayer || activeLayer.locked || !activeLayer.visible) return state
       const newR = action.row, newC = action.col
-      if (newR < 0 || newC < 0 || newR + getDefVisual(def).height > state.gridRows || newC + getDefVisual(def).width > state.gridCols) return state
+      const v = getDefVisual(def)
+      if (newR < 0 || newC < 0 || newR + v.height > state.gridRows || newC + v.width > state.gridCols) return state
+      // Check overlap within active layer only
+      for (const e of activeLayer.entities) {
+        const eDef = action.entityDefs.find(d => d.id === e.defId)
+        if (!eDef) continue
+        const ev = getDefVisual(eDef)
+        if (newR < e.row + ev.height && newR + v.height > e.row && newC < e.col + ev.width && newC + v.width > e.col) {
+          return state // overlap — block placement
+        }
+      }
       const entity = { id: generateId(), defId: def.id, row: newR, col: newC, properties: { ...def.properties } }
       return {
         ...state,
@@ -515,6 +525,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         })),
         selectedEntityId: state.selectedEntityId === action.entityId ? null : state.selectedEntityId,
       }
+
 
     case 'UPDATE_ENTITY_PROPS':
       return {
