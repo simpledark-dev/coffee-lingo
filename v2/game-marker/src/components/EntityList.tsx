@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Trash2, Box, ChevronDown, ChevronRight, Eye, EyeOff, Lock, Unlock, Plus } from 'lucide-react'
+import { Trash2, Box, ChevronDown, ChevronRight, ChevronUp, Eye, EyeOff, Lock, Unlock, Plus } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { useEntityContext } from '../state/EntityContext'
 import { Tooltip } from './Tooltip'
@@ -93,7 +93,14 @@ function EntityLayerItem({ layer, isActive, selectedEntityId, collapsed, onToggl
           {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
         </button>
 
-        <button onClick={e => { e.stopPropagation(); dispatch({ type: 'TOGGLE_ENTITY_LAYER_VISIBILITY', layerId: layer.id }) }}
+        <button onClick={e => {
+            e.stopPropagation()
+            if (e.altKey) {
+              dispatch({ type: 'SOLO_ENTITY_LAYER', layerId: layer.id })
+            } else {
+              dispatch({ type: 'TOGGLE_ENTITY_LAYER_VISIBILITY', layerId: layer.id })
+            }
+          }}
           className={`p-0.5 ${layer.visible ? 'text-neutral-400' : 'text-neutral-600'}`}>
           {layer.visible ? <Eye size={12} /> : <EyeOff size={12} />}
         </button>
@@ -133,7 +140,7 @@ function EntityLayerItem({ layer, isActive, selectedEntityId, collapsed, onToggl
       </div>
 
       {/* Entities inside layer */}
-      {!collapsed && layer.entities.map(entity => {
+      {!collapsed && [...layer.entities].reverse().map(entity => {
         const isSelected = selectedEntityId === entity.id
         const isInspecting = inspectorOpen === entity.id
         return (
@@ -148,8 +155,16 @@ function EntityLayerItem({ layer, isActive, selectedEntityId, collapsed, onToggl
                 className="p-0.5 text-neutral-500">
                 {isInspecting ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
               </button>
-              <span className="flex-1 truncate text-neutral-300">{getDefName(entity.defId)}</span>
+              <span className="flex-1 truncate text-neutral-300">{entity.name ?? getDefName(entity.defId)}</span>
               <span className="text-[10px] text-neutral-500">{entity.row},{entity.col}</span>
+              <button onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_ENTITY', entityId: entity.id, direction: 'up' }) }}
+                className="p-0.5 text-neutral-600 hover:text-neutral-300">
+                <ChevronUp size={10} />
+              </button>
+              <button onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_ENTITY', entityId: entity.id, direction: 'down' }) }}
+                className="p-0.5 text-neutral-600 hover:text-neutral-300">
+                <ChevronDown size={10} />
+              </button>
               <button onClick={e => { e.stopPropagation(); dispatch({ type: 'DELETE_ENTITY', entityId: entity.id }) }}
                 className="p-0.5 text-neutral-600 hover:text-red-400">
                 <Trash2 size={10} />

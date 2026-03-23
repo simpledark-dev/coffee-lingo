@@ -46,26 +46,13 @@ export function useCanvasEntityRenderer(
           const { row, col } = hoverCell
           const v = getDefVisual(def)
           if (row >= 0 && col >= 0 && row + v.height <= state.gridRows && col + v.width <= state.gridCols) {
-            let overlaps = false
-            const activeEL = state.entityLayers.find(l => l.id === state.activeEntityLayerId)
-            if (activeEL) {
-              for (const e of activeEL.entities) {
-                const eDef = entityDefs.find(d => d.id === e.defId)
-                if (!eDef) continue
-                const ev = getDefVisual(eDef)
-                if (row < e.row + ev.height && row + v.height > e.row && col < e.col + ev.width && col + v.width > e.col) {
-                  overlaps = true; break
-                }
-              }
-            }
-
             ctx.globalAlpha = 0.5
             drawEntitySprite(ctx, row, col, def, tileSize, tilesetImages)
             ctx.globalAlpha = 1
 
-            ctx.fillStyle = overlaps ? 'rgba(239,68,68,0.15)' : 'rgba(56,189,248,0.15)'
+            ctx.fillStyle = 'rgba(56,189,248,0.15)'
             ctx.fillRect(col * tileSize, row * tileSize, v.width * tileSize, v.height * tileSize)
-            ctx.strokeStyle = overlaps ? 'rgba(239,68,68,0.5)' : 'rgba(56,189,248,0.5)'
+            ctx.strokeStyle = 'rgba(56,189,248,0.5)'
             ctx.lineWidth = 2 / state.zoom
             ctx.strokeRect(col * tileSize, row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
           }

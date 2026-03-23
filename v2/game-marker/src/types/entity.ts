@@ -85,6 +85,7 @@ export function getDefVisual(def: EntityDef, state?: string): EntityVisual {
 export interface Entity {
   id: string
   defId: string            // references EntityDef.id
+  name?: string            // display name, auto-generated on placement
   row: number
   col: number
   properties: Record<string, unknown>

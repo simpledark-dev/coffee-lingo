@@ -190,6 +190,19 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ),
       }
 
+    case 'SOLO_LAYER': {
+      const allVisible = state.layers.every(l => l.id === action.layerId ? l.visible : !l.visible)
+      return {
+        ...state,
+        layers: state.layers.map(l =>
+          // If already solo → show all; otherwise solo this one
+          allVisible
+            ? { ...l, visible: true }
+            : { ...l, visible: l.id === action.layerId }
+        ),
+      }
+    }
+
     case 'TOGGLE_LAYER_LOCK':
       return {
         ...state,
@@ -464,6 +477,16 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'TOGGLE_ENTITY_LAYER_VISIBILITY':
       return { ...state, entityLayers: state.entityLayers.map(l => l.id === action.layerId ? { ...l, visible: !l.visible } : l) }
 
+    case 'SOLO_ENTITY_LAYER': {
+      const allVisible = state.entityLayers.every(l => l.id === action.layerId ? l.visible : !l.visible)
+      return {
+        ...state,
+        entityLayers: state.entityLayers.map(l =>
+          allVisible ? { ...l, visible: true } : { ...l, visible: l.id === action.layerId }
+        ),
+      }
+    }
+
     case 'TOGGLE_ENTITY_LAYER_LOCK':
       return { ...state, entityLayers: state.entityLayers.map(l => l.id === action.layerId ? { ...l, locked: !l.locked } : l) }
 
@@ -482,16 +505,14 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       const newR = action.row, newC = action.col
       const v = getDefVisual(def)
       if (newR < 0 || newC < 0 || newR + v.height > state.gridRows || newC + v.width > state.gridCols) return state
-      // Check overlap within active layer only
-      for (const e of activeLayer.entities) {
-        const eDef = action.entityDefs.find(d => d.id === e.defId)
-        if (!eDef) continue
-        const ev = getDefVisual(eDef)
-        if (newR < e.row + ev.height && newR + v.height > e.row && newC < e.col + ev.width && newC + v.width > e.col) {
-          return state // overlap — block placement
+      // Count existing instances of this def across all layers for naming
+      let count = 0
+      for (const l of state.entityLayers) {
+        for (const e of l.entities) {
+          if (e.defId === def.id) count++
         }
       }
-      const entity = { id: generateId(), defId: def.id, row: newR, col: newC, properties: { ...def.properties } }
+      const entity = { id: generateId(), defId: def.id, name: `${def.name} (${count + 1})`, row: newR, col: newC, properties: { ...def.properties } }
       return {
         ...state,
         entityLayers: state.entityLayers.map(l => l.id === state.activeEntityLayerId ? { ...l, entities: [...l.entities, entity] } : l),
@@ -526,6 +547,21 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         selectedEntityId: state.selectedEntityId === action.entityId ? null : state.selectedEntityId,
       }
 
+    case 'REORDER_ENTITY': {
+      return {
+        ...state,
+        entityLayers: state.entityLayers.map(l => {
+          const idx = l.entities.findIndex(e => e.id === action.entityId)
+          if (idx === -1) return l
+          // 'up' = higher draw order = move toward end of array
+          const newIdx = action.direction === 'up' ? idx + 1 : idx - 1
+          if (newIdx < 0 || newIdx >= l.entities.length) return l
+          const entities = [...l.entities]
+          ;[entities[idx], entities[newIdx]] = [entities[newIdx], entities[idx]]
+          return { ...l, entities }
+        }),
+      }
+    }
 
     case 'UPDATE_ENTITY_PROPS':
       return {

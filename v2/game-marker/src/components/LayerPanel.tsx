@@ -61,9 +61,16 @@ export function LayerPanel() {
               }`}
             >
               {/* Visibility */}
-              <Tooltip text={layer.visible ? 'Hide Layer' : 'Show Layer'} side="right" delay={600}>
+              <Tooltip text={layer.visible ? 'Hide (Alt: Solo)' : 'Show (Alt: Solo)'} side="right" delay={600}>
                 <button
-                  onClick={e => { e.stopPropagation(); dispatch({ type: 'TOGGLE_LAYER_VISIBILITY', layerId: layer.id }) }}
+                  onClick={e => {
+                    e.stopPropagation()
+                    if (e.altKey) {
+                      dispatch({ type: 'SOLO_LAYER', layerId: layer.id })
+                    } else {
+                      dispatch({ type: 'TOGGLE_LAYER_VISIBILITY', layerId: layer.id })
+                    }
+                  }}
                   className="p-0.5 text-neutral-400 hover:text-neutral-100"
                 >
                   {layer.visible ? <Eye size={12} /> : <EyeOff size={12} />}

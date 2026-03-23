@@ -160,6 +160,7 @@ export type EditorAction =
   | { type: 'REMOVE_LAYER'; layerId: string }
   | { type: 'REORDER_LAYER'; layerId: string; direction: 'up' | 'down' }
   | { type: 'TOGGLE_LAYER_VISIBILITY'; layerId: string }
+  | { type: 'SOLO_LAYER'; layerId: string }
   | { type: 'TOGGLE_LAYER_LOCK'; layerId: string }
   | { type: 'RENAME_LAYER'; layerId: string; name: string }
   | { type: 'SET_ACTIVE_LAYER'; layerId: string }
@@ -185,6 +186,7 @@ export type EditorAction =
   | { type: 'REORDER_ENTITY_LAYER'; layerId: string; direction: 'up' | 'down' }
   | { type: 'RENAME_ENTITY_LAYER'; layerId: string; name: string }
   | { type: 'TOGGLE_ENTITY_LAYER_VISIBILITY'; layerId: string }
+  | { type: 'SOLO_ENTITY_LAYER'; layerId: string }
   | { type: 'TOGGLE_ENTITY_LAYER_LOCK'; layerId: string }
   | { type: 'SET_ACTIVE_ENTITY_LAYER'; layerId: string }
   | { type: 'SELECT_ENTITY_DEF'; entityDefId: string | null }
@@ -192,6 +194,7 @@ export type EditorAction =
   | { type: 'SELECT_ENTITY'; entityId: string | null }
   | { type: 'MOVE_ENTITY'; entityId: string; row: number; col: number; entityDefs: import('./entity').EntityDef[] }
   | { type: 'DELETE_ENTITY'; entityId: string }
+  | { type: 'REORDER_ENTITY'; entityId: string; direction: 'up' | 'down' }
   | { type: 'UPDATE_ENTITY_PROPS'; entityId: string; properties: Record<string, unknown> }
   | { type: 'ADD_ZONE_DEF'; def: import('./collision').ZoneDef }
   | { type: 'REMOVE_ZONE_DEF'; zoneType: string }
