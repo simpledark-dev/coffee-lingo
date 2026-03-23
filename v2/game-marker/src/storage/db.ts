@@ -134,6 +134,7 @@ export async function addAsset(
   file: File,
   name: string,
   category: string,
+  folder = '',
 ): Promise<ProjectAsset> {
   const buffer = await file.arrayBuffer()
 
@@ -157,6 +158,7 @@ export async function addAsset(
     projectId,
     name,
     category,
+    folder,
     filename: file.name,
     mimeType: file.type,
     width,
@@ -381,6 +383,7 @@ export async function importProjectZip(zipBytes: Uint8Array): Promise<Project> {
       projectId: project.id,
       name: a.name,
       category: a.category,
+      folder: (a as Record<string, unknown>).folder as string ?? '',
       filename: a.filename,
       mimeType: a.mimeType,
       width: a.width,

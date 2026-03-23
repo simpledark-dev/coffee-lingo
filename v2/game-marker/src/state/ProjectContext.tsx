@@ -17,7 +17,7 @@ interface ProjectContextValue {
   // Assets (for current project)
   assets: ProjectAsset[]
   loadingAssets: boolean
-  addAsset: (file: File, name: string, category: string) => Promise<ProjectAsset>
+  addAsset: (file: File, name: string, category: string, folder?: string) => Promise<ProjectAsset>
   updateAsset: (asset: ProjectAsset) => Promise<void>
   deleteAsset: (id: string) => Promise<void>
   refreshAssets: () => Promise<void>
@@ -93,9 +93,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     if (currentProject?.id === id) setCurrentProject(updated)
   }, [currentProject])
 
-  const addAsset = useCallback(async (file: File, name: string, category: string) => {
+  const addAsset = useCallback(async (file: File, name: string, category: string, folder = '') => {
     if (!currentProject) throw new Error('No project open')
-    const asset = await db.addAsset(currentProject.id, file, name, category)
+    const asset = await db.addAsset(currentProject.id, file, name, category, folder)
     setAssets(prev => [...prev, asset].sort((a, b) => a.name.localeCompare(b.name)))
     return asset
   }, [currentProject])

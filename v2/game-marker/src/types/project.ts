@@ -12,7 +12,8 @@ export interface ProjectAsset {
   id: string
   projectId: string
   name: string
-  category: string        // e.g. "tileset", "sprite", "background"
+  category: string        // e.g. "tileset", "sprite-sheet", "background"
+  folder: string          // virtual folder path, e.g. "characters/npc" or ""
   filename: string        // original upload filename
   mimeType: string
   width: number           // image natural width
