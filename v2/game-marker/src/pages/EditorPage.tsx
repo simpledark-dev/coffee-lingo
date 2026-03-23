@@ -139,11 +139,11 @@ function EditorLayout() {
   const [paletteWidth, setPaletteWidth] = useState(420)
 
   const handleLayerResize = useCallback((dx: number) => {
-    setLayerWidth(prev => Math.max(140, Math.min(400, prev + dx)))
+    setLayerWidth(prev => Math.max(140, Math.min(500, prev + dx)))
   }, [])
 
   const handlePaletteResize = useCallback((dx: number) => {
-    setPaletteWidth(prev => Math.max(160, Math.min(600, prev - dx)))
+    setPaletteWidth(prev => Math.max(160, Math.min(800, prev - dx)))
   }, [])
 
   const mode = state.editorMode

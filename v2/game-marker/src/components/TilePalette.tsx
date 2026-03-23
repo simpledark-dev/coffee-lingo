@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
-import { useTilesetConfigs, useTilesetImages, useTilesetLoading } from '../state/TilesetContext'
+import { useTilesetConfigs, useTilesetImages, useTilesetLoading, useTilesetNames } from '../state/TilesetContext'
 import { AssetPicker } from './AssetPicker'
+import { X } from 'lucide-react'
 import type { EditorState, EditorAction } from '../types/editor'
 import type { Dispatch } from 'react'
 
@@ -10,9 +11,13 @@ export function TilePalette() {
   const dispatch = useEditorDispatch()
   const configs = useTilesetConfigs()
   const tilesetImages = useTilesetImages()
+  const tilesetNames = useTilesetNames()
 
   const loading = useTilesetLoading()
   const [activeTileset, setActiveTileset] = useState<string>('')
+  // Pinned tabs — tileset IDs the user has opened as tabs
+  const [tabs, setTabs] = useState<string[]>([])
+  const tabBarRef = useRef<HTMLDivElement>(null)
 
   // Set initial active tileset once configs load
   useEffect(() => {
@@ -20,6 +25,38 @@ export function TilePalette() {
       setActiveTileset(configs[0].id)
     }
   }, [configs, activeTileset])
+
+  // Auto-add active tileset to tabs if not already there
+  useEffect(() => {
+    if (activeTileset && !tabs.includes(activeTileset)) {
+      setTabs(prev => [...prev, activeTileset])
+    }
+  }, [activeTileset]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Remove tabs whose tileset no longer exists
+  useEffect(() => {
+    const validIds = new Set(configs.map(c => c.id))
+    setTabs(prev => {
+      const next = prev.filter(id => validIds.has(id))
+      return next.length !== prev.length ? next : prev
+    })
+  }, [configs])
+
+  const handleCloseTab = (id: string) => {
+    setTabs(prev => prev.filter(t => t !== id))
+    if (activeTileset === id) {
+      // Switch to an adjacent tab or first remaining
+      const idx = tabs.indexOf(id)
+      const remaining = tabs.filter(t => t !== id)
+      setActiveTileset(remaining[Math.min(idx, remaining.length - 1)] ?? '')
+    }
+  }
+
+  const handlePickerChange = (id: string) => {
+    if (!id) return
+    setActiveTileset(id)
+    // tab will be auto-added by the effect above
+  }
 
   const currentImage = tilesetImages.get(activeTileset)
 
@@ -33,10 +70,11 @@ export function TilePalette() {
 
   return (
     <div className="h-full bg-neutral-800 border-t border-neutral-700 flex flex-col">
+      {/* Asset picker row */}
       <div className="flex items-center px-2 pt-1 pb-1 shrink-0 gap-2">
         <AssetPicker
           value={activeTileset}
-          onChange={id => { if (id) setActiveTileset(id) }}
+          onChange={handlePickerChange}
           categories={['tileset']}
           placeholder="-- Tileset --"
         />
@@ -46,6 +84,44 @@ export function TilePalette() {
           </span>
         )}
       </div>
+
+      {/* Tab bar */}
+      {tabs.length > 0 && (
+        <div
+          ref={tabBarRef}
+          className="flex shrink-0 overflow-x-auto border-b border-neutral-700 bg-neutral-850 scrollbar-none"
+          onWheel={e => {
+            // Horizontal scroll on wheel
+            if (tabBarRef.current) tabBarRef.current.scrollLeft += e.deltaY
+          }}
+        >
+          {tabs.map(id => {
+            const name = tilesetNames.get(id) ?? id.slice(0, 8)
+            const isActive = id === activeTileset
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveTileset(id)}
+                className={`flex items-center gap-1 px-2.5 py-1 text-[11px] shrink-0 border-r border-neutral-700/50 ${
+                  isActive
+                    ? 'bg-neutral-800 text-neutral-100 border-b-2 border-b-sky-500'
+                    : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/50'
+                }`}
+              >
+                <span className="truncate max-w-24">{name}</span>
+                {tabs.length > 1 && (
+                  <span
+                    onClick={e => { e.stopPropagation(); handleCloseTab(id) }}
+                    className="p-0.5 rounded hover:bg-neutral-600/50 text-neutral-600 hover:text-neutral-300"
+                  >
+                    <X size={9} />
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       <div className="flex-1 min-h-0">
         {!loading && currentImage ? (
