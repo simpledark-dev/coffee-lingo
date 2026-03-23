@@ -4,13 +4,15 @@ import { getAssetBlobUrl } from '../../storage/blobUrlCache'
 import { computeAnimFrames } from '../../types/entity'
 
 /** Tile region picker for selecting sprite region from an asset. Loads image from TilesetContext or blob URL fallback. */
-export function EntityTilePicker({ assetId, tileSize, selection, onSelect, frameCount }: {
+export function EntityTilePicker({ assetId, tileSize, selection, onSelect, frameCount, frameGap }: {
   assetId: string
   tileSize: number
   selection: { tileIndex: number; w: number; h: number } | null
   onSelect: (sel: { tileIndex: number; w: number; h: number }) => void
   /** For animated mode: number of cloned frames to show after the selection */
   frameCount?: number
+  /** Tiles to skip between frames */
+  frameGap?: number
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -115,7 +117,7 @@ export function EntityTilePicker({ assetId, tileSize, selection, onSelect, frame
       // Clone frame boxes (stroke only, no fill)
       if (frameCount && frameCount > 1 && selection && !dragRect) {
         const cloneFrames = computeAnimFrames(
-          { mode: 'animated', assetId: '', width: fw, height: fh, tileIndex: minR * cols + minC, frameCount },
+          { mode: 'animated', assetId: '', width: fw, height: fh, tileIndex: minR * cols + minC, frameCount, frameGap },
           cols,
           rows,
         )
@@ -133,7 +135,7 @@ export function EntityTilePicker({ assetId, tileSize, selection, onSelect, frame
       }
     }
     ctx.restore()
-  }, [image, cols, rows, tileSize, zoom, pan, canvasSize, highlightRect, frameCount, selection, dragRect])
+  }, [image, cols, rows, tileSize, zoom, pan, canvasSize, highlightRect, frameCount, frameGap, selection, dragRect])
 
   useEffect(() => { draw() }, [draw])
 

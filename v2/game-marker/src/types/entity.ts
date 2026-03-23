@@ -9,6 +9,7 @@ export interface EntityVisual {
   // Animated mode: frames auto-generated from tileIndex, going right then wrapping
   frameCount?: number      // total frames (animated only)
   frameDuration?: number   // ms per frame, default 100
+  frameGap?: number        // extra tiles to skip between frames (default 0)
   loop?: 'loop' | 'pingpong' | 'once'
 }
 
@@ -28,11 +29,14 @@ export function computeAnimFrames(
   const startCol = startTile % sheetWidthTiles
   const startRow = Math.floor(startTile / sheetWidthTiles)
 
+  const gap = visual.frameGap ?? 0
+  const step = visual.width + gap
+
   const frames: number[] = []
   let col = startCol, row = startRow
   for (let i = 0; i < count; i++) {
     frames.push(row * sheetWidthTiles + col)
-    col += visual.width
+    col += step
     if (col + visual.width > sheetWidthTiles) {
       col = 0
       row += visual.height

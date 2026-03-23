@@ -274,6 +274,12 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
                 className="w-12 px-1 py-0.5 bg-neutral-900 border border-neutral-700 text-xs text-neutral-200 text-center" />
             </div>
             <div className="flex items-center gap-1 text-xs text-neutral-400">
+              <span>Gap</span>
+              <input type="number" min={0} value={visual.frameGap ?? 0}
+                onChange={e => setVisual(v => ({ ...v, frameGap: Math.max(0, +e.target.value || 0) }))}
+                className="w-12 px-1 py-0.5 bg-neutral-900 border border-neutral-700 text-xs text-neutral-200 text-center" />
+            </div>
+            <div className="flex items-center gap-1 text-xs text-neutral-400">
               <span>ms</span>
               <input type="number" min={16} value={visual.frameDuration ?? 100}
                 onChange={e => setVisual(v => ({ ...v, frameDuration: +e.target.value || 100 }))}
@@ -557,6 +563,7 @@ function PickerArea({ visual, tileSize, onSelect }: {
                 selection={visual.tileIndex != null ? { tileIndex: visual.tileIndex, w: visual.width, h: visual.height } : null}
                 onSelect={onSelect}
                 frameCount={visual.mode === 'animated' ? visual.frameCount : undefined}
+                frameGap={visual.mode === 'animated' ? visual.frameGap : undefined}
               />
               {visual.tileIndex != null && (
                 <div className="absolute bottom-4 right-4 z-10">
