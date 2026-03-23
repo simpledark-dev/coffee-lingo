@@ -46,7 +46,7 @@ export function EditorCanvas() {
   // Sync state → manager
   useEffect(() => {
     managerRef.current?.syncState(state, tilesetImageStore)
-  }, [state])
+  }, [state, tilesetImageStore])
 
   // Sync entity defs + images → manager
   useEffect(() => {
