@@ -6,6 +6,7 @@ import { useEntityImages } from '../state/useEntityImages'
 import { useProject } from '../state/ProjectContext'
 import { useTilesetConfigs, useTilesetNames, useTilesetImages } from '../state/TilesetContext'
 import { EntityTilePicker } from '../components/entity/EntityTilePicker'
+import { AssetPicker } from '../components/AssetPicker'
 import { AnimationCanvas } from '../components/entity/AnimationCanvas'
 import { computeAnimFrames, getDefVisual } from '../types/entity'
 import { getAssetBlobUrl } from '../storage/blobUrlCache'
@@ -258,21 +259,11 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
 
         <div className="w-px h-5 bg-neutral-700" />
 
-        <select value={visual.assetId}
-          onChange={e => setVisual(v => ({ ...v, assetId: e.target.value, tileIndex: 0, ...(v.mode === 'animated' ? { frameCount: 1 } : {}) }))}
-          className="px-2 py-1 bg-neutral-900 border border-neutral-700 text-xs text-neutral-200">
-          <option value="">-- Asset --</option>
-          {tilesetConfigs.length > 0 && <optgroup label="Tileset">
-            {tilesetConfigs.map(t => (
-              <option key={t.id} value={t.id}>{tilesetNames.get(t.id) ?? t.id}</option>
-            ))}
-          </optgroup>}
-          {spriteSheetAssets.length > 0 && <optgroup label="Sprite Sheet">
-            {spriteSheetAssets.map(a => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </optgroup>}
-        </select>
+        <AssetPicker
+          value={visual.assetId}
+          onChange={id => setVisual(v => ({ ...v, assetId: id, tileIndex: 0, ...(v.mode === 'animated' ? { frameCount: 1 } : {}) }))}
+          categories={['tileset', 'sprite-sheet']}
+        />
 
         {visual.mode === 'animated' && (
           <>

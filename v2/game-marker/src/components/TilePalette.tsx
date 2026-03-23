@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { ChevronDown } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
-import { useTilesetConfigs, useTilesetImages, useTilesetNames, useTilesetLoading } from '../state/TilesetContext'
+import { useTilesetConfigs, useTilesetImages, useTilesetLoading } from '../state/TilesetContext'
+import { AssetPicker } from './AssetPicker'
 import type { EditorState, EditorAction } from '../types/editor'
 import type { Dispatch } from 'react'
 
@@ -10,11 +10,9 @@ export function TilePalette() {
   const dispatch = useEditorDispatch()
   const configs = useTilesetConfigs()
   const tilesetImages = useTilesetImages()
-  const tilesetNames = useTilesetNames()
+
   const loading = useTilesetLoading()
   const [activeTileset, setActiveTileset] = useState<string>('')
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Set initial active tileset once configs load
   useEffect(() => {
@@ -22,15 +20,6 @@ export function TilePalette() {
       setActiveTileset(configs[0].id)
     }
   }, [configs, activeTileset])
-
-  useEffect(() => {
-    if (!dropdownOpen) return
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setDropdownOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [dropdownOpen])
 
   const currentImage = tilesetImages.get(activeTileset)
 
@@ -45,30 +34,12 @@ export function TilePalette() {
   return (
     <div className="h-full bg-neutral-800 border-t border-neutral-700 flex flex-col">
       <div className="flex items-center px-2 pt-1 pb-1 shrink-0 gap-2">
-        <div ref={dropdownRef} className="relative">
-          <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-1 px-2 py-0.5 text-xs bg-neutral-700 border border-neutral-600 text-neutral-100 hover:bg-neutral-600 min-w-40"
-          >
-            <span className="flex-1 text-left truncate">{tilesetNames.get(activeTileset) ?? activeTileset}</span>
-            <ChevronDown size={12} />
-          </button>
-          {dropdownOpen && (
-            <div className="absolute left-0 top-full mt-1 w-64 max-h-60 overflow-y-auto bg-neutral-800 border border-neutral-600 z-50 shadow-lg">
-              {configs.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => { setActiveTileset(t.id); setDropdownOpen(false) }}
-                  className={`w-full text-left px-2 py-1 text-xs hover:bg-neutral-700 ${
-                    activeTileset === t.id ? 'bg-neutral-700 text-neutral-100' : 'text-neutral-300'
-                  }`}
-                >
-                  {tilesetNames.get(t.id) ?? t.id}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <AssetPicker
+          value={activeTileset}
+          onChange={id => { if (id) setActiveTileset(id) }}
+          categories={['tileset']}
+          placeholder="-- Tileset --"
+        />
         {state.selectedBrush && (
           <span className="text-xs text-neutral-400">
             {state.selectedBrush.width}x{state.selectedBrush.height}
