@@ -189,6 +189,8 @@ export type EditorAction =
   | { type: 'TOGGLE_GRID' }
   | { type: 'TOGGLE_ENTITY_OVERLAY' }
   | { type: 'REORDER_RENDER'; id: string; direction: 'up' | 'down' }
+  | { type: 'CYCLE_ENTITY_GRID_SNAP' }
+  | { type: 'SET_EDITOR_PREFS'; prefs: { showGrid?: boolean; showEntityOverlay?: boolean; entityGridSnap?: 1 | 2 | 4 } }
   | { type: 'TOGGLE_RESIZE_MODE' }
   | { type: 'SET_EDITOR_MODE'; mode: EditorMode }
   | { type: 'ADD_ENTITY_LAYER' }

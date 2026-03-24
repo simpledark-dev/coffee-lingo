@@ -14,8 +14,47 @@ import { ZoneList } from '../components/ZoneList'
 import { EntityInspectorPanel } from '../components/EntityInspectorPanel'
 import { EntityCollisionList } from '../components/EntityCollisionList'
 import { EntityCollisionModal } from '../components/EntityCollisionModal'
-import { listMaps } from '../storage/db'
+import { listMaps, updateProject } from '../storage/db'
 import { MapTabBar } from '../components/MapTabBar'
+
+/** Syncs editor prefs (grid, overlay, snap) to/from project */
+function PrefsSync() {
+  const state = useEditorState()
+  const dispatch = useEditorDispatch()
+  const { currentProject } = useProject()
+  const initialized = useRef(false)
+  const skipFirstSave = useRef(true)
+
+  // Load prefs on mount
+  useEffect(() => {
+    if (initialized.current || !currentProject) return
+    initialized.current = true
+    if (currentProject.editorPrefs) {
+      dispatch({ type: 'SET_EDITOR_PREFS', prefs: currentProject.editorPrefs })
+    }
+  }, [currentProject, dispatch])
+
+  // Save prefs on change (debounced), skip initial render
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => {
+    if (!initialized.current || !currentProject) return
+    if (skipFirstSave.current) { skipFirstSave.current = false; return }
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => {
+      updateProject({
+        ...currentProject,
+        editorPrefs: {
+          showGrid: state.showGrid,
+          showEntityOverlay: state.showEntityOverlay,
+          entityGridSnap: state.entityGridSnap,
+        },
+      })
+    }, 500)
+    return () => clearTimeout(timer.current)
+  }, [state.showGrid, state.showEntityOverlay, state.entityGridSnap, currentProject])
+
+  return null
+}
 
 function AutoLoad() {
   const dispatch = useEditorDispatch()
@@ -177,7 +216,7 @@ function EditorLayout() {
   const [layerWidth, setLayerWidth] = useState(250)
   const [paletteWidth, setPaletteWidth] = useState(420)
   const [bottomHeight, setBottomHeight] = useState(160)
-  const [renderOrderHeight, setRenderOrderHeight] = useState(140)
+  const [renderOrderHeight, setRenderOrderHeight] = useState(220)
 
   const handleLayerResize = useCallback((dx: number) => {
     setLayerWidth(prev => Math.max(140, Math.min(500, prev + dx)))
@@ -273,6 +312,7 @@ export function EditorPage() {
     <EditorProvider>
       <TilesetSync />
       <AutoLoad />
+      <PrefsSync />
       <KeyboardShortcuts />
       <EditorLayout />
       <EntityCollisionModal />

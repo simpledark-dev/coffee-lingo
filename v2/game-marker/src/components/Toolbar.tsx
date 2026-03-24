@@ -1,7 +1,7 @@
 import {
   Pencil, Eraser, PaintBucket, Square, Pipette,
   Grid3x3, ZoomIn, ZoomOut, Undo2, Redo2,
-  Move, Save, Layers, Box, Shield,
+  Move, Save, Layers, Box, Shield, Magnet,
 } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { useProject } from '../state/ProjectContext'
@@ -125,6 +125,21 @@ export function Toolbar() {
             </ToolBtn>
           </Tooltip>
 
+          <div className="w-px h-6 bg-neutral-600 mx-1" />
+        </>
+      )}
+
+      {/* Entity grid snap - only in entity mode */}
+      {state.editorMode === 'entity' && (
+        <>
+          <Tooltip text={`Grid Snap: 1/${state.entityGridSnap}`}>
+            <ToolBtn onClick={() => dispatch({ type: 'CYCLE_ENTITY_GRID_SNAP' })}>
+              <div className="flex items-center gap-0.5">
+                <Magnet size={14} />
+                <span className="text-[9px] font-mono">{state.entityGridSnap === 1 ? '1x' : state.entityGridSnap === 2 ? '½' : '¼'}</span>
+              </div>
+            </ToolBtn>
+          </Tooltip>
           <div className="w-px h-6 bg-neutral-600 mx-1" />
         </>
       )}

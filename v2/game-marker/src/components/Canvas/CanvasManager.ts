@@ -165,6 +165,19 @@ export class CanvasManager {
     return { row: Math.floor(y / this.state.tileSize), col: Math.floor(x / this.state.tileSize) }
   }
 
+  /** Like screenToGrid but snaps to entity sub-grid (1x, 2x, 4x) */
+  private screenToEntityGrid(clientX: number, clientY: number) {
+    const rect = this.canvas.getBoundingClientRect()
+    const x = (clientX - rect.left - this.panX) / this.zoom
+    const y = (clientY - rect.top - this.panY) / this.zoom
+    const snap = this.state.entityGridSnap
+    const step = 1 / snap
+    return {
+      row: Math.floor(y / this.state.tileSize * snap) * step,
+      col: Math.floor(x / this.state.tileSize * snap) * step,
+    }
+  }
+
   private screenToCollisionGrid(clientX: number, clientY: number) {
     const rect = this.canvas.getBoundingClientRect()
     const x = (clientX - rect.left - this.panX) / this.zoom
@@ -237,8 +250,10 @@ export class CanvasManager {
   onPointerMove(e: PointerEvent) {
     const s = this.state
 
-    // Update hover
-    const grid = this.screenToGrid(e.clientX, e.clientY)
+    // Update hover (use sub-grid in entity mode for ghost preview)
+    const grid = s.editorMode === 'entity'
+      ? this.screenToEntityGrid(e.clientX, e.clientY)
+      : this.screenToGrid(e.clientX, e.clientY)
     if (grid.row >= 0 && grid.row < s.gridRows && grid.col >= 0 && grid.col < s.gridCols) {
       this.hoverCell = grid
     } else {
@@ -327,7 +342,7 @@ export class CanvasManager {
 
   private entityPointerDown(e: PointerEvent) {
     const s = this.state
-    const { row, col } = this.screenToGrid(e.clientX, e.clientY)
+    const { row, col } = this.screenToEntityGrid(e.clientX, e.clientY)
 
     // If placing mode (def selected) → always place, don't select instances
     if (s.selectedEntityDefId) {
@@ -388,12 +403,12 @@ export class CanvasManager {
 
   private entityPointerMove(e: PointerEvent) {
     if (this.isBoxSelecting) {
-      const { row, col } = this.screenToGrid(e.clientX, e.clientY)
+      const { row, col } = this.screenToEntityGrid(e.clientX, e.clientY)
       this.boxSelectEnd = { row, col }
       return
     }
     if (!this.isDraggingEntity || !this.dragEntityId) return
-    const { row, col } = this.screenToGrid(e.clientX, e.clientY)
+    const { row, col } = this.screenToEntityGrid(e.clientX, e.clientY)
     const newRow = row - this.dragEntityOffset.dRow
     const newCol = col - this.dragEntityOffset.dCol
     const dRow = newRow - this.lastDragGrid.row
@@ -697,6 +712,23 @@ export class CanvasManager {
     if (!s.showGrid) return
     const { gridCols, gridRows, tileSize } = s
     const mapW = gridCols * tileSize, mapH = gridRows * tileSize
+
+    // Sub-grid (entity mode with snap > 1)
+    if (s.editorMode === 'entity' && s.entityGridSnap > 1) {
+      const subSize = tileSize / s.entityGridSnap
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)'
+      ctx.lineWidth = 1 / this.zoom
+      for (let r = 0; r <= gridRows * s.entityGridSnap; r++) {
+        if (r % s.entityGridSnap === 0) continue // skip main grid lines
+        ctx.beginPath(); ctx.moveTo(0, r * subSize); ctx.lineTo(mapW, r * subSize); ctx.stroke()
+      }
+      for (let c = 0; c <= gridCols * s.entityGridSnap; c++) {
+        if (c % s.entityGridSnap === 0) continue
+        ctx.beginPath(); ctx.moveTo(c * subSize, 0); ctx.lineTo(c * subSize, mapH); ctx.stroke()
+      }
+    }
+
+    // Main grid
     ctx.strokeStyle = 'rgba(255,255,255,0.08)'
     ctx.lineWidth = 1 / this.zoom
     for (let r = 0; r <= gridRows; r++) {

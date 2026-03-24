@@ -6,6 +6,11 @@ export interface Project {
   tileSize: number        // global tile size in px (default 32)
   createdAt: number
   updatedAt: number
+  editorPrefs?: {
+    showGrid?: boolean
+    showEntityOverlay?: boolean
+    entityGridSnap?: 1 | 2 | 4
+  }
 }
 
 export interface ProjectAsset {

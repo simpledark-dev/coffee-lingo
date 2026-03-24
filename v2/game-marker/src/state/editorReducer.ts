@@ -35,6 +35,7 @@ export function createInitialState(): EditorState {
     clipboard: null,
     showGrid: true,
     showEntityOverlay: false,
+    entityGridSnap: 1 as const,
     zoom: 1,
     panX: 0,
     panY: 0,
@@ -458,6 +459,19 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case 'TOGGLE_ENTITY_OVERLAY':
       return { ...state, showEntityOverlay: !state.showEntityOverlay }
+
+    case 'CYCLE_ENTITY_GRID_SNAP': {
+      const next = { 1: 2, 2: 4, 4: 1 } as const
+      return { ...state, entityGridSnap: next[state.entityGridSnap] }
+    }
+
+    case 'SET_EDITOR_PREFS':
+      return {
+        ...state,
+        ...(action.prefs.showGrid != null ? { showGrid: action.prefs.showGrid } : {}),
+        ...(action.prefs.showEntityOverlay != null ? { showEntityOverlay: action.prefs.showEntityOverlay } : {}),
+        ...(action.prefs.entityGridSnap != null ? { entityGridSnap: action.prefs.entityGridSnap } : {}),
+      }
 
     case 'REORDER_RENDER': {
       const idx = state.renderOrder.findIndex(r => r.id === action.id)
