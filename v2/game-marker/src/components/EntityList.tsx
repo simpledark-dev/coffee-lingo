@@ -50,7 +50,7 @@ export function EntityList() {
               key={layer.id}
               layer={layer}
               isActive={state.activeEntityLayerId === layer.id}
-              selectedEntityId={state.selectedEntityId}
+              selectedEntityIds={state.selectedEntityIds}
               collapsed={collapsed.has(layer.id)}
               onToggleCollapse={() => toggleCollapse(layer.id)}
               inspectorOpen={inspectorOpen}
@@ -65,10 +65,10 @@ export function EntityList() {
   )
 }
 
-function EntityLayerItem({ layer, isActive, selectedEntityId, collapsed, onToggleCollapse, inspectorOpen, setInspectorOpen, getDefName, entityDefs }: {
+function EntityLayerItem({ layer, isActive, selectedEntityIds, collapsed, onToggleCollapse, inspectorOpen, setInspectorOpen, getDefName, entityDefs }: {
   layer: EntityLayer
   isActive: boolean
-  selectedEntityId: string | null
+  selectedEntityIds: string[]
   collapsed: boolean
   onToggleCollapse: () => void
   inspectorOpen: string | null
@@ -141,20 +141,16 @@ function EntityLayerItem({ layer, isActive, selectedEntityId, collapsed, onToggl
 
       {/* Entities inside layer */}
       {!collapsed && [...layer.entities].reverse().map(entity => {
-        const isSelected = selectedEntityId === entity.id
+        const isSelected = selectedEntityIds.includes(entity.id)
         const isInspecting = inspectorOpen === entity.id
         return (
           <div key={entity.id}>
             <div
-              onClick={() => dispatch({ type: 'SELECT_ENTITY', entityId: entity.id })}
+              onClick={e => dispatch({ type: 'SELECT_ENTITY', entityId: entity.id, add: e.ctrlKey || e.metaKey })}
               className={`flex items-center gap-1 pl-6 pr-2 py-1 cursor-pointer border-b border-neutral-700/30 text-xs ${
                 isSelected ? 'bg-sky-900/40' : 'hover:bg-neutral-700/50'
               }`}
             >
-              <button onClick={e => { e.stopPropagation(); setInspectorOpen(isInspecting ? null : entity.id) }}
-                className="p-0.5 text-neutral-500">
-                {isInspecting ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-              </button>
               {(() => {
                 const def = entityDefs.find(d => d.id === entity.defId)
                 if (!def) return null

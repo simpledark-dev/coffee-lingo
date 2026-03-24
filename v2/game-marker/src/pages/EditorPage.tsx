@@ -11,6 +11,7 @@ import { TilePalette } from '../components/TilePalette'
 import { EntityPalette } from '../components/EntityPalette'
 import { ZonePalette } from '../components/ZonePalette'
 import { ZoneList } from '../components/ZoneList'
+import { EntityInspectorPanel } from '../components/EntityInspectorPanel'
 import { EntityCollisionList } from '../components/EntityCollisionList'
 import { EntityCollisionModal } from '../components/EntityCollisionModal'
 import { listMaps } from '../storage/db'
@@ -83,8 +84,8 @@ function KeyboardShortcuts() {
         case 'delete':
         case 'backspace': {
           e.preventDefault()
-          if (state.editorMode === 'entity' && state.selectedEntityId) {
-            dispatch({ type: 'DELETE_ENTITY', entityId: state.selectedEntityId })
+          if (state.editorMode === 'entity' && state.selectedEntityIds.length > 0) {
+            dispatch({ type: 'DELETE_ENTITIES' })
           } else if (state.editorMode === 'collision' && state.selectedZoneId) {
             dispatch({ type: 'DELETE_ZONE', zoneId: state.selectedZoneId })
           } else if (state.selection) {
@@ -136,10 +137,46 @@ function ResizeHandleX({ onResize }: { onResize: (delta: number) => void }) {
   )
 }
 
+/** Horizontal resize handle (drag up/down) */
+function ResizeHandleY({ onResize }: { onResize: (delta: number) => void }) {
+  const dragging = useRef(false)
+  const lastY = useRef(0)
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault()
+    dragging.current = true
+    lastY.current = e.clientY
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }, [])
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return
+    const dy = e.clientY - lastY.current
+    lastY.current = e.clientY
+    onResize(dy)
+  }, [onResize])
+
+  const onPointerUp = useCallback(() => {
+    dragging.current = false
+  }, [])
+
+  return (
+    <div
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      className="h-1.5 cursor-row-resize bg-neutral-700 hover:bg-sky-600 active:bg-sky-500 shrink-0 relative group"
+    >
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-1 w-8 bg-neutral-500 group-hover:bg-sky-400" />
+    </div>
+  )
+}
+
 function EditorLayout() {
   const state = useEditorState()
-  const [layerWidth, setLayerWidth] = useState(200)
+  const [layerWidth, setLayerWidth] = useState(250)
   const [paletteWidth, setPaletteWidth] = useState(420)
+  const [bottomHeight, setBottomHeight] = useState(160)
 
   const handleLayerResize = useCallback((dx: number) => {
     setLayerWidth(prev => Math.max(140, Math.min(500, prev + dx)))
@@ -147,6 +184,10 @@ function EditorLayout() {
 
   const handlePaletteResize = useCallback((dx: number) => {
     setPaletteWidth(prev => Math.max(160, Math.min(800, prev - dx)))
+  }, [])
+
+  const handleBottomResize = useCallback((dy: number) => {
+    setBottomHeight(prev => Math.max(80, Math.min(400, prev - dy)))
   }, [])
 
   const mode = state.editorMode
@@ -167,16 +208,27 @@ function EditorLayout() {
             <EditorCanvas />
           </div>
           {mode === 'collision' && (
-            <div className="shrink-0 border-t border-neutral-700 h-[180px]">
-              <EntityCollisionList />
-            </div>
+            <>
+              <ResizeHandleY onResize={handleBottomResize} />
+              <div className="shrink-0" style={{ height: bottomHeight }}>
+                <EntityCollisionList />
+              </div>
+            </>
+          )}
+          {mode === 'entity' && (
+            <>
+              <ResizeHandleY onResize={handleBottomResize} />
+              <div className="shrink-0" style={{ height: bottomHeight }}>
+                <EntityPalette />
+              </div>
+            </>
           )}
         </div>
 
         <ResizeHandleX onResize={handlePaletteResize} />
 
         <div style={{ width: paletteWidth }} className="shrink-0">
-          {mode === 'tile' ? <TilePalette /> : mode === 'entity' ? <EntityPalette /> : <ZonePalette />}
+          {mode === 'tile' ? <TilePalette /> : mode === 'entity' ? <EntityInspectorPanel /> : <ZonePalette />}
         </div>
       </div>
     </div>

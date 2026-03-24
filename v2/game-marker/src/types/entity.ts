@@ -102,6 +102,8 @@ export interface Entity {
   name?: string            // display name, auto-generated on placement
   row: number
   col: number
+  flipX?: boolean
+  flipY?: boolean
   properties: Record<string, unknown>
 }
 

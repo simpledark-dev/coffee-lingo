@@ -134,7 +134,8 @@ export interface EditorState {
   entityLayers: import('./entity').EntityLayer[]
   activeEntityLayerId: string
   selectedEntityDefId: string | null
-  selectedEntityId: string | null
+  selectedEntityId: string | null        // primary (last clicked)
+  selectedEntityIds: string[]            // multi-select
 
   // Collision zones (map-level zones only)
   zoneDefs: import('./collision').ZoneDef[]
@@ -195,10 +196,13 @@ export type EditorAction =
   | { type: 'SET_ACTIVE_ENTITY_LAYER'; layerId: string }
   | { type: 'SELECT_ENTITY_DEF'; entityDefId: string | null }
   | { type: 'PLACE_ENTITY'; row: number; col: number; def: import('./entity').EntityDef; entityDefs: import('./entity').EntityDef[] }
-  | { type: 'SELECT_ENTITY'; entityId: string | null }
+  | { type: 'SELECT_ENTITY'; entityId: string | null; add?: boolean }
   | { type: 'MOVE_ENTITY'; entityId: string; row: number; col: number; entityDefs: import('./entity').EntityDef[] }
+  | { type: 'MOVE_ENTITIES'; dRow: number; dCol: number; entityDefs: import('./entity').EntityDef[] }
   | { type: 'DELETE_ENTITY'; entityId: string }
+  | { type: 'DELETE_ENTITIES' }
   | { type: 'REORDER_ENTITY'; entityId: string; direction: 'up' | 'down' }
+  | { type: 'FLIP_ENTITY'; entityId: string; axis: 'x' | 'y' }
   | { type: 'UPDATE_ENTITY_PROPS'; entityId: string; properties: Record<string, unknown> }
   | { type: 'ADD_ZONE_DEF'; def: import('./collision').ZoneDef }
   | { type: 'REMOVE_ZONE_DEF'; zoneType: string }

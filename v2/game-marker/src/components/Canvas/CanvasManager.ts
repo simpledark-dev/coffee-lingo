@@ -62,6 +62,9 @@ export class CanvasManager {
   private isDraggingEntity = false
   private dragEntityId: string | null = null
   private dragEntityOffset = { dRow: 0, dCol: 0 }
+  private isBoxSelecting = false
+  private boxSelectStart = { row: 0, col: 0 }
+  private boxSelectEnd = { row: 0, col: 0 }
 
   // Collision 2-click
   private collisionClickStart: { row: number; col: number } | null = null
@@ -278,7 +281,7 @@ export class CanvasManager {
     }
 
     const s = this.state
-    if (s.editorMode === 'entity') this.entityPointerUp()
+    if (s.editorMode === 'entity') this.entityPointerUp(e)
     else if (s.editorMode === 'collision') this.collisionPointerUp()
     else this.tilePointerUp()
   }
@@ -335,7 +338,7 @@ export class CanvasManager {
       return
     }
 
-    // Selection mode — search ALL visible layers
+    // Selection mode — search ALL visible layers (top-first)
     let clicked: Entity | null = null
     let clickedLayerId: string | null = null
     for (let li = s.entityLayers.length - 1; li >= 0; li--) {
@@ -353,25 +356,82 @@ export class CanvasManager {
     }
 
     if (clicked) {
-      this.dispatch({ type: 'SELECT_ENTITY', entityId: clicked.id })
+      const isCtrl = e.ctrlKey || e.metaKey
+      const alreadySelected = s.selectedEntityIds.includes(clicked.id)
+
+      if (isCtrl) {
+        this.dispatch({ type: 'SELECT_ENTITY', entityId: clicked.id, add: true })
+      } else if (!alreadySelected) {
+        this.dispatch({ type: 'SELECT_ENTITY', entityId: clicked.id })
+      }
+
       if (clickedLayerId) this.dispatch({ type: 'SET_ACTIVE_ENTITY_LAYER', layerId: clickedLayerId })
       this.isDraggingEntity = true
       this.dragEntityId = clicked.id
       this.dragEntityOffset = { dRow: row - clicked.row, dCol: col - clicked.col }
+      this.lastDragGrid = { row: row - (row - clicked.row), col: col - (col - clicked.col) }
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
       this.dispatch({ type: 'PUSH_HISTORY' })
     } else {
-      this.dispatch({ type: 'SELECT_ENTITY', entityId: null })
+      // Start box select on empty space
+      this.isBoxSelecting = true
+      this.boxSelectStart = { row, col }
+      this.boxSelectEnd = { row, col }
+      if (!(e.ctrlKey || e.metaKey)) {
+        this.dispatch({ type: 'SELECT_ENTITY', entityId: null })
+      }
+      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
     }
   }
 
+  private lastDragGrid = { row: 0, col: 0 }
+
   private entityPointerMove(e: PointerEvent) {
+    if (this.isBoxSelecting) {
+      const { row, col } = this.screenToGrid(e.clientX, e.clientY)
+      this.boxSelectEnd = { row, col }
+      return
+    }
     if (!this.isDraggingEntity || !this.dragEntityId) return
     const { row, col } = this.screenToGrid(e.clientX, e.clientY)
-    this.dispatch({ type: 'MOVE_ENTITY', entityId: this.dragEntityId, row: row - this.dragEntityOffset.dRow, col: col - this.dragEntityOffset.dCol, entityDefs: this.entityDefs })
+    const newRow = row - this.dragEntityOffset.dRow
+    const newCol = col - this.dragEntityOffset.dCol
+    const dRow = newRow - this.lastDragGrid.row
+    const dCol = newCol - this.lastDragGrid.col
+    if (dRow === 0 && dCol === 0) return
+
+    if (this.state.selectedEntityIds.length > 1) {
+      this.dispatch({ type: 'MOVE_ENTITIES', dRow, dCol, entityDefs: this.entityDefs })
+    } else {
+      this.dispatch({ type: 'MOVE_ENTITY', entityId: this.dragEntityId, row: newRow, col: newCol, entityDefs: this.entityDefs })
+    }
+    this.lastDragGrid = { row: newRow, col: newCol }
   }
 
-  private entityPointerUp() {
+  private entityPointerUp(e: PointerEvent) {
+    if (this.isBoxSelecting) {
+      this.isBoxSelecting = false
+      // Find all entities intersecting the box
+      const minR = Math.min(this.boxSelectStart.row, this.boxSelectEnd.row)
+      const maxR = Math.max(this.boxSelectStart.row, this.boxSelectEnd.row)
+      const minC = Math.min(this.boxSelectStart.col, this.boxSelectEnd.col)
+      const maxC = Math.max(this.boxSelectStart.col, this.boxSelectEnd.col)
+      const isCtrl = e.ctrlKey || e.metaKey
+
+      for (const el of this.state.entityLayers) {
+        if (!el.visible) continue
+        for (const ent of el.entities) {
+          const def = this.entityDefs.find(d => d.id === ent.defId)
+          if (!def) continue
+          const v = getDefVisual(def)
+          // Check intersection
+          if (ent.row + v.height > minR && ent.row <= maxR && ent.col + v.width > minC && ent.col <= maxC) {
+            this.dispatch({ type: 'SELECT_ENTITY', entityId: ent.id, add: isCtrl || true })
+          }
+        }
+      }
+      return
+    }
     this.isDraggingEntity = false
     this.dragEntityId = null
   }
@@ -675,16 +735,29 @@ export class CanvasManager {
   // ─── Draw Entities ─────────────────────────────────
 
   private drawEntities(ctx: CanvasRenderingContext2D, s: EditorState) {
-    const { tileSize, selectedEntityId } = s
+    const { tileSize } = s
     const entityDefs = this.entityDefs
+    const selSet = new Set(s.selectedEntityIds)
 
     for (const elayer of s.entityLayers) {
       if (!elayer.visible) continue
       for (const entity of elayer.entities) {
         const def = entityDefs.find(d => d.id === entity.defId)
         if (!def) continue
-        this.drawEntitySprite(ctx, entity.row, entity.col, def, tileSize)
-        const sel = entity.id === selectedEntityId
+        const v = getDefVisual(def)
+        if (entity.flipX || entity.flipY) {
+          ctx.save()
+          const cx = (entity.col + v.width / 2) * tileSize
+          const cy = (entity.row + v.height / 2) * tileSize
+          ctx.translate(cx, cy)
+          ctx.scale(entity.flipX ? -1 : 1, entity.flipY ? -1 : 1)
+          ctx.translate(-cx, -cy)
+          this.drawEntitySprite(ctx, entity.row, entity.col, def, tileSize)
+          ctx.restore()
+        } else {
+          this.drawEntitySprite(ctx, entity.row, entity.col, def, tileSize)
+        }
+        const sel = selSet.has(entity.id)
         ctx.strokeStyle = sel ? '#f59e0b' : 'rgba(255,255,255,0.3)'
         ctx.lineWidth = sel ? 2 : 1
         ctx.setLineDash(sel ? [] : [3, 3])
@@ -695,6 +768,21 @@ export class CanvasManager {
           ctx.fillRect(entity.col * tileSize, entity.row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
         }
       }
+    }
+
+    // Box select preview
+    if (this.isBoxSelecting) {
+      const minR = Math.min(this.boxSelectStart.row, this.boxSelectEnd.row)
+      const maxR = Math.max(this.boxSelectStart.row, this.boxSelectEnd.row)
+      const minC = Math.min(this.boxSelectStart.col, this.boxSelectEnd.col)
+      const maxC = Math.max(this.boxSelectStart.col, this.boxSelectEnd.col)
+      ctx.fillStyle = 'rgba(56,189,248,0.1)'
+      ctx.fillRect(minC * tileSize, minR * tileSize, (maxC - minC + 1) * tileSize, (maxR - minR + 1) * tileSize)
+      ctx.strokeStyle = 'rgba(56,189,248,0.5)'
+      ctx.lineWidth = 1 / this.zoom
+      ctx.setLineDash([4 / this.zoom, 4 / this.zoom])
+      ctx.strokeRect(minC * tileSize, minR * tileSize, (maxC - minC + 1) * tileSize, (maxR - minR + 1) * tileSize)
+      ctx.setLineDash([])
     }
 
     // Ghost preview (entity mode only)

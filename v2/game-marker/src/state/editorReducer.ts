@@ -45,6 +45,7 @@ export function createInitialState(): EditorState {
     activeEntityLayerId: entityLayer.id,
     selectedEntityDefId: null,
     selectedEntityId: null,
+    selectedEntityIds: [],
     zoneDefs: [],
     zones: [],
     selectedZoneDefType: null,
@@ -388,6 +389,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         entityLayers: importedEntityLayers,
         activeEntityLayerId: importedEntityLayers[0]?.id ?? state.activeEntityLayerId,
         selectedEntityId: null,
+        selectedEntityIds: [],
         selectedEntityDefId: null,
         zoneDefs: action.data.zoneDefs ?? [],
         zones: action.data.zones ?? [],
@@ -504,7 +506,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     // ── Entity Def Selection ──
     case 'SELECT_ENTITY_DEF':
-      return { ...state, selectedEntityDefId: action.entityDefId, selectedEntityId: null }
+      return { ...state, selectedEntityDefId: action.entityDefId, selectedEntityId: null, selectedEntityIds: [] }
 
     // ── Entities ──
     case 'PLACE_ENTITY': {
@@ -528,8 +530,19 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       }
     }
 
-    case 'SELECT_ENTITY':
-      return { ...state, selectedEntityId: action.entityId }
+    case 'SELECT_ENTITY': {
+      if (action.entityId == null) {
+        return { ...state, selectedEntityId: null, selectedEntityIds: [] }
+      }
+      if (action.add) {
+        // Toggle in multi-select
+        const ids = state.selectedEntityIds.includes(action.entityId)
+          ? state.selectedEntityIds.filter(id => id !== action.entityId)
+          : [...state.selectedEntityIds, action.entityId]
+        return { ...state, selectedEntityId: ids[ids.length - 1] ?? null, selectedEntityIds: ids }
+      }
+      return { ...state, selectedEntityId: action.entityId, selectedEntityIds: [action.entityId] }
+    }
 
     case 'MOVE_ENTITY': {
       const found = findEntityInLayers(state.entityLayers, action.entityId)
@@ -546,6 +559,30 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       }
     }
 
+    case 'MOVE_ENTITIES': {
+      const ids = new Set(state.selectedEntityIds)
+      if (ids.size === 0) return state
+      // Validate bounds for all
+      for (const l of state.entityLayers) {
+        for (const e of l.entities) {
+          if (!ids.has(e.id)) continue
+          const def = action.entityDefs.find(d => d.id === e.defId)
+          if (!def) continue
+          const nr = e.row + action.dRow, nc = e.col + action.dCol
+          if (nr < 0 || nc < 0 || nr + getDefVisual(def).height > state.gridRows || nc + getDefVisual(def).width > state.gridCols) return state
+        }
+      }
+      return {
+        ...state,
+        entityLayers: state.entityLayers.map(l => ({
+          ...l,
+          entities: l.entities.map(e =>
+            ids.has(e.id) ? { ...e, row: e.row + action.dRow, col: e.col + action.dCol } : e
+          ),
+        })),
+      }
+    }
+
     case 'DELETE_ENTITY':
       return {
         ...state,
@@ -554,7 +591,21 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
           entities: l.entities.filter(e => e.id !== action.entityId),
         })),
         selectedEntityId: state.selectedEntityId === action.entityId ? null : state.selectedEntityId,
+        selectedEntityIds: state.selectedEntityIds.filter(id => id !== action.entityId),
       }
+
+    case 'DELETE_ENTITIES': {
+      const ids = new Set(state.selectedEntityIds)
+      return {
+        ...state,
+        entityLayers: state.entityLayers.map(l => ({
+          ...l,
+          entities: l.entities.filter(e => !ids.has(e.id)),
+        })),
+        selectedEntityId: null,
+        selectedEntityIds: [],
+      }
+    }
 
     case 'REORDER_ENTITY': {
       return {
@@ -571,6 +622,19 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         }),
       }
     }
+
+    case 'FLIP_ENTITY':
+      return {
+        ...state,
+        entityLayers: state.entityLayers.map(l => ({
+          ...l,
+          entities: l.entities.map(e =>
+            e.id === action.entityId
+              ? { ...e, [action.axis === 'x' ? 'flipX' : 'flipY']: !(action.axis === 'x' ? e.flipX : e.flipY) }
+              : e
+          ),
+        })),
+      }
 
     case 'UPDATE_ENTITY_PROPS':
       return {

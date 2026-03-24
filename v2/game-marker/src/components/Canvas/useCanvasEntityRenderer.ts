@@ -27,7 +27,8 @@ export function useCanvasEntityRenderer(
       ctx.scale(state.zoom, state.zoom)
       ctx.imageSmoothingEnabled = false
 
-      const { tileSize, selectedEntityId } = state
+      const { tileSize } = state
+      const selSet = new Set(state.selectedEntityIds)
 
       // Draw placed entities
       for (const elayer of state.entityLayers) {
@@ -35,7 +36,17 @@ export function useCanvasEntityRenderer(
         for (const entity of elayer.entities) {
           const def = entityDefs.find(d => d.id === entity.defId)
           if (!def) continue
-          drawEntity(ctx, entity.row, entity.col, def, tileSize, tilesetImages, entity.id === selectedEntityId)
+          if (entity.flipX || entity.flipY) {
+            const v = getDefVisual(def)
+            ctx.save()
+            const cx = (entity.col + v.width / 2) * tileSize
+            const cy = (entity.row + v.height / 2) * tileSize
+            ctx.translate(cx, cy)
+            ctx.scale(entity.flipX ? -1 : 1, entity.flipY ? -1 : 1)
+            ctx.translate(-cx, -cy)
+          }
+          drawEntity(ctx, entity.row, entity.col, def, tileSize, tilesetImages, selSet.has(entity.id))
+          if (entity.flipX || entity.flipY) ctx.restore()
         }
       }
 
