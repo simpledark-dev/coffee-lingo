@@ -601,14 +601,27 @@ export class CanvasManager {
     ctx.imageSmoothingEnabled = false
 
     this.updateAnimFrames(s.tileSize)
-    this.drawTiles(ctx, s)
-    if (s.editorMode === 'tile' && s.showEntityOverlay) {
-      // Ghost entities in tile mode (non-interactive)
-      ctx.globalAlpha = 0.35
-      this.drawEntities(ctx, s)
-      ctx.globalAlpha = 1
-    } else if (s.editorMode === 'entity' || s.editorMode === 'collision') {
-      this.drawEntities(ctx, s)
+    this.drawBackground(ctx, s)
+    // Render layers in interleaved order
+    const showEntities = s.editorMode === 'entity' || s.editorMode === 'collision' || (s.editorMode === 'tile' && s.showEntityOverlay)
+    for (const entry of s.renderOrder) {
+      if (entry.type === 'tile') {
+        const layer = s.layers.find(l => l.id === entry.id)
+        if (layer && layer.visible) this.drawTileLayer(ctx, s, layer)
+      } else {
+        if (!showEntities) continue
+        const elayer = s.entityLayers.find(l => l.id === entry.id)
+        if (!elayer || !elayer.visible) continue
+        if (s.editorMode === 'tile') ctx.globalAlpha = 0.35
+        this.drawEntityLayer(ctx, s, elayer)
+        if (s.editorMode === 'tile') ctx.globalAlpha = 1
+      }
+    }
+    this.drawGrid(ctx, s)
+    this.drawTilePreview(ctx, s)
+    this.drawTileSelection(ctx, s)
+    if (s.editorMode === 'entity' || s.editorMode === 'collision') {
+      this.drawEntityOverlays(ctx, s)
     }
     if (s.editorMode === 'collision') {
       this.drawCollision(ctx, s)
@@ -620,155 +633,150 @@ export class CanvasManager {
     ctx.restore()
   }
 
-  // ─── Draw Tiles ────────────────────────────────────
+  // ─── Draw: split methods for interleaved rendering ──
 
-  private drawTiles(ctx: CanvasRenderingContext2D, s: EditorState) {
+  private drawBackground(ctx: CanvasRenderingContext2D, s: EditorState) {
     const { gridCols, gridRows, tileSize } = s
-    const mapW = gridCols * tileSize
-    const mapH = gridRows * tileSize
-
-    // Background
     ctx.fillStyle = '#1a1a2e'
-    ctx.fillRect(0, 0, mapW, mapH)
-
-    // Checkerboard
+    ctx.fillRect(0, 0, gridCols * tileSize, gridRows * tileSize)
     for (let r = 0; r < gridRows; r++) {
       for (let c = 0; c < gridCols; c++) {
         ctx.fillStyle = (r + c) % 2 === 0 ? '#1e1e32' : '#16162a'
         ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize)
       }
     }
+  }
 
-    // Layers
-    for (const layer of s.layers) {
-      if (!layer.visible) continue
-      for (const [key, tile] of Object.entries(layer.tiles)) {
-        const [r, c] = key.split(',').map(Number)
-        const img = this.tilesetImages.get(tile.tilesetId)
-        if (!img) continue
-        const cols = Math.floor(img.naturalWidth / tileSize)
-        if (cols <= 0) continue
-        const srcX = (tile.tileIndex % cols) * tileSize
-        const srcY = Math.floor(tile.tileIndex / cols) * tileSize
-        ctx.drawImage(img, srcX, srcY, tileSize, tileSize, c * tileSize, r * tileSize, tileSize, tileSize)
-      }
-    }
-
-    // Grid
-    if (s.showGrid) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.08)'
-      ctx.lineWidth = 1 / this.zoom
-      for (let r = 0; r <= gridRows; r++) {
-        ctx.beginPath(); ctx.moveTo(0, r * tileSize); ctx.lineTo(mapW, r * tileSize); ctx.stroke()
-      }
-      for (let c = 0; c <= gridCols; c++) {
-        ctx.beginPath(); ctx.moveTo(c * tileSize, 0); ctx.lineTo(c * tileSize, mapH); ctx.stroke()
-      }
-    }
-
-    // Brush/tile preview
-    const h = this.hoverCell
-    if (h && s.editorMode === 'tile' && (s.activeTool === 'pencil' || s.activeTool === 'fill')) {
-      if (s.selectedBrush) {
-        const brush = s.selectedBrush
-        const img = this.tilesetImages.get(brush.tilesetId)
-        for (let br = 0; br < brush.height; br++) {
-          for (let bc = 0; bc < brush.width; bc++) {
-            const ti = brush.tiles[br][bc]
-            if (ti === null) continue
-            const r = h.row + br, c = h.col + bc
-            if (r < 0 || r >= gridRows || c < 0 || c >= gridCols) continue
-            if (img) {
-              const cols = Math.floor(img.naturalWidth / tileSize)
-              if (cols > 0) {
-                ctx.globalAlpha = 0.5
-                ctx.drawImage(img, (ti % cols) * tileSize, Math.floor(ti / cols) * tileSize, tileSize, tileSize, c * tileSize, r * tileSize, tileSize, tileSize)
-                ctx.globalAlpha = 1
-              }
-            }
-            ctx.fillStyle = 'rgba(56,189,248,0.15)'
-            ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize)
-          }
-        }
-        const minR = Math.max(0, h.row), minC = Math.max(0, h.col)
-        const maxR = Math.min(gridRows - 1, h.row + brush.height - 1)
-        const maxC = Math.min(gridCols - 1, h.col + brush.width - 1)
-        if (maxR >= minR && maxC >= minC) {
-          ctx.strokeStyle = 'rgba(56,189,248,0.5)'
-          ctx.lineWidth = 2 / this.zoom
-          ctx.strokeRect(minC * tileSize, minR * tileSize, (maxC - minC + 1) * tileSize, (maxR - minR + 1) * tileSize)
-        }
-      } else if (s.selectedTile && h.row >= 0 && h.row < gridRows && h.col >= 0 && h.col < gridCols) {
-        const tile = s.selectedTile
-        const img = this.tilesetImages.get(tile.tilesetId)
-        if (img) {
-          const cols = Math.floor(img.naturalWidth / tileSize)
-          if (cols > 0) {
-            ctx.globalAlpha = 0.5
-            ctx.drawImage(img, (tile.tileIndex % cols) * tileSize, Math.floor(tile.tileIndex / cols) * tileSize, tileSize, tileSize, h.col * tileSize, h.row * tileSize, tileSize, tileSize)
-            ctx.globalAlpha = 1
-          }
-        }
-        ctx.fillStyle = 'rgba(56,189,248,0.15)'
-        ctx.fillRect(h.col * tileSize, h.row * tileSize, tileSize, tileSize)
-        ctx.strokeStyle = 'rgba(56,189,248,0.5)'
-        ctx.lineWidth = 2 / this.zoom
-        ctx.strokeRect(h.col * tileSize, h.row * tileSize, tileSize, tileSize)
-      }
-    }
-
-    // Selection
-    if (s.selection) {
-      const { startRow: sr, startCol: sc, endRow: er, endCol: ec } = s.selection
-      const minR = Math.min(sr, er), maxR = Math.max(sr, er)
-      const minC = Math.min(sc, ec), maxC = Math.max(sc, ec)
-      ctx.strokeStyle = '#38bdf8'
-      ctx.lineWidth = 2 / this.zoom
-      ctx.setLineDash([4 / this.zoom, 4 / this.zoom])
-      ctx.strokeRect(minC * tileSize, minR * tileSize, (maxC - minC + 1) * tileSize, (maxR - minR + 1) * tileSize)
-      ctx.setLineDash([])
-      ctx.fillStyle = 'rgba(56,189,248,0.1)'
-      ctx.fillRect(minC * tileSize, minR * tileSize, (maxC - minC + 1) * tileSize, (maxR - minR + 1) * tileSize)
+  private drawTileLayer(ctx: CanvasRenderingContext2D, s: EditorState, layer: import('../../types/editor').Layer) {
+    const { tileSize } = s
+    for (const [key, tile] of Object.entries(layer.tiles)) {
+      const [r, c] = key.split(',').map(Number)
+      const img = this.tilesetImages.get(tile.tilesetId)
+      if (!img) continue
+      const cols = Math.floor(img.naturalWidth / tileSize)
+      if (cols <= 0) continue
+      const srcX = (tile.tileIndex % cols) * tileSize
+      const srcY = Math.floor(tile.tileIndex / cols) * tileSize
+      ctx.drawImage(img, srcX, srcY, tileSize, tileSize, c * tileSize, r * tileSize, tileSize, tileSize)
     }
   }
 
-  // ─── Draw Entities ─────────────────────────────────
-
-  private drawEntities(ctx: CanvasRenderingContext2D, s: EditorState) {
+  private drawEntityLayer(ctx: CanvasRenderingContext2D, s: EditorState, elayer: import('../../types/entity').EntityLayer) {
     const { tileSize } = s
-    const entityDefs = this.entityDefs
     const selSet = new Set(s.selectedEntityIds)
-
-    for (const elayer of s.entityLayers) {
-      if (!elayer.visible) continue
-      for (const entity of elayer.entities) {
-        const def = entityDefs.find(d => d.id === entity.defId)
-        if (!def) continue
-        const v = getDefVisual(def)
-        if (entity.flipX || entity.flipY) {
-          ctx.save()
-          const cx = (entity.col + v.width / 2) * tileSize
-          const cy = (entity.row + v.height / 2) * tileSize
-          ctx.translate(cx, cy)
-          ctx.scale(entity.flipX ? -1 : 1, entity.flipY ? -1 : 1)
-          ctx.translate(-cx, -cy)
-          this.drawEntitySprite(ctx, entity.row, entity.col, def, tileSize)
-          ctx.restore()
-        } else {
-          this.drawEntitySprite(ctx, entity.row, entity.col, def, tileSize)
-        }
-        const sel = selSet.has(entity.id)
-        ctx.strokeStyle = sel ? '#f59e0b' : 'rgba(255,255,255,0.3)'
-        ctx.lineWidth = sel ? 2 : 1
-        ctx.setLineDash(sel ? [] : [3, 3])
-        ctx.strokeRect(entity.col * tileSize, entity.row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
-        ctx.setLineDash([])
-        if (sel) {
-          ctx.fillStyle = 'rgba(245,158,11,0.1)'
-          ctx.fillRect(entity.col * tileSize, entity.row * tileSize, getDefVisual(def).width * tileSize, getDefVisual(def).height * tileSize)
-        }
+    for (const entity of elayer.entities) {
+      const def = this.entityDefs.find(d => d.id === entity.defId)
+      if (!def) continue
+      const v = getDefVisual(def)
+      if (entity.flipX || entity.flipY) {
+        ctx.save()
+        const cx = (entity.col + v.width / 2) * tileSize
+        const cy = (entity.row + v.height / 2) * tileSize
+        ctx.translate(cx, cy)
+        ctx.scale(entity.flipX ? -1 : 1, entity.flipY ? -1 : 1)
+        ctx.translate(-cx, -cy)
+        this.drawEntitySprite(ctx, entity.row, entity.col, def, tileSize)
+        ctx.restore()
+      } else {
+        this.drawEntitySprite(ctx, entity.row, entity.col, def, tileSize)
+      }
+      const sel = selSet.has(entity.id)
+      ctx.strokeStyle = sel ? '#f59e0b' : 'rgba(255,255,255,0.3)'
+      ctx.lineWidth = sel ? 2 : 1
+      ctx.setLineDash(sel ? [] : [3, 3])
+      ctx.strokeRect(entity.col * tileSize, entity.row * tileSize, v.width * tileSize, v.height * tileSize)
+      ctx.setLineDash([])
+      if (sel) {
+        ctx.fillStyle = 'rgba(245,158,11,0.1)'
+        ctx.fillRect(entity.col * tileSize, entity.row * tileSize, v.width * tileSize, v.height * tileSize)
       }
     }
+  }
+
+  private drawGrid(ctx: CanvasRenderingContext2D, s: EditorState) {
+    if (!s.showGrid) return
+    const { gridCols, gridRows, tileSize } = s
+    const mapW = gridCols * tileSize, mapH = gridRows * tileSize
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'
+    ctx.lineWidth = 1 / this.zoom
+    for (let r = 0; r <= gridRows; r++) {
+      ctx.beginPath(); ctx.moveTo(0, r * tileSize); ctx.lineTo(mapW, r * tileSize); ctx.stroke()
+    }
+    for (let c = 0; c <= gridCols; c++) {
+      ctx.beginPath(); ctx.moveTo(c * tileSize, 0); ctx.lineTo(c * tileSize, mapH); ctx.stroke()
+    }
+  }
+
+  private drawTilePreview(ctx: CanvasRenderingContext2D, s: EditorState) {
+    const { gridCols, gridRows, tileSize } = s
+    const h = this.hoverCell
+    if (!h || s.editorMode !== 'tile' || (s.activeTool !== 'pencil' && s.activeTool !== 'fill')) return
+    if (s.selectedBrush) {
+      const brush = s.selectedBrush
+      const img = this.tilesetImages.get(brush.tilesetId)
+      for (let br = 0; br < brush.height; br++) {
+        for (let bc = 0; bc < brush.width; bc++) {
+          const ti = brush.tiles[br][bc]
+          if (ti === null) continue
+          const r = h.row + br, c = h.col + bc
+          if (r < 0 || r >= gridRows || c < 0 || c >= gridCols) continue
+          if (img) {
+            const cols = Math.floor(img.naturalWidth / tileSize)
+            if (cols > 0) {
+              ctx.globalAlpha = 0.5
+              ctx.drawImage(img, (ti % cols) * tileSize, Math.floor(ti / cols) * tileSize, tileSize, tileSize, c * tileSize, r * tileSize, tileSize, tileSize)
+              ctx.globalAlpha = 1
+            }
+          }
+          ctx.fillStyle = 'rgba(56,189,248,0.15)'
+          ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize)
+        }
+      }
+      const minR = Math.max(0, h.row), minC = Math.max(0, h.col)
+      const maxR = Math.min(gridRows - 1, h.row + brush.height - 1)
+      const maxC = Math.min(gridCols - 1, h.col + brush.width - 1)
+      if (maxR >= minR && maxC >= minC) {
+        ctx.strokeStyle = 'rgba(56,189,248,0.5)'
+        ctx.lineWidth = 2 / this.zoom
+        ctx.strokeRect(minC * tileSize, minR * tileSize, (maxC - minC + 1) * tileSize, (maxR - minR + 1) * tileSize)
+      }
+    } else if (s.selectedTile && h.row >= 0 && h.row < gridRows && h.col >= 0 && h.col < gridCols) {
+      const tile = s.selectedTile
+      const img = this.tilesetImages.get(tile.tilesetId)
+      if (img) {
+        const cols = Math.floor(img.naturalWidth / tileSize)
+        if (cols > 0) {
+          ctx.globalAlpha = 0.5
+          ctx.drawImage(img, (tile.tileIndex % cols) * tileSize, Math.floor(tile.tileIndex / cols) * tileSize, tileSize, tileSize, h.col * tileSize, h.row * tileSize, tileSize, tileSize)
+          ctx.globalAlpha = 1
+        }
+      }
+      ctx.fillStyle = 'rgba(56,189,248,0.15)'
+      ctx.fillRect(h.col * tileSize, h.row * tileSize, tileSize, tileSize)
+      ctx.strokeStyle = 'rgba(56,189,248,0.5)'
+      ctx.lineWidth = 2 / this.zoom
+      ctx.strokeRect(h.col * tileSize, h.row * tileSize, tileSize, tileSize)
+    }
+  }
+
+  private drawTileSelection(ctx: CanvasRenderingContext2D, s: EditorState) {
+    if (!s.selection) return
+    const { tileSize } = s
+    const { startRow: sr, startCol: sc, endRow: er, endCol: ec } = s.selection
+    const minR = Math.min(sr, er), maxR = Math.max(sr, er)
+    const minC = Math.min(sc, ec), maxC = Math.max(sc, ec)
+    ctx.strokeStyle = '#38bdf8'
+    ctx.lineWidth = 2 / this.zoom
+    ctx.setLineDash([4 / this.zoom, 4 / this.zoom])
+    ctx.strokeRect(minC * tileSize, minR * tileSize, (maxC - minC + 1) * tileSize, (maxR - minR + 1) * tileSize)
+    ctx.setLineDash([])
+    ctx.fillStyle = 'rgba(56,189,248,0.1)'
+    ctx.fillRect(minC * tileSize, minR * tileSize, (maxC - minC + 1) * tileSize, (maxR - minR + 1) * tileSize)
+  }
+
+  private drawEntityOverlays(ctx: CanvasRenderingContext2D, s: EditorState) {
+    const { tileSize } = s
+    const entityDefs = this.entityDefs
 
     // Box select preview
     if (this.isBoxSelecting) {

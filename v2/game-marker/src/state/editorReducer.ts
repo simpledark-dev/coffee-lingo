@@ -27,6 +27,7 @@ export function createInitialState(): EditorState {
     tilesets: [],
     layers: [layer],
     activeLayerId: layer.id,
+    renderOrder: [{ type: 'tile', id: layer.id }, { type: 'entity', id: entityLayer.id }],
     activeTool: 'pencil',
     selectedTile: null,
     selectedBrush: null,
@@ -162,6 +163,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ...state,
         layers: [...state.layers, newLayer],
         activeLayerId: newLayer.id,
+        renderOrder: [...state.renderOrder, { type: 'tile' as const, id: newLayer.id }],
       }
     }
 
@@ -172,6 +174,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ...state,
         layers: filtered,
         activeLayerId: state.activeLayerId === action.layerId ? filtered[filtered.length - 1].id : state.activeLayerId,
+        renderOrder: state.renderOrder.filter(r => !(r.type === 'tile' && r.id === action.layerId)),
       }
     }
 
@@ -377,6 +380,13 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       const hydratedLayers = hydrateLayers(action.data)
       const importedEntityLayers: EntityLayer[] = action.data.entityLayers
         ?? [{ id: generateId(), name: 'Entities', visible: true, locked: false, entities: (action.data.entities ?? []) as import('../types/entity').Entity[] }]
+      // Build render order: use saved or default (tiles first, then entities)
+      const importedRenderOrder: { type: 'tile' | 'entity'; id: string }[] =
+        (action.data as unknown as { renderOrder?: { type: 'tile' | 'entity'; id: string }[] }).renderOrder ??
+        [
+          ...hydratedLayers.map(l => ({ type: 'tile' as const, id: l.id })),
+          ...importedEntityLayers.map(l => ({ type: 'entity' as const, id: l.id })),
+        ]
       return {
         ...state,
         currentMapId: action.mapId ?? state.currentMapId,
@@ -386,6 +396,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         tileSize: action.data.tileSize,
         layers: hydratedLayers,
         activeLayerId: hydratedLayers[0]?.id ?? state.activeLayerId,
+        renderOrder: importedRenderOrder,
         entityLayers: importedEntityLayers,
         activeEntityLayerId: importedEntityLayers[0]?.id ?? state.activeEntityLayerId,
         selectedEntityId: null,
@@ -448,6 +459,16 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'TOGGLE_ENTITY_OVERLAY':
       return { ...state, showEntityOverlay: !state.showEntityOverlay }
 
+    case 'REORDER_RENDER': {
+      const idx = state.renderOrder.findIndex(r => r.id === action.id)
+      if (idx === -1) return state
+      const newIdx = action.direction === 'up' ? idx + 1 : idx - 1
+      if (newIdx < 0 || newIdx >= state.renderOrder.length) return state
+      const order = [...state.renderOrder]
+      ;[order[idx], order[newIdx]] = [order[newIdx], order[idx]]
+      return { ...state, renderOrder: order }
+    }
+
     case 'TOGGLE_RESIZE_MODE':
       return { ...state, resizeMode: !state.resizeMode }
 
@@ -458,7 +479,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     // ── Entity Layers ──
     case 'ADD_ENTITY_LAYER': {
       const newLayer: EntityLayer = { id: generateId(), name: `Entity Layer ${state.entityLayers.length + 1}`, visible: true, locked: false, entities: [] }
-      return { ...state, entityLayers: [...state.entityLayers, newLayer], activeEntityLayerId: newLayer.id }
+      return { ...state, entityLayers: [...state.entityLayers, newLayer], activeEntityLayerId: newLayer.id, renderOrder: [...state.renderOrder, { type: 'entity' as const, id: newLayer.id }] }
     }
 
     case 'REMOVE_ENTITY_LAYER': {
@@ -469,6 +490,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         entityLayers: filtered,
         activeEntityLayerId: state.activeEntityLayerId === action.layerId ? filtered[filtered.length - 1].id : state.activeEntityLayerId,
         selectedEntityId: null,
+        renderOrder: state.renderOrder.filter(r => !(r.type === 'entity' && r.id === action.layerId)),
       }
     }
 

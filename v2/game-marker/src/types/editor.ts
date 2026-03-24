@@ -106,6 +106,9 @@ export interface EditorState {
   layers: Layer[]
   activeLayerId: string
 
+  // Render order (interleaved tile + entity layers)
+  renderOrder: { type: 'tile' | 'entity'; id: string }[]
+
   // Active tool
   activeTool: ToolType
   selectedTile: TilePlacement | null
@@ -118,6 +121,7 @@ export interface EditorState {
   // View
   showGrid: boolean
   showEntityOverlay: boolean
+  entityGridSnap: 1 | 2 | 4  // 1=tile, 2=half-tile, 4=quarter-tile
   zoom: number
   panX: number
   panY: number
@@ -184,6 +188,7 @@ export type EditorAction =
   | { type: 'SET_PAN'; x: number; y: number }
   | { type: 'TOGGLE_GRID' }
   | { type: 'TOGGLE_ENTITY_OVERLAY' }
+  | { type: 'REORDER_RENDER'; id: string; direction: 'up' | 'down' }
   | { type: 'TOGGLE_RESIZE_MODE' }
   | { type: 'SET_EDITOR_MODE'; mode: EditorMode }
   | { type: 'ADD_ENTITY_LAYER' }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Eye, EyeOff, Lock, Unlock, Trash2, Plus,
-  ChevronUp, ChevronDown, Layers,
+  ChevronUp, ChevronDown, Layers, Box,
 } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { Tooltip } from './Tooltip'
@@ -138,6 +138,45 @@ export function LayerPanel() {
                   <Trash2 size={12} />
                 </button>
               </Tooltip>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Render Order Panel (shared across modes) ─────────────
+
+export function RenderOrderPanel() {
+  const state = useEditorState()
+  const dispatch = useEditorDispatch()
+
+  return (
+    <div className="h-full bg-neutral-800 flex flex-col">
+      <div className="flex items-center px-2 py-1.5 border-b border-neutral-700 shrink-0">
+        <div className="flex items-center gap-1 text-[10px] text-neutral-500 uppercase tracking-wider">
+          <Layers size={10} />
+          <span>Render Order</span>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {[...state.renderOrder].reverse().map(entry => {
+          const isEntity = entry.type === 'entity'
+          const layer = isEntity
+            ? state.entityLayers.find(l => l.id === entry.id)
+            : state.layers.find(l => l.id === entry.id)
+          if (!layer) return null
+          return (
+            <div key={`${entry.type}-${entry.id}`}
+              className="flex items-center gap-1 px-2 py-1 text-[11px] border-b border-neutral-700/30"
+            >
+              {isEntity ? <Box size={10} className="text-amber-500 shrink-0" /> : <Layers size={10} className="text-sky-500 shrink-0" />}
+              <span className="flex-1 truncate text-neutral-400">{layer.name}</span>
+              <button onClick={() => dispatch({ type: 'REORDER_RENDER', id: entry.id, direction: 'up' })}
+                className="p-0.5 text-neutral-600 hover:text-neutral-300"><ChevronUp size={10} /></button>
+              <button onClick={() => dispatch({ type: 'REORDER_RENDER', id: entry.id, direction: 'down' })}
+                className="p-0.5 text-neutral-600 hover:text-neutral-300"><ChevronDown size={10} /></button>
             </div>
           )
         })}

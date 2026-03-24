@@ -33,10 +33,11 @@ export function exportJson(state: EditorState): TilemapJSON {
       }
     }),
     entityLayers: state.entityLayers.length > 0 ? state.entityLayers : undefined,
+    renderOrder: state.renderOrder,
     zoneDefs: state.zoneDefs.length > 0 ? state.zoneDefs : undefined,
     zones: state.zones.length > 0 ? state.zones : undefined,
     viewport: { zoom: state.zoom, panX: state.panX, panY: state.panY },
-  }
+  } as TilemapJSON
 }
 
 export function downloadJson(data: TilemapJSON, filename: string) {

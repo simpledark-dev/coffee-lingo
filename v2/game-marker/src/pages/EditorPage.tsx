@@ -4,7 +4,7 @@ import { useTilesetConfigs, useTilesetLoading } from '../state/TilesetContext'
 import { useProject } from '../state/ProjectContext'
 import { useToast } from '../components/Toast'
 import { Toolbar } from '../components/Toolbar'
-import { LayerPanel } from '../components/LayerPanel'
+import { LayerPanel, RenderOrderPanel } from '../components/LayerPanel'
 import { EntityList } from '../components/EntityList'
 import { EditorCanvas } from '../components/Canvas/EditorCanvas'
 import { TilePalette } from '../components/TilePalette'
@@ -177,6 +177,7 @@ function EditorLayout() {
   const [layerWidth, setLayerWidth] = useState(250)
   const [paletteWidth, setPaletteWidth] = useState(420)
   const [bottomHeight, setBottomHeight] = useState(160)
+  const [renderOrderHeight, setRenderOrderHeight] = useState(140)
 
   const handleLayerResize = useCallback((dx: number) => {
     setLayerWidth(prev => Math.max(140, Math.min(500, prev + dx)))
@@ -190,6 +191,10 @@ function EditorLayout() {
     setBottomHeight(prev => Math.max(80, Math.min(400, prev - dy)))
   }, [])
 
+  const handleRenderOrderResize = useCallback((dy: number) => {
+    setRenderOrderHeight(prev => Math.max(60, Math.min(300, prev - dy)))
+  }, [])
+
   const mode = state.editorMode
 
   return (
@@ -197,7 +202,17 @@ function EditorLayout() {
       <Toolbar />
       <div className="flex flex-1 min-h-0">
         <div style={{ width: layerWidth }} className="shrink-0 flex flex-col">
-          {mode === 'tile' ? <LayerPanel /> : mode === 'entity' ? <EntityList /> : <ZoneList />}
+          <div className="flex-1 min-h-0">
+            {mode === 'tile' ? <LayerPanel /> : mode === 'entity' ? <EntityList /> : <ZoneList />}
+          </div>
+          {(mode === 'tile' || mode === 'entity') && (
+            <>
+              <ResizeHandleY onResize={handleRenderOrderResize} />
+              <div className="shrink-0" style={{ height: renderOrderHeight }}>
+                <RenderOrderPanel />
+              </div>
+            </>
+          )}
         </div>
 
         <ResizeHandleX onResize={handleLayerResize} />
