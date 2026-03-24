@@ -3,6 +3,7 @@ import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { useEntityContext } from '../state/EntityContext'
 import { useEntityImages } from '../state/useEntityImages'
 import { computeAnimFrames, getDefVisual } from '../types/entity'
+import { VisualBadge } from '../pages/EntityManagerPage'
 import type { EntityDef } from '../types/entity'
 
 export function EntityPalette() {
@@ -125,7 +126,10 @@ function EntityDefItem({ def, active, tileSize, onSelect }: {
     >
       <canvas ref={canvasRef} style={{ width: previewSize, height: previewSize, imageRendering: 'pixelated' }} className="shrink-0" />
       <div className="flex-1 min-w-0">
-        <div className="text-xs text-neutral-100 truncate">{def.name}</div>
+        <div className="text-xs text-neutral-100 truncate flex items-center gap-1">
+          <VisualBadge def={def} />
+          {def.name}
+        </div>
         <div className="text-[10px] text-neutral-500">
           {visual.mode === 'animated' ? `anim · ${frames.length}f` : `${visual.width}x${visual.height}`}
         </div>

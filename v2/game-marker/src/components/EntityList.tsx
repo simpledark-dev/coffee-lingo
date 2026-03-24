@@ -155,6 +155,15 @@ function EntityLayerItem({ layer, isActive, selectedEntityId, collapsed, onToggl
                 className="p-0.5 text-neutral-500">
                 {isInspecting ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
               </button>
+              {(() => {
+                const def = entityDefs.find(d => d.id === entity.defId)
+                if (!def) return null
+                const v = def.states[def.defaultState] ?? Object.values(def.states)[0]
+                if (!v) return null
+                const label = v.mode === 'animated' ? 'A' : v.tiles ? 'C' : 'S'
+                const color = v.mode === 'animated' ? 'text-amber-400 bg-amber-900/40' : v.tiles ? 'text-purple-400 bg-purple-900/40' : 'text-sky-400 bg-sky-900/40'
+                return <span className={`text-[9px] px-1 py-px leading-none ${color}`}>{label}</span>
+              })()}
               <span className="flex-1 truncate text-neutral-300">{entity.name ?? getDefName(entity.defId)}</span>
               <span className="text-[10px] text-neutral-500">{entity.row},{entity.col}</span>
               <button onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_ENTITY', entityId: entity.id, direction: 'up' }) }}

@@ -68,7 +68,10 @@ export function EntityManagerPage() {
               className={`w-full text-left px-3 py-2 border-b border-neutral-800 flex items-center gap-2 group hover:bg-neutral-800 ${selectedId === d.id ? 'bg-neutral-800 border-l-2 border-l-sky-500' : ''}`}>
               <EntityThumb def={d} tileSize={currentProject?.tileSize ?? 32} size={28} />
               <div className="flex-1 min-w-0">
-                <div className="text-xs text-neutral-200 truncate">{d.name}</div>
+                <div className="text-xs text-neutral-200 truncate flex items-center gap-1">
+                  <VisualBadge def={d} />
+                  {d.name}
+                </div>
                 <div className="text-[10px] text-neutral-500">
                   {Object.keys(d.states).length} state{Object.keys(d.states).length !== 1 ? 's' : ''}
                 </div>
@@ -786,4 +789,13 @@ function EntityThumb({ def, tileSize, size = 28 }: { def: EntityDef; tileSize: n
   }, [def, tileSize, img, sheetCols, frameIdx, frames, isAnimated, size, visual])
 
   return <canvas ref={canvasRef} style={{ width: size, height: size, imageRendering: 'pixelated' }} className="shrink-0 bg-neutral-700" />
+}
+
+// ── Visual mode badge ────────────────────────────────────
+
+export function VisualBadge({ def }: { def: EntityDef }) {
+  const v = getDefVisual(def)
+  const label = v.mode === 'animated' ? 'A' : v.tiles ? 'C' : 'S'
+  const color = v.mode === 'animated' ? 'text-amber-400 bg-amber-900/40' : v.tiles ? 'text-purple-400 bg-purple-900/40' : 'text-sky-400 bg-sky-900/40'
+  return <span className={`text-[9px] px-1 py-px leading-none ${color}`}>{label}</span>
 }
