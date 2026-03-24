@@ -39,6 +39,15 @@ export class CanvasManager {
   private state!: EditorState
   private tilesetImages: Map<string, HTMLImageElement> = new Map()
   private dispatch: (action: EditorAction) => void
+  private dirty = true
+
+  // Caches rebuilt on state change
+  private entityDefMap: Map<string, EntityDef> = new Map()
+
+  // Offscreen tile layer caches
+  private tileLayerCaches: Map<string, OffscreenCanvas> = new Map()
+  private tileLayerDirty: Set<string> = new Set()  // layer IDs that need re-render
+  private prevLayers: import('../../types/editor').Layer[] = []
 
   // Pan/zoom (internal, not from React state)
   private panX = 0
@@ -94,16 +103,48 @@ export class CanvasManager {
       this.panY = state.panY
       this.zoom = state.zoom
     }
+    if (this.state !== state || this.tilesetImages !== images) {
+      this.dirty = true
+      // Invalidate all caches if tileset images changed (new images loaded)
+      if (images !== this.tilesetImages) {
+        this.tileLayerCaches.clear()
+        for (const l of state.layers) this.tileLayerDirty.add(l.id)
+      }
+      // Detect which tile layers changed for cache invalidation
+      if (state.layers !== this.prevLayers) {
+        for (const layer of state.layers) {
+          const prev = this.prevLayers.find(l => l.id === layer.id)
+          if (!prev || prev.tiles !== layer.tiles) {
+            this.tileLayerDirty.add(layer.id)
+          }
+        }
+        // Remove caches for deleted layers
+        for (const cached of this.tileLayerCaches.keys()) {
+          if (!state.layers.some(l => l.id === cached)) this.tileLayerCaches.delete(cached)
+        }
+        this.prevLayers = state.layers
+      }
+      // Invalidate all caches if grid size or tileSize changed
+      if (this.state && (state.gridCols !== this.state.gridCols || state.gridRows !== this.state.gridRows || state.tileSize !== this.state.tileSize)) {
+        this.tileLayerCaches.clear()
+        for (const l of state.layers) this.tileLayerDirty.add(l.id)
+      }
+    }
     this.state = state
     this.tilesetImages = images
   }
 
   syncEntityDefs(defs: EntityDef[]) {
-    this.entityDefs = defs
+    if (this.entityDefs !== defs) {
+      this.entityDefs = defs
+      this.entityDefMap = new Map(defs.map(d => [d.id, d]))
+      this.dirty = true
+    }
   }
 
   private entityImages: Map<string, HTMLImageElement> = new Map()
   syncEntityImages(images: Map<string, HTMLImageElement>) {
+    if (this.entityImages !== images) this.dirty = true
     this.entityImages = images
   }
 
@@ -206,6 +247,7 @@ export class CanvasManager {
     this.zoom = newZoom
     this.panX = mouseX - (mouseX - this.panX) * scale
     this.panY = mouseY - (mouseY - this.panY) * scale
+    this.dirty = true
     // Debounce dispatch to React
     clearTimeout(this.zoomSyncTimer)
     this.zoomSyncTimer = window.setTimeout(() => {
@@ -254,11 +296,13 @@ export class CanvasManager {
     const grid = s.editorMode === 'entity'
       ? this.screenToEntityGrid(e.clientX, e.clientY)
       : this.screenToGrid(e.clientX, e.clientY)
+    const prev = this.hoverCell
     if (grid.row >= 0 && grid.row < s.gridRows && grid.col >= 0 && grid.col < s.gridCols) {
       this.hoverCell = grid
     } else {
       this.hoverCell = null
     }
+    if (prev?.row !== this.hoverCell?.row || prev?.col !== this.hoverCell?.col) this.dirty = true
 
     // Resize
     if (s.resizeMode) {
@@ -595,9 +639,20 @@ export class CanvasManager {
 
   // ─── Render Loop ───────────────────────────────────
 
+  markDirty() { this.dirty = true }
+
   private loop() {
     if (!this.running) return
-    this.render()
+    // Always dirty during interactions
+    if (this.isPanning || this.isDraggingEntity || this.isBoxSelecting || this.isResizing || this.isDrawing || this.isDraggingZone) {
+      this.dirty = true
+    }
+    // Check animation frame updates (marks dirty if frame changed)
+    this.updateAnimFrames(this.state?.tileSize ?? 32)
+    if (this.dirty) {
+      this.dirty = false
+      this.render()
+    }
     this.rafId = requestAnimationFrame(() => this.loop())
   }
 
@@ -615,24 +670,39 @@ export class CanvasManager {
     ctx.scale(this.zoom, this.zoom)
     ctx.imageSmoothingEnabled = false
 
-    this.updateAnimFrames(s.tileSize)
-    this.drawBackground(ctx, s)
+    // Compute visible tile range for culling
+    const invZoom = 1 / this.zoom
+    const viewLeft = -this.panX * invZoom
+    const viewTop = -this.panY * invZoom
+    const viewRight = viewLeft + this.w * invZoom
+    const viewBottom = viewTop + this.h * invZoom
+    const minVisRow = Math.floor(viewTop / s.tileSize) - 1
+    const maxVisRow = Math.ceil(viewBottom / s.tileSize) + 1
+    const minVisCol = Math.floor(viewLeft / s.tileSize) - 1
+    const maxVisCol = Math.ceil(viewRight / s.tileSize) + 1
+
+    this.drawBackground(ctx, s, minVisRow, maxVisRow, minVisCol, maxVisCol)
+
+    // Pre-build layer maps for O(1) lookup
+    const tileLayerMap = new Map(s.layers.map(l => [l.id, l]))
+    const entityLayerMap = new Map(s.entityLayers.map(l => [l.id, l]))
+
     // Render layers in interleaved order
     const showEntities = s.editorMode === 'entity' || s.editorMode === 'collision' || (s.editorMode === 'tile' && s.showEntityOverlay)
     for (const entry of s.renderOrder) {
       if (entry.type === 'tile') {
-        const layer = s.layers.find(l => l.id === entry.id)
-        if (layer && layer.visible) this.drawTileLayer(ctx, s, layer)
+        const layer = tileLayerMap.get(entry.id)
+        if (layer && layer.visible) this.drawTileLayer(ctx, s, layer, minVisRow, maxVisRow, minVisCol, maxVisCol)
       } else {
         if (!showEntities) continue
-        const elayer = s.entityLayers.find(l => l.id === entry.id)
+        const elayer = entityLayerMap.get(entry.id)
         if (!elayer || !elayer.visible) continue
         if (s.editorMode === 'tile') ctx.globalAlpha = 0.35
-        this.drawEntityLayer(ctx, s, elayer)
+        this.drawEntityLayer(ctx, s, elayer, minVisRow, maxVisRow, minVisCol, maxVisCol)
         if (s.editorMode === 'tile') ctx.globalAlpha = 1
       }
     }
-    this.drawGrid(ctx, s)
+    this.drawGrid(ctx, s, minVisRow, maxVisRow, minVisCol, maxVisCol)
     this.drawTilePreview(ctx, s)
     this.drawTileSelection(ctx, s)
     if (s.editorMode === 'entity' || s.editorMode === 'collision') {
@@ -650,39 +720,61 @@ export class CanvasManager {
 
   // ─── Draw: split methods for interleaved rendering ──
 
-  private drawBackground(ctx: CanvasRenderingContext2D, s: EditorState) {
+  private drawBackground(ctx: CanvasRenderingContext2D, s: EditorState, minR: number, maxR: number, minC: number, maxC: number) {
     const { gridCols, gridRows, tileSize } = s
     ctx.fillStyle = '#1a1a2e'
     ctx.fillRect(0, 0, gridCols * tileSize, gridRows * tileSize)
-    for (let r = 0; r < gridRows; r++) {
-      for (let c = 0; c < gridCols; c++) {
+    const r0 = Math.max(0, minR), r1 = Math.min(gridRows, maxR)
+    const c0 = Math.max(0, minC), c1 = Math.min(gridCols, maxC)
+    for (let r = r0; r < r1; r++) {
+      for (let c = c0; c < c1; c++) {
         ctx.fillStyle = (r + c) % 2 === 0 ? '#1e1e32' : '#16162a'
         ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize)
       }
     }
   }
 
-  private drawTileLayer(ctx: CanvasRenderingContext2D, s: EditorState, layer: import('../../types/editor').Layer) {
-    const { tileSize } = s
-    for (const [key, tile] of Object.entries(layer.tiles)) {
-      const [r, c] = key.split(',').map(Number)
-      const img = this.tilesetImages.get(tile.tilesetId)
-      if (!img) continue
-      const cols = Math.floor(img.naturalWidth / tileSize)
-      if (cols <= 0) continue
-      const srcX = (tile.tileIndex % cols) * tileSize
-      const srcY = Math.floor(tile.tileIndex / cols) * tileSize
-      ctx.drawImage(img, srcX, srcY, tileSize, tileSize, c * tileSize, r * tileSize, tileSize, tileSize)
+  private drawTileLayer(ctx: CanvasRenderingContext2D, s: EditorState, layer: import('../../types/editor').Layer, _minR: number, _maxR: number, _minC: number, _maxC: number) {
+    const { tileSize, gridCols, gridRows } = s
+    const mapW = gridCols * tileSize, mapH = gridRows * tileSize
+
+    // Re-render offscreen cache if dirty
+    if (this.tileLayerDirty.has(layer.id) || !this.tileLayerCaches.has(layer.id)) {
+      this.tileLayerDirty.delete(layer.id)
+      let offscreen = this.tileLayerCaches.get(layer.id)
+      if (!offscreen || offscreen.width !== mapW || offscreen.height !== mapH) {
+        offscreen = new OffscreenCanvas(mapW, mapH)
+        this.tileLayerCaches.set(layer.id, offscreen)
+      }
+      const octx = offscreen.getContext('2d')!
+      octx.clearRect(0, 0, mapW, mapH)
+      octx.imageSmoothingEnabled = false
+      for (const [key, tile] of Object.entries(layer.tiles)) {
+        const [r, c] = key.split(',').map(Number)
+        const img = this.tilesetImages.get(tile.tilesetId)
+        if (!img) continue
+        const cols = Math.floor(img.naturalWidth / tileSize)
+        if (cols <= 0) continue
+        const srcX = (tile.tileIndex % cols) * tileSize
+        const srcY = Math.floor(tile.tileIndex / cols) * tileSize
+        octx.drawImage(img, srcX, srcY, tileSize, tileSize, c * tileSize, r * tileSize, tileSize, tileSize)
+      }
     }
+
+    // Draw cached bitmap (single drawImage call)
+    const offscreen = this.tileLayerCaches.get(layer.id)
+    if (offscreen) ctx.drawImage(offscreen, 0, 0)
   }
 
-  private drawEntityLayer(ctx: CanvasRenderingContext2D, s: EditorState, elayer: import('../../types/entity').EntityLayer) {
+  private drawEntityLayer(ctx: CanvasRenderingContext2D, s: EditorState, elayer: import('../../types/entity').EntityLayer, minR: number, maxR: number, minC: number, maxC: number) {
     const { tileSize } = s
     const selSet = new Set(s.selectedEntityIds)
     for (const entity of elayer.entities) {
-      const def = this.entityDefs.find(d => d.id === entity.defId)
+      const def = this.entityDefMap.get(entity.defId)
       if (!def) continue
+      // Cull entities outside viewport
       const v = getDefVisual(def)
+      if (entity.row + v.height < minR || entity.row > maxR || entity.col + v.width < minC || entity.col > maxC) continue
       if (entity.flipX || entity.flipY) {
         ctx.save()
         const cx = (entity.col + v.width / 2) * tileSize
@@ -708,34 +800,38 @@ export class CanvasManager {
     }
   }
 
-  private drawGrid(ctx: CanvasRenderingContext2D, s: EditorState) {
+  private drawGrid(ctx: CanvasRenderingContext2D, s: EditorState, minR: number, maxR: number, minC: number, maxC: number) {
     if (!s.showGrid) return
     const { gridCols, gridRows, tileSize } = s
-    const mapW = gridCols * tileSize, mapH = gridRows * tileSize
+    const r0 = Math.max(0, minR), r1 = Math.min(gridRows, maxR)
+    const c0 = Math.max(0, minC), c1 = Math.min(gridCols, maxC)
 
     // Sub-grid (entity mode with snap > 1)
     if (s.editorMode === 'entity' && s.entityGridSnap > 1) {
-      const subSize = tileSize / s.entityGridSnap
+      const snap = s.entityGridSnap
+      const subSize = tileSize / snap
       ctx.strokeStyle = 'rgba(255,255,255,0.03)'
       ctx.lineWidth = 1 / this.zoom
-      for (let r = 0; r <= gridRows * s.entityGridSnap; r++) {
-        if (r % s.entityGridSnap === 0) continue // skip main grid lines
-        ctx.beginPath(); ctx.moveTo(0, r * subSize); ctx.lineTo(mapW, r * subSize); ctx.stroke()
+      const sr0 = Math.max(0, r0 * snap), sr1 = Math.min(gridRows * snap, r1 * snap)
+      const sc0 = Math.max(0, c0 * snap), sc1 = Math.min(gridCols * snap, c1 * snap)
+      for (let r = sr0; r <= sr1; r++) {
+        if (r % snap === 0) continue
+        ctx.beginPath(); ctx.moveTo(c0 * tileSize, r * subSize); ctx.lineTo(c1 * tileSize, r * subSize); ctx.stroke()
       }
-      for (let c = 0; c <= gridCols * s.entityGridSnap; c++) {
-        if (c % s.entityGridSnap === 0) continue
-        ctx.beginPath(); ctx.moveTo(c * subSize, 0); ctx.lineTo(c * subSize, mapH); ctx.stroke()
+      for (let c = sc0; c <= sc1; c++) {
+        if (c % snap === 0) continue
+        ctx.beginPath(); ctx.moveTo(c * subSize, r0 * tileSize); ctx.lineTo(c * subSize, r1 * tileSize); ctx.stroke()
       }
     }
 
-    // Main grid
+    // Main grid (culled to visible range)
     ctx.strokeStyle = 'rgba(255,255,255,0.08)'
     ctx.lineWidth = 1 / this.zoom
-    for (let r = 0; r <= gridRows; r++) {
-      ctx.beginPath(); ctx.moveTo(0, r * tileSize); ctx.lineTo(mapW, r * tileSize); ctx.stroke()
+    for (let r = r0; r <= r1; r++) {
+      ctx.beginPath(); ctx.moveTo(c0 * tileSize, r * tileSize); ctx.lineTo(c1 * tileSize, r * tileSize); ctx.stroke()
     }
-    for (let c = 0; c <= gridCols; c++) {
-      ctx.beginPath(); ctx.moveTo(c * tileSize, 0); ctx.lineTo(c * tileSize, mapH); ctx.stroke()
+    for (let c = c0; c <= c1; c++) {
+      ctx.beginPath(); ctx.moveTo(c * tileSize, r0 * tileSize); ctx.lineTo(c * tileSize, r1 * tileSize); ctx.stroke()
     }
   }
 
@@ -867,6 +963,7 @@ export class CanvasManager {
       const current = this.animFrameMap.get(def.id) ?? 0
       this.animFrameMap.set(def.id, (current + 1) % frames.length)
       this.animTimeMap.set(def.id, now)
+      this.dirty = true
     }
   }
 
