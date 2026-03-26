@@ -27,16 +27,23 @@ export function EntityManagerPage() {
     return d.name.toLowerCase().includes(search.toLowerCase())
   })
 
+  // Track last picked asset for quick entity creation
+  const [lastPickedAssetId, setLastPickedAssetId] = useState('')
+
   const handleCreate = useCallback(async () => {
+    const id = Math.random().toString(36).slice(2, 6).toUpperCase()
+    const base: EntityVisual = lastPickedAssetId
+      ? { mode: 'static', assetId: lastPickedAssetId, width: 1, height: 1 }
+      : { mode: 'static', assetId: '', width: 1, height: 1 }
     const def = await addEntityDef({
-      name: 'New Entity',
+      name: `Entity ${id}`,
       type: '', tags: [], description: '',
-      states: { default: { mode: 'static', assetId: '', width: 1, height: 1 } },
+      states: { default: base },
       defaultState: 'default',
       properties: {},
     })
     setSelectedId(def.id)
-  }, [addEntityDef])
+  }, [addEntityDef, lastPickedAssetId])
 
   const handleDelete = useCallback(async (id: string) => {
     if (!await confirm('Delete Entity', 'Delete this entity definition?')) return
@@ -91,7 +98,7 @@ export function EntityManagerPage() {
       {/* Right */}
       <div className="flex-1 flex flex-col overflow-hidden bg-neutral-900">
         {selected ? (
-          <EntityDetailEditor key={selected.id} def={selected} onUpdate={updateEntityDef} />
+          <EntityDetailEditor key={selected.id} def={selected} onUpdate={updateEntityDef} onAssetPicked={setLastPickedAssetId} />
         ) : (
           <div className="flex-1 flex items-center justify-center text-neutral-600 text-sm">
             Select an entity to edit
@@ -112,7 +119,7 @@ function getVisualFromDef(def: EntityDef, state: string, direction: Direction | 
   return sv
 }
 
-function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: EntityDef) => Promise<void> }) {
+function EntityDetailEditor({ def, onUpdate, onAssetPicked }: { def: EntityDef; onUpdate: (d: EntityDef) => Promise<void>; onAssetPicked?: (assetId: string) => void }) {
   const { assets, currentProject } = useProject()
   const tilesetConfigs = useTilesetConfigs()
   const tilesetNames = useTilesetNames()
@@ -123,7 +130,10 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
   const [selectedState, setSelectedState] = useState(def.defaultState)
   const [selectedDirection, setSelectedDirection] = useState<Direction | null>(null) // null = non-directional state
   const [visual, setVisual] = useState<EntityVisual>({ ...getDefVisual(def) })
-  const [editing, setEditing] = useState(!getDefVisual(def).assetId)
+  const [editing, setEditing] = useState(() => {
+    const v = getDefVisual(def)
+    return !v.assetId || (v.tileIndex == null && !v.tiles)
+  })
 
   const stateNames = Object.keys(def.states)
   const currentSV = def.states[selectedState]
@@ -139,7 +149,8 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
     const dir = sv && isDirectional(sv) ? (DIRECTIONS.find(d => (sv as Partial<Record<Direction, EntityVisual>>)[d]) ?? null) : null
     setSelectedDirection(dir)
     setVisual({ ...getVisualFromDef(def, def.defaultState, dir) })
-    setEditing(!getDefVisual(def).assetId)
+    const dv = getDefVisual(def)
+    setEditing(!dv.assetId || (dv.tileIndex == null && !dv.tiles))
   }, [def.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // When switching states or direction, load visual
@@ -306,6 +317,7 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
       directionName={selectedDirection}
       onDone={handleDone}
       onCancel={() => { setVisual({ ...getVisualFromDef(def, selectedState, selectedDirection) }); setEditing(false) }}
+      onAssetPicked={onAssetPicked}
     />
   }
 
@@ -330,7 +342,7 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
 
 // ── Edit Mode: tile picker + config ──────────────────────
 
-function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, tilesetNames, spriteSheetAssets, isConfigured, stateName, directionName, onDone, onCancel }: {
+function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, tilesetNames, spriteSheetAssets, isConfigured, stateName, directionName, onDone, onCancel, onAssetPicked }: {
   name: string; setName: (n: string) => void
   visual: EntityVisual; setVisual: (fn: (v: EntityVisual) => EntityVisual) => void
   tileSize: number
@@ -342,6 +354,7 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
   directionName: Direction | null
   onDone: () => void
   onCancel: () => void
+  onAssetPicked?: (assetId: string) => void
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -371,7 +384,7 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
 
         <AssetPicker
           value={visual.assetId}
-          onChange={id => setVisual(v => ({ ...v, assetId: id, tileIndex: 0, ...(v.mode === 'animated' ? { frameCount: 1 } : {}) }))}
+          onChange={id => { setVisual(v => ({ ...v, assetId: id, tileIndex: 0, ...(v.mode === 'animated' ? { frameCount: 1 } : {}) })); onAssetPicked?.(id) }}
           categories={['tileset', 'sprite-sheet']}
         />
 
