@@ -37,7 +37,7 @@ export function useCanvasEntityRenderer(
           const def = entityDefs.find(d => d.id === entity.defId)
           if (!def) continue
           if (entity.flipX || entity.flipY) {
-            const v = getDefVisual(def)
+            const v = getDefVisual(def, entity.state, entity.direction)
             ctx.save()
             const cx = (entity.col + v.width / 2) * tileSize
             const cy = (entity.row + v.height / 2) * tileSize

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { useEntityContext } from '../state/EntityContext'
-import { getDefVisual } from '../types/entity'
+import { getDefVisual, isDirectional, DIRECTIONS } from '../types/entity'
 import { VisualBadge } from '../pages/EntityManagerPage'
-import type { Entity, EntityDef } from '../types/entity'
+import type { Entity, EntityDef, Direction } from '../types/entity'
 
 export function EntityInspectorPanel() {
   const state = useEditorState()
@@ -136,6 +136,43 @@ function SingleEntityInspector({ entity, def, entityDefs }: {
               onChange={e => dispatch({ type: 'MOVE_ENTITY', entityId: entity.id, row: entity.row, col: +e.target.value || 0, entityDefs })}
               className="w-14 bg-neutral-900 border border-neutral-700 text-xs text-neutral-100 px-1 py-0.5 text-center" />
           </div>
+        </div>
+      </div>
+
+      {/* State & Direction */}
+      <div className="px-3 py-2 border-b border-neutral-700 shrink-0">
+        <div className="text-[10px] text-neutral-500 uppercase tracking-wider mb-1">State & Direction</div>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <span className="text-[10px] text-neutral-500">State</span>
+            <select
+              value={entity.state ?? def.defaultState}
+              onChange={e => dispatch({ type: 'SET_ENTITY_STATE', entityId: entity.id, state: e.target.value })}
+              className="w-full px-1 py-0.5 bg-neutral-900 border border-neutral-700 text-xs text-neutral-200"
+            >
+              {Object.keys(def.states).map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+          {(() => {
+            const sv = def.states[entity.state ?? def.defaultState]
+            if (!sv || !isDirectional(sv)) return null
+            return (
+              <div className="flex-1">
+                <span className="text-[10px] text-neutral-500">Direction</span>
+                <select
+                  value={entity.direction ?? def.defaultDirection ?? 'down'}
+                  onChange={e => dispatch({ type: 'SET_ENTITY_DIRECTION', entityId: entity.id, direction: e.target.value as Direction })}
+                  className="w-full px-1 py-0.5 bg-neutral-900 border border-neutral-700 text-xs text-neutral-200"
+                >
+                  {DIRECTIONS.filter(d => sv[d]).map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+            )
+          })()}
         </div>
       </div>
 

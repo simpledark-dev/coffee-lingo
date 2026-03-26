@@ -772,8 +772,8 @@ export class CanvasManager {
     for (const entity of elayer.entities) {
       const def = this.entityDefMap.get(entity.defId)
       if (!def) continue
-      // Cull entities outside viewport
-      const v = getDefVisual(def)
+      // Cull entities outside viewport (use instance state/direction for visual)
+      const v = getDefVisual(def, entity.state, entity.direction)
       if (entity.row + v.height < minR || entity.row > maxR || entity.col + v.width < minC || entity.col > maxC) continue
       if (entity.flipX || entity.flipY) {
         ctx.save()
@@ -782,10 +782,10 @@ export class CanvasManager {
         ctx.translate(cx, cy)
         ctx.scale(entity.flipX ? -1 : 1, entity.flipY ? -1 : 1)
         ctx.translate(-cx, -cy)
-        this.drawEntitySprite(ctx, entity.row, entity.col, def, tileSize)
+        this.drawEntitySprite(ctx, entity.row, entity.col, def, tileSize, entity.state, entity.direction)
         ctx.restore()
       } else {
-        this.drawEntitySprite(ctx, entity.row, entity.col, def, tileSize)
+        this.drawEntitySprite(ctx, entity.row, entity.col, def, tileSize, entity.state, entity.direction)
       }
       const sel = selSet.has(entity.id)
       ctx.strokeStyle = sel ? '#f59e0b' : 'rgba(255,255,255,0.3)'
@@ -967,8 +967,8 @@ export class CanvasManager {
     }
   }
 
-  private drawEntitySprite(ctx: CanvasRenderingContext2D, row: number, col: number, def: EntityDef, tileSize: number) {
-    const visual = getDefVisual(def)
+  private drawEntitySprite(ctx: CanvasRenderingContext2D, row: number, col: number, def: EntityDef, tileSize: number, state?: string, direction?: import('../../types/entity').Direction) {
+    const visual = getDefVisual(def, state, direction)
     const img = this.entityImages.get(visual.assetId) ?? this.tilesetImages.get(visual.assetId)
     if (!img) return
     const tsCols = Math.floor(img.naturalWidth / tileSize)

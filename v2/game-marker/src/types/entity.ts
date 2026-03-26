@@ -1,5 +1,8 @@
 // ── New entity types ─────────────────────────────────────
 
+export type Direction = 'down' | 'left' | 'right' | 'up'
+export const DIRECTIONS: Direction[] = ['down', 'left', 'right', 'up']
+
 export interface EntityVisual {
   mode: 'static' | 'animated'
   assetId: string          // project asset ID
@@ -71,29 +74,41 @@ export interface EntityCollisionZone {
   height: number
 }
 
+/** State visual: either a single visual (no directions) or per-direction visuals */
+export type StateVisual = EntityVisual | Partial<Record<Direction, EntityVisual>>
+
+/** Check if a StateVisual is a directional record (vs single EntityVisual) */
+export function isDirectional(sv: StateVisual): sv is Partial<Record<Direction, EntityVisual>> {
+  return !('mode' in sv)
+}
+
 export interface EntityDef {
   id: string
   name: string
   type: string             // classification label
   tags: string[]
   description: string
-  states: Record<string, EntityVisual>  // keyed by state name (e.g. "idle", "walk")
-  defaultState: string                   // key into states
+  states: Record<string, StateVisual>  // keyed by state name
+  defaultState: string
+  defaultDirection?: Direction         // default direction for directional entities
   collision?: {
     zones: EntityCollisionZone[]
   }
   properties: Record<string, unknown>
 }
 
-/** Get the visual for a given state (or default state). */
-export function getDefVisual(def: EntityDef, state?: string): EntityVisual {
-  const key = state ?? def.defaultState
-  if (def.states[key]) return def.states[key]
-  // Fallback: first available state
-  const keys = Object.keys(def.states)
-  if (keys.length > 0) return def.states[keys[0]]
-  // Ultimate fallback
-  return { mode: 'static', assetId: '', width: 1, height: 1 }
+/** Get the visual for a given state + direction. */
+export function getDefVisual(def: EntityDef, state?: string, direction?: Direction): EntityVisual {
+  const stateKey = state ?? def.defaultState
+  const sv = def.states[stateKey]
+    ?? def.states[Object.keys(def.states)[0]]
+  if (!sv) return { mode: 'static', assetId: '', width: 1, height: 1 }
+
+  if (isDirectional(sv)) {
+    const dir = direction ?? def.defaultDirection ?? DIRECTIONS.find(d => sv[d]) ?? 'down'
+    return sv[dir] ?? Object.values(sv).find(Boolean) ?? { mode: 'static', assetId: '', width: 1, height: 1 }
+  }
+  return sv
 }
 
 export interface Entity {
@@ -104,6 +119,8 @@ export interface Entity {
   col: number
   flipX?: boolean
   flipY?: boolean
+  state?: string           // override active state (default = def.defaultState)
+  direction?: Direction    // override active direction (default = def.defaultDirection ?? 'down')
   properties: Record<string, unknown>
 }
 

@@ -9,9 +9,9 @@ import { EntityTilePicker } from '../components/entity/EntityTilePicker'
 import { CompositeTileEditor } from '../components/entity/CompositeTileEditor'
 import { AssetPicker } from '../components/AssetPicker'
 import { AnimationCanvas } from '../components/entity/AnimationCanvas'
-import { computeAnimFrames, getDefVisual, createTilesGrid, resizeTilesGrid } from '../types/entity'
+import { computeAnimFrames, getDefVisual, isDirectional, DIRECTIONS, createTilesGrid, resizeTilesGrid } from '../types/entity'
 import { getAssetBlobUrl } from '../storage/blobUrlCache'
-import type { EntityDef, EntityVisual } from '../types/entity'
+import type { EntityDef, EntityVisual, StateVisual, Direction } from '../types/entity'
 
 export function EntityManagerPage() {
   const { entityDefs, addEntityDef, updateEntityDef, deleteEntityDef } = useEntityContext()
@@ -104,6 +104,14 @@ export function EntityManagerPage() {
 
 // ── Detail Editor with Edit/View modes ───────────────────
 
+/** Get the EntityVisual for a state+direction from def */
+function getVisualFromDef(def: EntityDef, state: string, direction: Direction | null): EntityVisual {
+  const sv = def.states[state]
+  if (!sv) return getDefVisual(def)
+  if (isDirectional(sv)) return sv[direction ?? 'down'] ?? { mode: 'static', assetId: '', width: 1, height: 1 }
+  return sv
+}
+
 function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: EntityDef) => Promise<void> }) {
   const { assets, currentProject } = useProject()
   const tilesetConfigs = useTilesetConfigs()
@@ -113,10 +121,13 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
 
   const [name, setName] = useState(def.name)
   const [selectedState, setSelectedState] = useState(def.defaultState)
+  const [selectedDirection, setSelectedDirection] = useState<Direction | null>(null) // null = non-directional state
   const [visual, setVisual] = useState<EntityVisual>({ ...getDefVisual(def) })
   const [editing, setEditing] = useState(!getDefVisual(def).assetId)
 
   const stateNames = Object.keys(def.states)
+  const currentSV = def.states[selectedState]
+  const isCurrentDirectional = currentSV ? isDirectional(currentSV) : false
 
   // Sprite sheet image
   const [sheetImage, setSheetImage] = useState<HTMLImageElement | null>(null)
@@ -124,15 +135,28 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
   useEffect(() => {
     setName(def.name)
     setSelectedState(def.defaultState)
-    setVisual({ ...getDefVisual(def) })
+    const sv = def.states[def.defaultState]
+    const dir = sv && isDirectional(sv) ? (DIRECTIONS.find(d => (sv as Partial<Record<Direction, EntityVisual>>)[d]) ?? null) : null
+    setSelectedDirection(dir)
+    setVisual({ ...getVisualFromDef(def, def.defaultState, dir) })
     setEditing(!getDefVisual(def).assetId)
   }, [def.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When switching states, load that state's visual
+  // When switching states or direction, load visual
   useEffect(() => {
-    const v = def.states[selectedState]
-    if (v) setVisual({ ...v })
-  }, [selectedState]) // eslint-disable-line react-hooks/exhaustive-deps
+    const sv = def.states[selectedState]
+    if (!sv) return
+    if (isDirectional(sv)) {
+      const dir = selectedDirection ?? DIRECTIONS.find(d => sv[d]) ?? 'down'
+      if (selectedDirection === null) setSelectedDirection(dir)
+      const v = sv[dir]
+      if (v) setVisual({ ...v })
+      else setVisual({ mode: 'static', assetId: '', width: 1, height: 1 })
+    } else {
+      setSelectedDirection(null)
+      setVisual({ ...sv })
+    }
+  }, [selectedState, selectedDirection]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load sprite sheet image
   useEffect(() => {
@@ -150,9 +174,17 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
   }, [visual.assetId, tilesetImages])
 
   const saveState = useCallback(async (v: EntityVisual) => {
-    const newStates = { ...def.states, [selectedState]: v }
+    let newStateVisual: StateVisual
+    if (isCurrentDirectional && selectedDirection) {
+      // Save into directional record
+      const existing = def.states[selectedState] as Partial<Record<Direction, EntityVisual>>
+      newStateVisual = { ...existing, [selectedDirection]: v }
+    } else {
+      newStateVisual = v
+    }
+    const newStates = { ...def.states, [selectedState]: newStateVisual }
     await onUpdate({ ...def, name: name.trim() || def.name, states: newStates })
-  }, [def, name, selectedState, onUpdate])
+  }, [def, name, selectedState, selectedDirection, isCurrentDirectional, onUpdate])
 
   const handleDone = useCallback(() => {
     saveState(visual)
@@ -162,19 +194,24 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
   const handleAddState = useCallback(async (stateName: string) => {
     const key = stateName.trim()
     if (!key || def.states[key]) return
-    const newStates = { ...def.states, [key]: { mode: 'static' as const, assetId: '', width: 1, height: 1 } }
+    // Copy assetId + dimensions from current visual so user doesn't have to re-pick
+    const base: EntityVisual = { mode: visual.mode, assetId: visual.assetId, width: visual.width, height: visual.height }
+    const newStates = { ...def.states, [key]: base as StateVisual }
     await onUpdate({ ...def, states: newStates })
     setSelectedState(key)
+    setSelectedDirection(null)
     setEditing(true)
-  }, [def, onUpdate])
+  }, [def, visual, onUpdate])
 
   const handleDeleteState = useCallback(async () => {
     if (stateNames.length <= 1) return
-    if (selectedState === def.defaultState) return
     const newStates = { ...def.states }
     delete newStates[selectedState]
-    await onUpdate({ ...def, states: newStates })
-    setSelectedState(def.defaultState)
+    const remaining = Object.keys(newStates)
+    // If deleting default, switch default to first remaining
+    const newDefault = selectedState === def.defaultState ? remaining[0] : def.defaultState
+    await onUpdate({ ...def, states: newStates, defaultState: newDefault })
+    setSelectedState(remaining[0])
   }, [def, selectedState, stateNames, onUpdate])
 
   const handleSetDefault = useCallback(async () => {
@@ -184,7 +221,7 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
   const handleRenameState = useCallback(async (oldName: string, newName: string) => {
     const key = newName.trim()
     if (!key || key === oldName || def.states[key]) return
-    const newStates: Record<string, EntityVisual> = {}
+    const newStates: Record<string, StateVisual> = {}
     for (const [k, v] of Object.entries(def.states)) {
       newStates[k === oldName ? key : k] = v
     }
@@ -192,6 +229,67 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
     await onUpdate({ ...def, states: newStates, defaultState: newDefault })
     if (selectedState === oldName) setSelectedState(key)
   }, [def, selectedState, onUpdate])
+
+  // Toggle directional mode for current state
+  // Get which directions are currently enabled (across all states)
+  const enabledDirections: Direction[] = (() => {
+    const dirs = new Set<Direction>()
+    for (const sv of Object.values(def.states)) {
+      if (isDirectional(sv)) {
+        for (const d of DIRECTIONS) { if (sv[d]) dirs.add(d) }
+      }
+    }
+    return DIRECTIONS.filter(d => dirs.has(d))
+  })()
+
+  // Toggle a direction on/off across ALL states
+  const handleToggleDirection = useCallback(async (dir: Direction) => {
+    const hasDir = enabledDirections.includes(dir)
+    const newStates: Record<string, StateVisual> = {}
+    // Use current visual's asset as base for new directions
+    const defaultVisual: EntityVisual = { mode: visual.mode, assetId: visual.assetId, width: visual.width, height: visual.height }
+
+    for (const [stateName, sv] of Object.entries(def.states)) {
+      if (hasDir) {
+        // Remove this direction
+        if (isDirectional(sv)) {
+          const copy = { ...sv }
+          delete copy[dir]
+          // If no directions left, convert back to single visual
+          const remaining = DIRECTIONS.filter(d => copy[d])
+          if (remaining.length === 0) {
+            newStates[stateName] = sv[dir] ?? defaultVisual
+          } else {
+            newStates[stateName] = copy
+          }
+        } else {
+          newStates[stateName] = sv
+        }
+      } else {
+        // Add this direction
+        if (isDirectional(sv)) {
+          newStates[stateName] = { ...sv, [dir]: sv[DIRECTIONS.find(d => sv[d])!] ?? defaultVisual }
+        } else {
+          // Convert single → directional with existing + new dir
+          const dirRecord: Partial<Record<Direction, EntityVisual>> = { [dir]: { ...sv } }
+          // Keep existing enabled directions too
+          for (const d of enabledDirections) { dirRecord[d] = { ...sv } }
+          dirRecord[dir] = { ...sv }
+          newStates[stateName] = dirRecord
+        }
+      }
+    }
+
+    await onUpdate({ ...def, states: newStates })
+    if (!hasDir) {
+      // Just enabled this dir, select it
+      setSelectedDirection(dir)
+    } else if (selectedDirection === dir) {
+      // Disabled current direction, switch to another
+      const remaining = enabledDirections.filter(d => d !== dir)
+      setSelectedDirection(remaining[0] ?? null)
+    }
+  }, [def, enabledDirections, selectedDirection, onUpdate])
 
   const spriteSheetAssets = assets.filter(a => a.category === 'sprite-sheet')
   const isConfigured = visual.assetId && (visual.tileIndex != null || visual.tiles != null)
@@ -205,8 +303,9 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
       spriteSheetAssets={spriteSheetAssets}
       isConfigured={!!isConfigured}
       stateName={selectedState}
+      directionName={selectedDirection}
       onDone={handleDone}
-      onCancel={() => { setVisual({ ...def.states[selectedState] ?? getDefVisual(def) }); setEditing(false) }}
+      onCancel={() => { setVisual({ ...getVisualFromDef(def, selectedState, selectedDirection) }); setEditing(false) }}
     />
   }
 
@@ -216,19 +315,22 @@ function EntityDetailEditor({ def, onUpdate }: { def: EntityDef; onUpdate: (d: E
     stateNames={stateNames}
     selectedState={selectedState}
     defaultState={def.defaultState}
-    isDefault={selectedState === def.defaultState}
     onSelectState={setSelectedState}
     onAddState={handleAddState}
     onDeleteState={handleDeleteState}
     onSetDefault={handleSetDefault}
     onRenameState={handleRenameState}
     onEdit={() => setEditing(true)}
+    selectedDirection={selectedDirection}
+    onSelectDirection={setSelectedDirection}
+    onToggleDirection={handleToggleDirection}
+    enabledDirections={enabledDirections}
   />
 }
 
 // ── Edit Mode: tile picker + config ──────────────────────
 
-function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, tilesetNames, spriteSheetAssets, isConfigured, stateName, onDone, onCancel }: {
+function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, tilesetNames, spriteSheetAssets, isConfigured, stateName, directionName, onDone, onCancel }: {
   name: string; setName: (n: string) => void
   visual: EntityVisual; setVisual: (fn: (v: EntityVisual) => EntityVisual) => void
   tileSize: number
@@ -237,6 +339,7 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
   spriteSheetAssets: { id: string; name: string }[]
   isConfigured: boolean
   stateName: string
+  directionName: Direction | null
   onDone: () => void
   onCancel: () => void
 }) {
@@ -249,7 +352,7 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
           placeholder="Entity name" />
 
         <span className="px-2 py-0.5 bg-amber-900/50 border border-amber-700/50 text-amber-300 text-[12px]">
-          {stateName}
+          {stateName}{directionName ? ` : ${directionName}` : ''}
         </span>
 
         <div className="flex gap-0.5">
@@ -351,13 +454,15 @@ function EditMode({ name, setName, visual, setVisual, tileSize, tilesetConfigs, 
 
 // ── View Mode: animation preview + frame strip ───────────
 
-function ViewMode({ visual, name, tileSize, image, stateNames, selectedState, defaultState, isDefault, onSelectState, onAddState, onDeleteState, onSetDefault, onRenameState, onEdit }: {
+function ViewMode({ visual, name, tileSize, image, stateNames, selectedState, defaultState, onSelectState, onAddState, onDeleteState, onSetDefault, onRenameState, onEdit, selectedDirection, enabledDirections, onSelectDirection, onToggleDirection }: {
   visual: EntityVisual; name: string
   tileSize: number; image: HTMLImageElement | null
-  stateNames: string[]; selectedState: string; defaultState: string; isDefault: boolean
+  stateNames: string[]; selectedState: string; defaultState: string
   onSelectState: (s: string) => void
   onAddState: (name: string) => void; onDeleteState: () => void; onSetDefault: () => void
   onRenameState: (oldName: string, newName: string) => void; onEdit: () => void
+  selectedDirection: Direction | null; enabledDirections: Direction[]
+  onSelectDirection: (d: Direction) => void; onToggleDirection: (d: Direction) => void
 }) {
   const sheetCols = image ? Math.floor(image.naturalWidth / tileSize) : 0
   const sheetRows = image ? Math.floor(image.naturalHeight / tileSize) : 0
@@ -377,12 +482,6 @@ function ViewMode({ visual, name, tileSize, image, stateNames, selectedState, de
   const handleFrameClick = (i: number) => {
     if (forcedFrame === i) setForcedFrame(null)
     else setForcedFrame(i)
-  }
-
-  const handleDeleteState = async () => {
-    if (await confirm('Delete State', `Delete state "${selectedState}"?`)) {
-      onDeleteState()
-    }
   }
 
   return (
@@ -435,11 +534,15 @@ function ViewMode({ visual, name, tileSize, image, stateNames, selectedState, de
               <button key={s}
                 onClick={() => { onSelectState(s); setForcedFrame(null) }}
                 onDoubleClick={() => { setRenamingState(s); setRenameValue(s) }}
-                className={`px-3 py-1.5 text-xs border flex items-center gap-1.5 ${selectedState === s
+                className={`px-3 py-1.5 text-xs border flex items-center gap-1 ${selectedState === s
                   ? 'bg-amber-800/60 border-amber-600 text-amber-200'
                   : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700'}`}>
                 {s}
-                {s === defaultState && <span className="text-amber-500 ml-0.5">*</span>}
+                {s === defaultState && <span className="text-amber-500">*</span>}
+                {stateNames.length > 1 && (
+                  <span onClick={async e => { e.stopPropagation(); if (await confirm('Delete State', `Delete "${s}"?`)) onDeleteState() }}
+                    className="text-neutral-600 hover:text-red-400 text-[9px]">✕</span>
+                )}
               </button>
             )
           ))}
@@ -457,7 +560,7 @@ function ViewMode({ visual, name, tileSize, image, stateNames, selectedState, de
               <button onClick={() => { if (newStateName.trim()) { onAddState(newStateName.trim()); setAddingState(false); setNewStateName('') } }}
                 className="px-1.5 py-1 text-green-400 hover:text-green-300"><Check size={14} /></button>
               <button onClick={() => { setAddingState(false); setNewStateName('') }}
-                className="px-1.5 py-1 text-xs text-neutral-500 hover:text-neutral-300">x</button>
+                className="px-1.5 py-1 text-xs text-neutral-500 hover:text-neutral-300">✕</button>
             </div>
           ) : (
             <button onClick={() => setAddingState(true)}
@@ -468,19 +571,22 @@ function ViewMode({ visual, name, tileSize, image, stateNames, selectedState, de
 
           <div className="flex-1" />
 
-          {!isDefault && (
+          {selectedState !== defaultState && (
             <button onClick={onSetDefault}
               className="text-xs px-2 py-1 text-neutral-500 hover:text-amber-300">
               Set Default
             </button>
           )}
-          {!isDefault && stateNames.length > 1 && (
-            <button onClick={handleDeleteState}
-              className="text-xs px-2 py-1 text-neutral-500 hover:text-red-400">
-              Delete
-            </button>
-          )}
         </div>
+
+        {/* Direction tabs */}
+        <DirectionTabs
+          enabledDirections={enabledDirections}
+          selectedDirection={selectedDirection}
+          onSelectDirection={onSelectDirection}
+          onAddDirection={onToggleDirection}
+          onDeleteDirection={onToggleDirection}
+        />
 
         {/* Frame strip (animated only) */}
         {visual.mode === 'animated' && frames.length > 1 && image && (
@@ -503,6 +609,62 @@ function ViewMode({ visual, name, tileSize, image, stateNames, selectedState, de
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Direction tabs (add/select/delete like states) ───────
+
+function DirectionTabs({ enabledDirections, selectedDirection, onSelectDirection, onAddDirection, onDeleteDirection }: {
+  enabledDirections: Direction[]
+  selectedDirection: Direction | null
+  onSelectDirection: (d: Direction) => void
+  onAddDirection: (d: Direction) => void
+  onDeleteDirection: (d: Direction) => void
+}) {
+  const [adding, setAdding] = useState(false)
+  const available = DIRECTIONS.filter(d => !enabledDirections.includes(d))
+  const { confirm } = useDialog()
+
+  return (
+    <div className="flex items-center gap-1 px-2 pb-1">
+      <span className="text-[10px] text-neutral-500 shrink-0">Dir:</span>
+      {enabledDirections.length === 0 && (
+        <span className="text-[10px] text-neutral-600 italic">none</span>
+      )}
+      {enabledDirections.map(d => (
+        <button key={d}
+          onClick={() => onSelectDirection(d)}
+          className={`px-2.5 py-1 text-[11px] border flex items-center gap-1 ${selectedDirection === d
+            ? 'bg-purple-700/60 border-purple-500 text-purple-100'
+            : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700'}`}>
+          {d}
+          <span
+            onClick={async e => { e.stopPropagation(); if (await confirm('Delete Direction', `Remove "${d}" from all states?`)) onDeleteDirection(d) }}
+            className="text-neutral-600 hover:text-red-400 text-[9px] ml-0.5">✕</span>
+        </button>
+      ))}
+      {available.length > 0 && (
+        adding ? (
+          <div className="flex items-center gap-0.5">
+            <select
+              onChange={e => { onAddDirection(e.target.value as Direction); setAdding(false) }}
+              defaultValue=""
+              className="px-1.5 py-1 bg-neutral-900 border border-neutral-600 text-[11px] text-neutral-200"
+              autoFocus
+            >
+              <option value="" disabled>select...</option>
+              {available.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <button onClick={() => setAdding(false)} className="text-[10px] text-neutral-500 hover:text-neutral-300">✕</button>
+          </div>
+        ) : (
+          <button onClick={() => setAdding(true)}
+            className="px-2 py-1 text-[11px] bg-neutral-800 border border-dashed border-neutral-600 text-neutral-500 hover:text-neutral-200 hover:border-neutral-400">
+            + Dir
+          </button>
+        )
+      )}
     </div>
   )
 }

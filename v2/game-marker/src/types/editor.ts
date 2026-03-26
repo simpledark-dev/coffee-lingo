@@ -210,6 +210,8 @@ export type EditorAction =
   | { type: 'DELETE_ENTITIES' }
   | { type: 'REORDER_ENTITY'; entityId: string; direction: 'up' | 'down' }
   | { type: 'FLIP_ENTITY'; entityId: string; axis: 'x' | 'y' }
+  | { type: 'SET_ENTITY_STATE'; entityId: string; state: string }
+  | { type: 'SET_ENTITY_DIRECTION'; entityId: string; direction: import('./entity').Direction }
   | { type: 'UPDATE_ENTITY_PROPS'; entityId: string; properties: Record<string, unknown> }
   | { type: 'ADD_ZONE_DEF'; def: import('./collision').ZoneDef }
   | { type: 'REMOVE_ZONE_DEF'; zoneType: string }

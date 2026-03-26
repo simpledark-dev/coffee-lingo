@@ -684,6 +684,28 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         })),
       }
 
+    case 'SET_ENTITY_STATE':
+      return {
+        ...state,
+        entityLayers: state.entityLayers.map(l => ({
+          ...l,
+          entities: l.entities.map(e =>
+            e.id === action.entityId ? { ...e, state: action.state } : e
+          ),
+        })),
+      }
+
+    case 'SET_ENTITY_DIRECTION':
+      return {
+        ...state,
+        entityLayers: state.entityLayers.map(l => ({
+          ...l,
+          entities: l.entities.map(e =>
+            e.id === action.entityId ? { ...e, direction: action.direction } : e
+          ),
+        })),
+      }
+
     case 'UPDATE_ENTITY_PROPS':
       return {
         ...state,
