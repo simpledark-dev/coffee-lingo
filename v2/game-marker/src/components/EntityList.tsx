@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Trash2, Box, ChevronDown, ChevronRight, ChevronUp, Eye, EyeOff, Lock, Unlock, Plus } from 'lucide-react'
+import { Trash2, Box, ChevronDown, ChevronRight, Eye, EyeOff, Lock, Unlock, Plus } from 'lucide-react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { useEntityContext } from '../state/EntityContext'
 import { Tooltip } from './Tooltip'
@@ -45,7 +45,11 @@ export function EntityList() {
             No entity layers.
           </div>
         ) : (
-          [...state.entityLayers].reverse().map(layer => (
+          [...state.renderOrder].reverse()
+            .filter(e => e.type === 'entity')
+            .map(e => state.entityLayers.find(l => l.id === e.id))
+            .filter((l): l is import('../types/entity').EntityLayer => l != null)
+            .map(layer => (
             <EntityLayerItem
               key={layer.id}
               layer={layer}
@@ -128,11 +132,6 @@ function EntityLayerItem({ layer, isActive, selectedEntityIds, collapsed, onTogg
 
         <span className="text-[10px] text-neutral-500 mr-1">{layer.entities.length}</span>
 
-        <button onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_ENTITY_LAYER', layerId: layer.id, direction: 'up' }) }}
-          className="p-0.5 text-neutral-600 hover:text-neutral-300 text-[10px]">▲</button>
-        <button onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_ENTITY_LAYER', layerId: layer.id, direction: 'down' }) }}
-          className="p-0.5 text-neutral-600 hover:text-neutral-300 text-[10px]">▼</button>
-
         <button onClick={e => { e.stopPropagation(); dispatch({ type: 'REMOVE_ENTITY_LAYER', layerId: layer.id }) }}
           className="p-0.5 text-neutral-600 hover:text-red-400">
           <Trash2 size={11} />
@@ -162,14 +161,6 @@ function EntityLayerItem({ layer, isActive, selectedEntityIds, collapsed, onTogg
               })()}
               <span className="flex-1 truncate text-neutral-300">{entity.name ?? getDefName(entity.defId)}</span>
               <span className="text-[10px] text-neutral-500">{entity.row},{entity.col}</span>
-              <button onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_ENTITY', entityId: entity.id, direction: 'up' }) }}
-                className="p-0.5 text-neutral-600 hover:text-neutral-300">
-                <ChevronUp size={10} />
-              </button>
-              <button onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_ENTITY', entityId: entity.id, direction: 'down' }) }}
-                className="p-0.5 text-neutral-600 hover:text-neutral-300">
-                <ChevronDown size={10} />
-              </button>
               <button onClick={e => { e.stopPropagation(); dispatch({ type: 'DELETE_ENTITY', entityId: entity.id }) }}
                 className="p-0.5 text-neutral-600 hover:text-red-400">
                 <Trash2 size={10} />

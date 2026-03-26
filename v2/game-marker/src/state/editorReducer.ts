@@ -441,7 +441,19 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         }
         return { ...layer, tiles: newTiles }
       })
-      return { ...state, gridCols: newCols, gridRows: newRows, layers: newLayers }
+      // Offset entities + zones when expanding/shrinking from top or left
+      const newEntityLayers = (dr !== 0 || dc !== 0)
+        ? state.entityLayers.map(l => ({
+            ...l,
+            entities: l.entities.map(e => ({ ...e, row: e.row + dr, col: e.col + dc }))
+              .filter(e => e.row >= 0 && e.col >= 0),
+          }))
+        : state.entityLayers
+      const newZones = (dr !== 0 || dc !== 0)
+        ? state.zones.map(z => ({ ...z, row: z.row + dr, col: z.col + dc }))
+            .filter(z => z.row >= 0 && z.col >= 0)
+        : state.zones
+      return { ...state, gridCols: newCols, gridRows: newRows, layers: newLayers, entityLayers: newEntityLayers, zones: newZones }
     }
 
     case 'SET_TILE_SIZE':

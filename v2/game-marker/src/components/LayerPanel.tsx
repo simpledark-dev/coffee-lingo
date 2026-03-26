@@ -24,8 +24,11 @@ export function LayerPanel() {
     setEditingId(null)
   }
 
-  // Display top layer first
-  const reversedLayers = [...state.layers].reverse()
+  // Display tile layers in render order (top first = reversed)
+  const tileOrder = [...state.renderOrder].reverse()
+    .filter(e => e.type === 'tile')
+    .map(e => state.layers.find(l => l.id === e.id))
+    .filter((l): l is import('../types/editor').Layer => l != null)
 
   return (
     <div className="flex-1 bg-neutral-800 flex flex-col min-h-0">
@@ -50,7 +53,7 @@ export function LayerPanel() {
 
       {/* Layer list */}
       <div className="flex-1 overflow-y-auto">
-        {reversedLayers.map(layer => {
+        {tileOrder.map(layer => {
           const isActive = layer.id === state.activeLayerId
           return (
             <div
@@ -106,24 +109,6 @@ export function LayerPanel() {
                   {layer.name}
                 </span>
               )}
-
-              {/* Reorder */}
-              <Tooltip text="Move Up" side="right" delay={600}>
-                <button
-                  onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_LAYER', layerId: layer.id, direction: 'up' }) }}
-                  className="p-0.5 text-neutral-500 hover:text-neutral-100"
-                >
-                  <ChevronUp size={12} />
-                </button>
-              </Tooltip>
-              <Tooltip text="Move Down" side="right" delay={600}>
-                <button
-                  onClick={e => { e.stopPropagation(); dispatch({ type: 'REORDER_LAYER', layerId: layer.id, direction: 'down' }) }}
-                  className="p-0.5 text-neutral-500 hover:text-neutral-100"
-                >
-                  <ChevronDown size={12} />
-                </button>
-              </Tooltip>
 
               {/* Delete */}
               <Tooltip text="Delete Layer" side="right" delay={600}>
