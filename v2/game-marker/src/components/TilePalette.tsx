@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useEditorState, useEditorDispatch } from '../state/EditorContext'
 import { useTilesetConfigs, useTilesetImages, useTilesetLoading, useTilesetNames } from '../state/TilesetContext'
+import { useEntityContext } from '../state/EntityContext'
 import { AssetPicker } from './AssetPicker'
+import { useToast } from './Toast'
 import { X } from 'lucide-react'
 import type { EditorState, EditorAction } from '../types/editor'
+import type { EntityVisual } from '../types/entity'
 import type { Dispatch } from 'react'
 
 export function TilePalette() {
@@ -12,6 +15,21 @@ export function TilePalette() {
   const configs = useTilesetConfigs()
   const tilesetImages = useTilesetImages()
   const tilesetNames = useTilesetNames()
+  const { addEntityDef } = useEntityContext()
+  const toast = useToast()
+
+  const handleCreateEntity = useCallback(async (info: { tilesetId: string; tileIndex: number; width: number; height: number }) => {
+    const id = Math.random().toString(36).slice(2, 6).toUpperCase()
+    const visual: EntityVisual = { mode: 'static', assetId: info.tilesetId, tileIndex: info.tileIndex, width: info.width, height: info.height }
+    await addEntityDef({
+      name: `Entity ${id}`,
+      type: '', tags: [], description: '',
+      states: { default: visual },
+      defaultState: 'default',
+      properties: {},
+    })
+    toast(`Created Entity ${id}`, 'success')
+  }, [addEntityDef, toast])
 
   const loading = useTilesetLoading()
   const [activeTileset, setActiveTilesetRaw] = useState<string>(() => {
@@ -147,7 +165,7 @@ export function TilePalette() {
 
       <div className="flex-1 min-h-0">
         {!loading && currentImage ? (
-          <TileGrid tilesetId={activeTileset} image={currentImage} tileSize={state.tileSize} state={state} dispatch={dispatch} />
+          <TileGrid tilesetId={activeTileset} image={currentImage} tileSize={state.tileSize} state={state} dispatch={dispatch} onCreateEntity={handleCreateEntity} />
         ) : (
           <div className="flex items-center justify-center h-full text-xs text-neutral-500">
             {loading ? 'Loading tilesets...' : 'Select a tileset'}
@@ -158,12 +176,13 @@ export function TilePalette() {
   )
 }
 
-function TileGrid({ tilesetId, image, tileSize, state, dispatch }: {
+function TileGrid({ tilesetId, image, tileSize, state, dispatch, onCreateEntity }: {
   tilesetId: string
   image: HTMLImageElement
   tileSize: number
   state: EditorState
   dispatch: Dispatch<EditorAction>
+  onCreateEntity?: (info: { tilesetId: string; tileIndex: number; width: number; height: number }) => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -376,8 +395,19 @@ function TileGrid({ tilesetId, image, tileSize, state, dispatch }: {
     }
   }, [screenToCell, cols, tilesetId, dispatch])
 
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; info: { tilesetId: string; tileIndex: number; width: number; height: number } } | null>(null)
+
+  // Close menu on click outside
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    window.addEventListener('pointerdown', close)
+    return () => window.removeEventListener('pointerdown', close)
+  }, [contextMenu])
+
   return (
-    <div ref={containerRef} className="w-full h-full overflow-hidden cursor-crosshair">
+    <div ref={containerRef} className="w-full h-full overflow-hidden cursor-crosshair relative">
       <canvas
         ref={canvasRef}
         style={{ width: canvasSize.w, height: canvasSize.h }}
@@ -385,8 +415,37 @@ function TileGrid({ tilesetId, image, tileSize, state, dispatch }: {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onContextMenu={e => e.preventDefault()}
+        onContextMenu={e => {
+          e.preventDefault()
+          if (!onCreateEntity) return
+          let info: { tilesetId: string; tileIndex: number; width: number; height: number } | null = null
+          if (selRect) {
+            const minR = Math.min(selRect.r1, selRect.r2), minC = Math.min(selRect.c1, selRect.c2)
+            const w = Math.abs(selRect.c2 - selRect.c1) + 1, h = Math.abs(selRect.r2 - selRect.r1) + 1
+            info = { tilesetId, tileIndex: minR * cols + minC, width: w, height: h }
+          } else if (state.selectedTile && state.selectedTile.tilesetId === tilesetId) {
+            info = { tilesetId, tileIndex: state.selectedTile.tileIndex, width: 1, height: 1 }
+          }
+          if (info) {
+            const rect = containerRef.current?.getBoundingClientRect()
+            setContextMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0), info })
+          }
+        }}
       />
+      {contextMenu && (
+        <div
+          className="absolute z-50 bg-neutral-800 border border-neutral-600 shadow-lg py-1"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onPointerDown={e => e.stopPropagation()}
+        >
+          <button
+            onClick={() => { onCreateEntity?.(contextMenu.info); setContextMenu(null) }}
+            className="w-full text-left px-3 py-1.5 text-xs text-neutral-200 hover:bg-neutral-700 flex items-center gap-2"
+          >
+            Create Entity ({contextMenu.info.width}x{contextMenu.info.height})
+          </button>
+        </div>
+      )}
     </div>
   )
 }
