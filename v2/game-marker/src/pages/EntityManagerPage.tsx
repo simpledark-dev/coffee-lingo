@@ -19,6 +19,7 @@ export function EntityManagerPage() {
   const { confirm } = useDialog()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [quickPaletteWidth, setQuickPaletteWidth] = useState(480)
 
   const selected = entityDefs.find(d => d.id === selectedId) ?? null
 
@@ -51,6 +52,23 @@ export function EntityManagerPage() {
     if (selectedId === id) setSelectedId(null)
   }, [deleteEntityDef, selectedId])
 
+  const tileSize = currentProject?.tileSize ?? 32
+
+  // Quick create from tile palette
+  const handleQuickCreate = useCallback(async (info: { tilesetId: string; tileIndex: number; width: number; height: number }) => {
+    const id = Math.random().toString(36).slice(2, 6).toUpperCase()
+    const visual: EntityVisual = { mode: 'static', assetId: info.tilesetId, tileIndex: info.tileIndex, width: info.width, height: info.height }
+    const def = await addEntityDef({
+      name: `Entity ${id}`,
+      type: '', tags: [], description: '',
+      states: { default: visual },
+      defaultState: 'default',
+      properties: {},
+    })
+    setSelectedId(def.id)
+    setLastPickedAssetId(info.tilesetId)
+  }, [addEntityDef, setLastPickedAssetId])
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left: entity list */}
@@ -73,7 +91,7 @@ export function EntityManagerPage() {
           ) : filtered.map(d => (
             <button key={d.id} onClick={() => setSelectedId(d.id)}
               className={`w-full text-left px-3 py-2 border-b border-neutral-800 flex items-center gap-2 group hover:bg-neutral-800 ${selectedId === d.id ? 'bg-neutral-800 border-l-2 border-l-sky-500' : ''}`}>
-              <EntityThumb def={d} tileSize={currentProject?.tileSize ?? 32} size={28} />
+              <EntityThumb def={d} tileSize={tileSize} size={28} />
               <div className="flex-1 min-w-0">
                 <div className="text-xs text-neutral-200 truncate flex items-center gap-1">
                   <VisualBadge def={d} />
@@ -95,7 +113,7 @@ export function EntityManagerPage() {
         </div>
       </div>
 
-      {/* Right */}
+      {/* Center: editor */}
       <div className="flex-1 flex flex-col overflow-hidden bg-neutral-900">
         {selected ? (
           <EntityDetailEditor key={selected.id} def={selected} onUpdate={updateEntityDef} onAssetPicked={setLastPickedAssetId} />
@@ -104,6 +122,29 @@ export function EntityManagerPage() {
             Select an entity to edit
           </div>
         )}
+      </div>
+
+      {/* Resize handle */}
+      <div
+        className="w-1.5 cursor-col-resize bg-neutral-700 hover:bg-sky-600 shrink-0"
+        onPointerDown={e => {
+          e.preventDefault()
+          const el = e.target as HTMLElement
+          el.setPointerCapture(e.pointerId)
+          let lastX = e.clientX
+          const move = (ev: PointerEvent) => {
+            const dx = ev.clientX - lastX; lastX = ev.clientX
+            setQuickPaletteWidth(prev => Math.max(150, Math.min(800, prev - dx)))
+          }
+          const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up) }
+          el.addEventListener('pointermove', move)
+          el.addEventListener('pointerup', up)
+        }}
+      />
+
+      {/* Right: quick tile palette */}
+      <div style={{ width: quickPaletteWidth }} className="shrink-0">
+        <QuickTilePalette tileSize={tileSize} onCreateEntity={handleQuickCreate} />
       </div>
     </div>
   )
@@ -973,4 +1014,183 @@ export function VisualBadge({ def }: { def: EntityDef }) {
   const label = v.mode === 'animated' ? 'A' : v.tiles ? 'C' : 'S'
   const color = v.mode === 'animated' ? 'text-amber-400 bg-amber-900/40' : v.tiles ? 'text-purple-400 bg-purple-900/40' : 'text-sky-400 bg-sky-900/40'
   return <span className={`text-[9px] px-1 py-px leading-none ${color}`}>{label}</span>
+}
+
+// ── Quick Tile Palette (right panel for fast entity creation) ──
+
+function QuickTilePalette({ tileSize, onCreateEntity }: {
+  tileSize: number
+  onCreateEntity: (info: { tilesetId: string; tileIndex: number; width: number; height: number }) => void
+}) {
+  const tilesetConfigs = useTilesetConfigs()
+  const tilesetImages = useTilesetImages()
+  const [activeTileset, setActiveTileset] = useState('')
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const isPanning = useRef(false)
+  const lastPan = useRef({ x: 0, y: 0 })
+  const dragging = useRef(false)
+  const dragStart = useRef({ r: 0, c: 0 })
+  const [selRect, setSelRect] = useState<{ r1: number; c1: number; r2: number; c2: number } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; info: { tilesetId: string; tileIndex: number; width: number; height: number } } | null>(null)
+
+  useEffect(() => {
+    if (tilesetConfigs.length > 0 && !activeTileset) setActiveTileset(tilesetConfigs[0].id)
+  }, [tilesetConfigs, activeTileset])
+
+  const image = tilesetImages.get(activeTileset)
+  const cols = image ? Math.floor(image.naturalWidth / tileSize) : 0
+  const rows = image ? Math.floor(image.naturalHeight / tileSize) : 0
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const obs = new ResizeObserver(entries => {
+      const { width: w, height: h } = entries[0].contentRect
+      setCanvasSize({ w: Math.round(w), h: Math.round(h) })
+    })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  useEffect(() => { setZoom(1); setPan({ x: 0, y: 0 }); setSelRect(null) }, [activeTileset])
+
+  const screenToCell = useCallback((clientX: number, clientY: number) => {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    const x = (clientX - rect.left - pan.x) / zoom
+    const y = (clientY - rect.top - pan.y) / zoom
+    const c = Math.floor(x / tileSize), r = Math.floor(y / tileSize)
+    if (c < 0 || c >= cols || r < 0 || r >= rows) return null
+    return { r, c }
+  }, [pan, zoom, tileSize, cols, rows])
+
+  // Draw
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !image || canvasSize.w === 0 || cols <= 0) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = canvasSize.w * dpr
+    canvas.height = canvasSize.h * dpr
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, canvasSize.w, canvasSize.h)
+    ctx.save()
+    ctx.translate(pan.x, pan.y)
+    ctx.scale(zoom, zoom)
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(image, 0, 0)
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)'
+    ctx.lineWidth = 1 / zoom
+    for (let r = 0; r <= rows; r++) { ctx.beginPath(); ctx.moveTo(0, r * tileSize); ctx.lineTo(cols * tileSize, r * tileSize); ctx.stroke() }
+    for (let c = 0; c <= cols; c++) { ctx.beginPath(); ctx.moveTo(c * tileSize, 0); ctx.lineTo(c * tileSize, rows * tileSize); ctx.stroke() }
+    // Selection
+    if (selRect) {
+      const minR = Math.min(selRect.r1, selRect.r2), maxR = Math.max(selRect.r1, selRect.r2)
+      const minC = Math.min(selRect.c1, selRect.c2), maxC = Math.max(selRect.c1, selRect.c2)
+      ctx.strokeStyle = '#38bdf8'
+      ctx.lineWidth = 2 / zoom
+      ctx.strokeRect(minC * tileSize + 1, minR * tileSize + 1, (maxC - minC + 1) * tileSize - 2, (maxR - minR + 1) * tileSize - 2)
+      ctx.fillStyle = 'rgba(56,189,248,0.15)'
+      ctx.fillRect(minC * tileSize, minR * tileSize, (maxC - minC + 1) * tileSize, (maxR - minR + 1) * tileSize)
+    }
+    ctx.restore()
+  }, [image, cols, rows, tileSize, zoom, pan, canvasSize, selRect])
+
+  useEffect(() => { draw() }, [draw])
+
+  // Close context menu
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    window.addEventListener('pointerdown', close)
+    return () => window.removeEventListener('pointerdown', close)
+  }, [contextMenu])
+
+  return (
+    <div className="h-full flex flex-col bg-neutral-800">
+      <div className="flex items-center px-2 pt-1 pb-1 shrink-0 gap-2 border-b border-neutral-700">
+        <AssetPicker
+          value={activeTileset}
+          onChange={id => { if (id) setActiveTileset(id) }}
+          categories={['tileset', 'sprite-sheet']}
+          placeholder="-- Asset --"
+        />
+      </div>
+      <div className="px-2 py-1 text-[10px] text-neutral-500 border-b border-neutral-700 shrink-0">
+        Right-click selection to create entity
+      </div>
+      <div ref={containerRef} className="flex-1 min-h-0 overflow-hidden cursor-crosshair relative">
+        <canvas ref={canvasRef} style={{ width: canvasSize.w, height: canvasSize.h }}
+          onWheel={e => {
+            e.preventDefault()
+            const rect = canvasRef.current?.getBoundingClientRect()
+            if (!rect) return
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top
+            const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
+            const nz = Math.max(0.25, Math.min(6, zoom * factor))
+            const scale = nz / zoom
+            setPan({ x: mx - (mx - pan.x) * scale, y: my - (my - pan.y) * scale })
+            setZoom(nz)
+          }}
+          onPointerDown={e => {
+            if (e.button === 1) {
+              isPanning.current = true
+              lastPan.current = { x: e.clientX, y: e.clientY }
+              ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+              return
+            }
+            if (e.button === 0) {
+              const cell = screenToCell(e.clientX, e.clientY)
+              if (!cell) return
+              dragging.current = true
+              dragStart.current = cell
+              setSelRect({ r1: cell.r, c1: cell.c, r2: cell.r, c2: cell.c })
+              ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+            }
+          }}
+          onPointerMove={e => {
+            if (isPanning.current) {
+              const dx = e.clientX - lastPan.current.x, dy = e.clientY - lastPan.current.y
+              lastPan.current = { x: e.clientX, y: e.clientY }
+              setPan(p => ({ x: p.x + dx, y: p.y + dy }))
+              return
+            }
+            if (dragging.current) {
+              const cell = screenToCell(e.clientX, e.clientY)
+              if (cell) setSelRect({ r1: dragStart.current.r, c1: dragStart.current.c, r2: cell.r, c2: cell.c })
+            }
+          }}
+          onPointerUp={e => {
+            if (e.button === 1) { isPanning.current = false; return }
+            dragging.current = false
+          }}
+          onContextMenu={e => {
+            e.preventDefault()
+            if (!selRect) return
+            const minR = Math.min(selRect.r1, selRect.r2), minC = Math.min(selRect.c1, selRect.c2)
+            const w = Math.abs(selRect.c2 - selRect.c1) + 1, h = Math.abs(selRect.r2 - selRect.r1) + 1
+            const rect = containerRef.current?.getBoundingClientRect()
+            setContextMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0), info: { tilesetId: activeTileset, tileIndex: minR * cols + minC, width: w, height: h } })
+          }}
+        />
+        {contextMenu && (
+          <div className="absolute z-50 bg-neutral-800 border border-neutral-600 shadow-lg py-1"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onPointerDown={e => e.stopPropagation()}>
+            <button onClick={() => { onCreateEntity(contextMenu.info); setContextMenu(null) }}
+              className="w-full text-left px-3 py-1.5 text-xs text-neutral-200 hover:bg-neutral-700">
+              Create Entity ({contextMenu.info.width}x{contextMenu.info.height})
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
