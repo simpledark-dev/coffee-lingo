@@ -25,47 +25,47 @@ const QUEST_TEMPLATES: QuestTemplate[] = [
   {
     id: 'correct_answers',
     descriptionPattern: 'Get {N} correct answers',
-    tiers: [{ target: 5, reward: 3 }, { target: 10, reward: 5 }, { target: 15, reward: 8 }],
+    tiers: [{ target: 10, reward: 4 }, { target: 20, reward: 7 }, { target: 30, reward: 10 }],
   },
   {
     id: 'earn_coins',
     descriptionPattern: 'Earn {N} coins',
-    tiers: [{ target: 5, reward: 4 }, { target: 10, reward: 6 }, { target: 20, reward: 8 }],
+    tiers: [{ target: 15, reward: 4 }, { target: 30, reward: 7 }, { target: 50, reward: 10 }],
   },
   {
     id: 'earn_rep',
     descriptionPattern: 'Earn {N} reputation',
-    tiers: [{ target: 5, reward: 4 }, { target: 10, reward: 6 }, { target: 20, reward: 8 }],
+    tiers: [{ target: 10, reward: 4 }, { target: 20, reward: 7 }, { target: 35, reward: 10 }],
   },
   {
     id: 'answer_streak',
     descriptionPattern: 'Get a {N}-answer streak',
-    tiers: [{ target: 3, reward: 4 }, { target: 5, reward: 6 }, { target: 7, reward: 8 }],
+    tiers: [{ target: 5, reward: 5 }, { target: 8, reward: 7 }, { target: 12, reward: 10 }],
   },
   {
     id: 'unique_characters',
     descriptionPattern: 'Talk to {N} different characters',
-    tiers: [{ target: 3, reward: 3 }, { target: 5, reward: 5 }, { target: 7, reward: 7 }],
+    tiers: [{ target: 4, reward: 4 }, { target: 7, reward: 6 }, { target: 10, reward: 9 }],
   },
   {
     id: 'serve_customers',
     descriptionPattern: 'Serve {N} customers',
-    tiers: [{ target: 5, reward: 3 }, { target: 10, reward: 5 }, { target: 15, reward: 8 }],
+    tiers: [{ target: 8, reward: 4 }, { target: 15, reward: 7 }, { target: 25, reward: 10 }],
   },
   {
     id: 'serve_perfectly',
     descriptionPattern: 'Serve {N} customers perfectly',
-    tiers: [{ target: 1, reward: 4 }, { target: 3, reward: 6 }, { target: 5, reward: 8 }],
+    tiers: [{ target: 3, reward: 5 }, { target: 6, reward: 7 }, { target: 10, reward: 10 }],
   },
   {
     id: 'no_hint_answers',
     descriptionPattern: 'Answer {N} questions without hints',
-    tiers: [{ target: 3, reward: 4 }, { target: 5, reward: 6 }, { target: 8, reward: 8 }],
+    tiers: [{ target: 8, reward: 5 }, { target: 15, reward: 7 }, { target: 25, reward: 10 }],
   },
   {
     id: 'total_questions',
     descriptionPattern: 'Answer {N} questions',
-    tiers: [{ target: 10, reward: 3 }, { target: 20, reward: 5 }, { target: 30, reward: 8 }],
+    tiers: [{ target: 20, reward: 4 }, { target: 40, reward: 7 }, { target: 60, reward: 10 }],
   },
 ]
 
