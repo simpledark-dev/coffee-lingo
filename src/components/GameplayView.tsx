@@ -15,7 +15,7 @@ import { getLevel, starsForCoins, isLevelUnlocked, customerCount, type Level } f
 import { PATIO_UNLOCK_REP, PATIO_UNLOCK_COST } from '../lib/tilemap'
 import { buildPlacedTileMap, buildFurnishingPOIs, getAvailableSlots, ALL_FURNISHINGS } from '../lib/furnishing'
 import { getCharacter, getFriendshipLevel, FRIENDSHIP_GAIN, VoiceProfile } from '../lib/characters'
-import { CUSTOMER_SPRITES, CUSTOMER_FACES, PALETTE, type FaceEmotion } from '../lib/sprites'
+import { CUSTOMER_SPRITES, CUSTOMER_FACES, PALETTE, SPRITE_MAP, type FaceEmotion } from '../lib/sprites'
 import { updateQuestProgress, updateConversationEndProgress, hasClaimableQuest as checkClaimableQuest, QuestEvent } from '../lib/quests'
 import HUD from './HUD'
 import CafeCanvas from './CafeCanvas'
@@ -218,6 +218,33 @@ function faceToDataURL(spriteVariant: number, emotion: FaceEmotion, size: number
   }
   const url = canvas.toDataURL()
   faceCache.set(key, url)
+  return url
+}
+
+// Render a furnishing sprite (keyed by spriteKey) to a data URL for upgrade previews.
+const furnSpriteCache = new Map<string, string>()
+function furnSpriteToDataURL(spriteKey: string, size: number): string {
+  const key = `${spriteKey}-${size}`
+  const cached = furnSpriteCache.get(key)
+  if (cached) return cached
+  const sprite = SPRITE_MAP[spriteKey]
+  if (!sprite) return ''
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  const scale = size / 32
+  const s = Math.ceil(scale)
+  for (let row = 0; row < sprite.length; row++) {
+    for (let col = 0; col < sprite[row].length; col++) {
+      const idx = sprite[row][col]
+      if (idx === 0) continue
+      ctx.fillStyle = PALETTE[idx]
+      ctx.fillRect(col * scale, row * scale, s, s)
+    }
+  }
+  const url = canvas.toDataURL()
+  furnSpriteCache.set(key, url)
   return url
 }
 
@@ -1123,6 +1150,9 @@ export default function GameplayView({
         const nextTier = catalog?.tiers.find(t => t.tier === currentTier + 1)
         const canAfford = nextTier ? playerState.coins >= nextTier.cost : false
         const hasRep = nextTier ? playerState.reputation >= nextTier.requiredReputation : false
+        const currentSpriteKey = currentTier === 0
+          ? item.spriteKey
+          : (catalog?.tiers.find(t => t.tier === currentTier)?.spriteKey ?? item.spriteKey)
 
         return (
           <div style={styles.charInfoOverlay} onClick={() => setInspectedFurnishingId(null)}>
@@ -1140,6 +1170,29 @@ export default function GameplayView({
                       border: '1px solid #8D6E63',
                     }} />
                   ))}
+                </div>
+              )}
+
+              {/* Current → next visual preview */}
+              {nextTier && !isUpgrading && !isReady && (
+                <div style={styles.furnCompare}>
+                  <div style={styles.furnCompareItem}>
+                    <img
+                      src={furnSpriteToDataURL(currentSpriteKey, 56)}
+                      width={56} height={56} alt="Current"
+                      style={{ imageRendering: 'pixelated' }}
+                    />
+                    <div style={styles.furnCompareLabel}>Current</div>
+                  </div>
+                  <div style={styles.furnCompareArrow}>→</div>
+                  <div style={styles.furnCompareItem}>
+                    <img
+                      src={furnSpriteToDataURL(nextTier.spriteKey, 56)}
+                      width={56} height={56} alt={nextTier.name}
+                      style={{ imageRendering: 'pixelated' }}
+                    />
+                    <div style={styles.furnCompareLabel}>{nextTier.name}</div>
+                  </div>
                 </div>
               )}
 
@@ -1584,6 +1637,34 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     fontWeight: 800,
     fontFamily: 'monospace',
+  },
+  furnCompare: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#2C1A12',
+    borderRadius: 8,
+    padding: '8px 6px',
+    marginBottom: 8,
+  },
+  furnCompareItem: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: 3,
+  },
+  furnCompareArrow: {
+    color: '#FFD54F',
+    fontSize: 18,
+    fontWeight: 800,
+  },
+  furnCompareLabel: {
+    fontSize: 9,
+    color: '#BCAAA4',
+    fontWeight: 600,
+    textAlign: 'center' as const,
+    maxWidth: 64,
   },
   toastContainer: {
     position: 'absolute',
