@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getLevel, starsForCoins, isLevelUnlocked, customerCount, requestCount, questionCount, type Level } from '../src/lib/levels'
+import { LEVELS, getLevel, starsForCoins, isLevelUnlocked, customerCount, requestCount, questionCount, type Level } from '../src/lib/levels'
 import type { LevelProgress } from '../src/lib/types'
 
 // Synthetic level with known thresholds, independent of the authored LEVELS.
@@ -52,6 +52,27 @@ describe('isLevelUnlocked', () => {
   it('does not unlock the next level if the previous scored 0 stars', () => {
     const progress: Record<number, LevelProgress> = { 1: { stars: 0, bestCoins: 5 } }
     expect(isLevelUnlocked(2, progress)).toBe(false)
+  })
+})
+
+describe('LEVELS catalog', () => {
+  it('has 50 levels with contiguous ids 1..50', () => {
+    expect(LEVELS).toHaveLength(50)
+    LEVELS.forEach((lvl, i) => expect(lvl.id).toBe(i + 1))
+  })
+  it('every level has at least one NPC and ascending star thresholds', () => {
+    for (const lvl of LEVELS) {
+      expect(lvl.actors.length).toBeGreaterThan(0)
+      const [s1, s2, s3] = lvl.starThresholds
+      expect(s1).toBeGreaterThanOrEqual(1)
+      expect(s2).toBeGreaterThanOrEqual(s1)
+      expect(s3).toBeGreaterThanOrEqual(s2)
+    }
+  })
+  it('3-star threshold never exceeds the level max (total questions)', () => {
+    for (const lvl of LEVELS) {
+      expect(lvl.starThresholds[2]).toBeLessThanOrEqual(questionCount(lvl))
+    }
   })
 })
 

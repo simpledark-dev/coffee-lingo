@@ -522,6 +522,19 @@ export default function GameplayView({
     }
   }, [endSession])
 
+  // End the day early — scores whatever coins were earned so far.
+  const handleEndSession = useCallback(() => {
+    if (!sessionRef.current) return
+    if (!window.confirm('End the day now? Your stars are based on coins earned so far.')) return
+    setActiveExchange(null)
+    setLastResult(null)
+    setSelectedChoiceId(null)
+    setResponding(false)
+    respondingRef.current = false
+    processingRef.current = false
+    endSession()
+  }, [endSession])
+
   // Initialize simulation once on mount
   useEffect(() => {
     const state = createWorldState(0, patioUnlocked, tileOverrides, patioPOIs)
@@ -896,6 +909,7 @@ export default function GameplayView({
         const remaining = Math.max(0, activeLevel.actors.length - sessionProgress.served)
         return (
           <div style={styles.sessionBar}>
+            <button style={styles.endDayButton} onClick={handleEndSession}>End Day</button>
             <div style={styles.sessionCoins}>
               <span style={{ fontSize: 13 }}>💰</span>
               <span style={styles.sessionCoinsValue}>{sessionProgress.coins}</span>
@@ -1499,16 +1513,28 @@ const styles: Record<string, React.CSSProperties> = {
     transform: 'translateX(-50%)',
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
-    padding: '6px 12px',
-    width: 'calc(100% - 24px)',
-    maxWidth: 360,
+    gap: 8,
+    padding: '5px 8px',
+    width: 'auto',
+    maxWidth: 'calc(100% - 24px)',
     boxSizing: 'border-box' as const,
     background: 'rgba(62, 39, 35, 0.94)',
     border: '1px solid #6D4C41',
     borderRadius: 16,
     zIndex: 16,
     boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+  },
+  endDayButton: {
+    flexShrink: 0,
+    background: 'rgba(120, 50, 45, 0.95)',
+    color: '#FFCDD2',
+    border: '1px solid #A1554E',
+    borderRadius: 12,
+    padding: '5px 10px',
+    fontSize: 11,
+    fontWeight: 700,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap' as const,
   },
   sessionCoins: {
     display: 'flex',
@@ -1525,7 +1551,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   sessionTrack: {
     position: 'relative' as const,
-    flex: 1,
+    flexShrink: 0,
+    width: 110,
     height: 12,
     background: '#2C1A12',
     borderRadius: 6,
