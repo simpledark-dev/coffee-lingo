@@ -93,6 +93,12 @@ upgrade nhan vat cua minh -> quan ao, toc tai,... (chi cho dep? hoac la vi du ca
 
 upgrade nha rieng -> de cho dep + vi du nhan vat (ba me) vao trong nha se happy hon, tang rep hon
 
+element of new -> user actually doesn't know what's going to happen next -> they want to figure out
+     e.g one of the quests (not daily quests) can be talk to person A on the street and they have a secret to tell you (requires X coins and X reps to talk to them, aka tapping on them when not having enough coins or/and reps will show require ....)
+        and so when you finally can talk to this person, it will lead to a new thing, like they will ask you do something or whatever.
+        Then we can multiple instances like that which user can't predict what they'll get
+ -> but doesn't always have to be mystery NPCs, it could be tapping on a tree and reveal some secrets right? 
+ just gotta be creative
 
 game mode before play: ielts, toeic, normal
 
