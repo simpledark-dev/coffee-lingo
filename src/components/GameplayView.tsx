@@ -668,6 +668,16 @@ export default function GameplayView({
     if (result.score === 'PERFECT') repChange += 1
     if (result.score === 'MISSED') repChange -= 1
 
+    // Coin penalty for wrong answers
+    const coinPenalty = result.score === 'MISSED' ? 1 : 0
+
+    // Track penalty for UI display
+    if (result.score === 'MISSED') {
+      setLastPenalty({ coins: coinPenalty, rep: 1 })
+    } else {
+      setLastPenalty(null)
+    }
+
     // Update quest progress
     let updatedQuests = ps.quests
     if (updatedQuests) {
@@ -682,7 +692,7 @@ export default function GameplayView({
     }
 
     onStateUpdate({
-      coins: Math.round((updatedState.coins + result.tipAmount) * 100) / 100,
+      coins: Math.max(0, Math.round((updatedState.coins + result.tipAmount - coinPenalty) * 100) / 100),
       reputation: Math.max(0, Math.round(updatedState.reputation + repChange)),
       vocabulary: updatedState.vocabulary,
       totalCustomersServed: updatedState.totalCustomersServed + 1,
@@ -1154,6 +1164,11 @@ export default function GameplayView({
                 {lastResult.tipAmount > 0 && (
                   <div style={styles.tipText}>+{lastResult.tipAmount} coins</div>
                 )}
+                {lastPenalty && (
+                  <div style={styles.penaltyText}>
+                    −{lastPenalty.coins} coin · −{lastPenalty.rep} rep
+                  </div>
+                )}
                 {lastResult.score === 'MISSED' && (
                   <button style={styles.nextButton} onClick={handleDismissWrong}>
                     Next
@@ -1539,11 +1554,18 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 800,
     textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.3)',
     textTransform: 'uppercase',
+    animation: 'scorePop 0.35s ease-out',
   },
   tipText: {
-    fontSize: 16,
-    fontWeight: 600,
+    fontSize: 22,
+    fontWeight: 700,
     color: '#FFD700',
+    textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+  },
+  penaltyText: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: '#F44336',
     textShadow: '0 1px 4px rgba(0,0,0,0.6)',
   },
   correctAnswer: {
