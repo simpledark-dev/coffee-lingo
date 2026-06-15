@@ -883,6 +883,168 @@ export const CUSTOMER_SPRITES: CustomerSprites[] = [
 
 export const CUSTOMERS = CUSTOMER_SPRITES.map(s => s.down)
 
+// --- Face portrait sprites for dialogue ---
+
+export type FaceEmotion = 'neutral' | 'happy' | 'sad' | 'surprised'
+
+export interface FaceSprites {
+  neutral: Sprite
+  happy: Sprite
+  sad: Sprite
+  surprised: Sprite
+}
+
+/**
+ * 24×24 face portrait — head + neck + collar, with emotion variants.
+ * Uses same color params as makeCustomerSprites.
+ */
+export function makeCustomerFace(
+  S: number, Sd: number,   // shirt, shirt dark
+  K: number, Kd: number,   // skin, skin dark
+  H: number, Hd: number,   // hair, hair dark
+): FaceSprites {
+
+  function base(): Sprite {
+    const s: Sprite = Array.from({ length: 24 }, () => Array(24).fill(0))
+
+    // === HAIR (rounded dome) ===
+    for (let c = 8; c <= 15; c++) s[0][c] = H
+    for (let c = 7; c <= 16; c++) s[1][c] = H
+    for (let c = 6; c <= 17; c++) s[2][c] = H
+    for (let r = 3; r <= 5; r++) for (let c = 5; c <= 18; c++) s[r][c] = H
+    // Hair side strands
+    for (let r = 6; r <= 9; r++) { s[r][5] = H; s[r][18] = H }
+    for (let r = 6; r <= 7; r++) { s[r][6] = H; s[r][17] = H }
+    // Hair shading
+    s[1][7] = Hd; s[2][6] = Hd
+    for (let r = 3; r <= 5; r++) s[r][5] = Hd
+    s[3][18] = Hd; s[4][18] = Hd
+
+    // === FACE ===
+    for (let r = 6; r <= 14; r++) for (let c = 7; c <= 16; c++) s[r][c] = K
+    // Wider cheeks
+    for (let r = 8; r <= 11; r++) s[r][6] = K
+    // Chin narrowing
+    for (let c = 8; c <= 15; c++) s[15][c] = K
+    // Face shadow (right side)
+    for (let r = 7; r <= 13; r++) s[r][16] = Kd
+    s[8][17] = Kd; s[9][17] = Kd; s[10][17] = Kd
+    s[14][15] = Kd; s[14][16] = Kd
+
+    // === NOSE ===
+    s[11][11] = Kd; s[11][12] = Kd
+
+    // === NECK ===
+    for (let c = 10; c <= 13; c++) s[17][c] = K
+    s[17][13] = Kd
+
+    // === COLLAR / SHOULDERS ===
+    for (let c = 7; c <= 16; c++) s[18][c] = S
+    s[18][11] = K; s[18][12] = K  // V-neck opening
+    s[18][10] = Sd; s[18][13] = Sd
+    // Shoulders
+    for (let c = 5; c <= 18; c++) s[19][c] = S
+    for (let c = 6; c <= 17; c++) { s[20][c] = S; s[21][c] = S }
+    for (let c = 7; c <= 16; c++) { s[22][c] = S; s[23][c] = S }
+    // Shirt shadow
+    for (let r = 19; r <= 23; r++) { s[r][17] = Sd; s[r][16] = Sd }
+
+    return s
+  }
+
+  // --- NEUTRAL ---
+  const neutral = base()
+  // Eyes (3×2 with sparkle)
+  neutral[9][8] = 19; neutral[9][9] = 8; neutral[9][10] = 9
+  neutral[10][8] = 8; neutral[10][9] = 9; neutral[10][10] = 9
+  neutral[9][13] = 9; neutral[9][14] = 8; neutral[9][15] = 19
+  neutral[10][13] = 9; neutral[10][14] = 9; neutral[10][15] = 8
+  // Eyebrows
+  neutral[8][8] = Hd; neutral[8][9] = Hd
+  neutral[8][14] = Hd; neutral[8][15] = Hd
+  // Mouth (small line)
+  neutral[13][10] = 15; neutral[13][11] = 15; neutral[13][12] = 15; neutral[13][13] = 15
+
+  // --- HAPPY ---
+  const happy = base()
+  // Eyes (closed happy ^_^ — curved lines)
+  happy[9][8] = Hd; happy[9][10] = Hd
+  happy[10][9] = Hd
+  happy[9][13] = Hd; happy[9][15] = Hd
+  happy[10][14] = Hd
+  // Eyebrows (raised)
+  happy[7][8] = Hd; happy[7][9] = Hd
+  happy[7][14] = Hd; happy[7][15] = Hd
+  // Mouth (wide smile)
+  happy[13][9] = 15; happy[13][14] = 15
+  happy[14][10] = 15; happy[14][11] = 15; happy[14][12] = 15; happy[14][13] = 15
+
+  // --- SAD ---
+  const sad = base()
+  // Eyes (drooped — dots lower)
+  sad[10][8] = 9; sad[10][9] = 9; sad[10][10] = 9
+  sad[10][13] = 9; sad[10][14] = 9; sad[10][15] = 9
+  // Eyebrows (angled down inward — worried)
+  sad[7][8] = Hd; sad[8][9] = Hd
+  sad[7][15] = Hd; sad[8][14] = Hd
+  // Mouth (frown)
+  sad[14][10] = 15; sad[14][11] = 15; sad[14][12] = 15; sad[14][13] = 15
+  sad[13][9] = 15; sad[13][14] = 15
+
+  // --- SURPRISED ---
+  const surprised = base()
+  // Eyes (wide open — bigger)
+  surprised[9][8] = 8; surprised[9][9] = 19; surprised[9][10] = 8
+  surprised[10][8] = 9; surprised[10][9] = 9; surprised[10][10] = 8
+  surprised[11][8] = 8; surprised[11][9] = 8; surprised[11][10] = 8
+  surprised[9][13] = 8; surprised[9][14] = 19; surprised[9][15] = 8
+  surprised[10][13] = 8; surprised[10][14] = 9; surprised[10][15] = 9
+  surprised[11][13] = 8; surprised[11][14] = 8; surprised[11][15] = 8
+  // Eyebrows (raised high)
+  surprised[7][8] = Hd; surprised[7][9] = Hd
+  surprised[7][14] = Hd; surprised[7][15] = Hd
+  // Mouth (O shape)
+  surprised[13][11] = 15; surprised[13][12] = 15
+  surprised[14][11] = 15; surprised[14][12] = 15
+
+  return { neutral, happy, sad, surprised }
+}
+
+// Pre-made face variants matching CUSTOMER_SPRITES order
+export const CUSTOMER_FACES: FaceSprites[] = [
+  makeCustomerFace(18, 32, 29, 16, 1, 9),    // 0
+  makeCustomerFace(20, 33, 4, 3, 9, 9),       // 1
+  makeCustomerFace(13, 34, 29, 16, 2, 1),     // 2
+  makeCustomerFace(21, 35, 4, 3, 1, 9),       // 3
+  makeCustomerFace(15, 36, 29, 16, 17, 16),   // 4
+  makeCustomerFace(39, 40, 37, 38, 9, 9),     // 5
+  makeCustomerFace(41, 42, 49, 50, 1, 9),     // 6
+  makeCustomerFace(43, 44, 4, 3, 47, 36),     // 7
+  makeCustomerFace(45, 46, 37, 38, 48, 11),   // 8
+  makeCustomerFace(18, 32, 49, 50, 9, 9),     // 9
+  makeCustomerFace(20, 33, 37, 38, 1, 9),     // 10
+  makeCustomerFace(13, 34, 4, 3, 17, 16),     // 11
+  makeCustomerFace(21, 35, 49, 50, 47, 36),   // 12
+  makeCustomerFace(39, 40, 49, 50, 17, 16),   // 13
+  makeCustomerFace(43, 44, 37, 38, 1, 9),     // 14
+  makeCustomerFace(41, 42, 4, 3, 9, 9),       // 15
+  makeCustomerFace(15, 36, 37, 38, 47, 36),   // 16
+  makeCustomerFace(45, 46, 29, 16, 2, 1),     // 17
+  makeCustomerFace(18, 32, 37, 38, 17, 16),   // 18
+  makeCustomerFace(43, 44, 49, 50, 48, 11),   // 19
+  makeCustomerFace(20, 33, 29, 16, 47, 36),   // 20
+  makeCustomerFace(39, 40, 4, 3, 2, 1),       // 21
+  makeCustomerFace(41, 42, 37, 38, 17, 16),   // 22
+  makeCustomerFace(21, 35, 37, 38, 48, 11),   // 23
+  makeCustomerFace(13, 34, 49, 50, 9, 9),     // 24
+  makeCustomerFace(15, 36, 4, 3, 1, 9),       // 25
+  makeCustomerFace(45, 46, 49, 50, 47, 36),   // 26
+  makeCustomerFace(43, 44, 29, 16, 9, 9),     // 27
+  makeCustomerFace(18, 32, 4, 3, 48, 11),     // 28
+  makeCustomerFace(20, 33, 49, 50, 2, 1),     // 29
+  makeCustomerFace(39, 40, 29, 16, 1, 9),     // 30
+]
+
 // Exclamation mark indicator (16x16)
 export const EXCLAMATION: Sprite = [
   [ 0, 0, 0, 0,17,17,17,17,17,17,17,17, 0, 0, 0, 0],

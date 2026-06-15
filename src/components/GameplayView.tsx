@@ -10,11 +10,11 @@ import { evaluateChoice, generateSingleConversation, generateWordQuiz, QuizMode 
 import { updateMastery } from '../lib/state'
 import type { UpgradeBonuses } from '../lib/upgrades'
 import { TILE_TO_UPGRADE_ID, getUpgradeCatalogEntry, getUpgradeTimeRemaining, formatTimeRemaining } from '../lib/upgrades'
-import { createWorldState, tickWorld, startConversation, endConversation, spawnCharacter } from '../lib/cafe-sim'
+import { createWorldState, tickWorld, startConversation, endConversation, spawnCharacter, spawnCharacterInside } from '../lib/cafe-sim'
 import { PATIO_UNLOCK_REP, PATIO_UNLOCK_COST } from '../lib/tilemap'
 import { buildPlacedTileMap, buildFurnishingPOIs, getAvailableSlots, ALL_FURNISHINGS } from '../lib/furnishing'
 import { getCharacter, getFriendshipLevel, FRIENDSHIP_GAIN, pickNextCharacter, VoiceProfile } from '../lib/characters'
-import { CUSTOMER_SPRITES, PALETTE } from '../lib/sprites'
+import { CUSTOMER_SPRITES, CUSTOMER_FACES, PALETTE, type FaceEmotion } from '../lib/sprites'
 import { updateQuestProgress, updateConversationEndProgress, hasClaimableQuest as checkClaimableQuest, QuestEvent } from '../lib/quests'
 import HUD from './HUD'
 import CafeCanvas from './CafeCanvas'
@@ -192,6 +192,32 @@ function spriteToDataURL(spriteVariant: number, size: number): string {
   return canvas.toDataURL()
 }
 
+const faceCache = new Map<string, string>()
+function faceToDataURL(spriteVariant: number, emotion: FaceEmotion, size: number): string {
+  const key = `${spriteVariant}-${emotion}-${size}`
+  const cached = faceCache.get(key)
+  if (cached) return cached
+  const faces = CUSTOMER_FACES[spriteVariant % CUSTOMER_FACES.length]
+  const sprite = faces[emotion]
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  const scale = size / 24
+  const s = Math.ceil(scale)
+  for (let row = 0; row < sprite.length; row++) {
+    for (let col = 0; col < sprite[row].length; col++) {
+      const idx = sprite[row][col]
+      if (idx === 0) continue
+      ctx.fillStyle = PALETTE[idx]
+      ctx.fillRect(col * scale, row * scale, s, s)
+    }
+  }
+  const url = canvas.toDataURL()
+  faceCache.set(key, url)
+  return url
+}
+
 // Cache French voices (male + female)
 let cachedMaleVoice: SpeechSynthesisVoice | null = null
 let cachedFemaleVoice: SpeechSynthesisVoice | null = null
@@ -270,10 +296,12 @@ export default function GameplayView({
   const [activeExchange, setActiveExchange] = useState<ResolvedExchange | null>(null)
   const [responding, setResponding] = useState(false)
   const [lastResult, setLastResult] = useState<EvaluationResult | null>(null)
+  const [lastPenalty, setLastPenalty] = useState<{ coins: number; rep: number } | null>(null)
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null)
   const [hintLevel, setHintLevel] = useState(0)
   const [patiencePercent, setPatiencePercent] = useState(100)
   const [activeCharacterName, setActiveCharacterName] = useState<string | null>(null)
+  const [activeSpriteVariant, setActiveSpriteVariant] = useState<number>(0)
   const activeGenderRef = useRef<'male' | 'female'>('male')
   const activeVoiceRef = useRef<VoiceProfile | undefined>(undefined)
   const [friendshipGain, setFriendshipGain] = useState<number | null>(null)
@@ -371,6 +399,13 @@ export default function GameplayView({
     const state = createWorldState(0, patioUnlocked, tileOverrides, patioPOIs)
     cafeStateRef.current = state
     lastFrameRef.current = performance.now()
+
+    // Debug: spawn one character inside immediately
+    const { conversation, roundsTarget } = generateSingleConversation(
+      expressions, playerState.vocabulary, playerState.recencyBuffer, playerState.wrongQueue ?? [], quizMode
+    )
+    const charId = pickNextCharacter(playerState.reputation, playerState.relationships ?? {}, playerState.totalCustomersServed, [], [])
+    if (charId) spawnCharacterInside(state, conversation, charId, roundsTarget)
 
     // Initialize audio
     const audio = new Audio('/coffee_track.mp3')
@@ -504,6 +539,7 @@ export default function GameplayView({
 
     const charData = getCharacter(customer.characterId)
     setActiveCharacterName(charData?.name ?? null)
+    setActiveSpriteVariant(customer.spriteVariant)
     activeGenderRef.current = charData?.gender ?? 'male'
     activeVoiceRef.current = charData?.voice
     setActiveExchange(exchange)
@@ -1083,17 +1119,6 @@ export default function GameplayView({
               </div>
             )}
 
-            <div style={styles.patienceContainer}>
-              <div style={{
-                ...styles.patienceBar,
-                width: `${patiencePercent}%`,
-                background: '#4CAF50',
-                transition: patiencePercent === 0
-                  ? `width ${patienceDuration}ms linear, background ${patienceDuration}ms linear`
-                  : 'none',
-              }} />
-            </div>
-
             <div style={styles.speechRow}>
               {!selectedChoiceId ? (
                 <button style={styles.iDontKnowButton} onClick={() => {
@@ -1105,14 +1130,41 @@ export default function GameplayView({
                 <div style={{ width: 32, flexShrink: 0 }} />
               )}
               <div style={styles.speechBubble}>
-                {activeCharacterName && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                    <div style={styles.characterName}>{activeCharacterName}</div>
+                <div style={styles.patienceContainerInline}>
+                  <div style={{
+                    ...styles.patienceBar,
+                    width: `${patiencePercent}%`,
+                    background: '#4CAF50',
+                    transition: patiencePercent === 0
+                      ? `width ${patienceDuration}ms linear, background ${patienceDuration}ms linear`
+                      : 'none',
+                  }} />
+                </div>
+                <div style={styles.portraitRow}>
+                  <img
+                    src={faceToDataURL(
+                      activeSpriteVariant,
+                      lastResult
+                        ? lastResult.score === 'PERFECT' || lastResult.score === 'GOOD' ? 'happy'
+                        : lastResult.score === 'MISSED' ? 'sad'
+                        : 'surprised'
+                        : 'neutral',
+                      48,
+                    )}
+                    width={48}
+                    height={48}
+                    alt=""
+                    style={styles.portraitImg}
+                  />
+                  <div style={styles.portraitInfo}>
+                    {activeCharacterName && (
+                      <div style={styles.characterName}>{activeCharacterName}</div>
+                    )}
                     {friendshipGain !== null && (
                       <span style={styles.friendshipGain}>+{friendshipGain} ♥</span>
                     )}
                   </div>
-                )}
+                </div>
                 <div style={styles.speechText}>{renderCustomerLine(activeExchange.customerLine)}</div>
                 {hintLevel >= 1 && <div style={styles.hintText}>{activeExchange.hintIdea}</div>}
                 {hintLevel >= 2 && <div style={styles.hintTranslation}>{activeExchange.hintTranslation}</div>}
@@ -1325,14 +1377,32 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 240,
     maxWidth: 360,
     boxShadow: '0 3px 12px rgba(0,0,0,0.25)',
-    textAlign: 'center',
+    textAlign: 'left' as const,
     border: '2px solid #5D4037',
+  },
+  portraitRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  portraitImg: {
+    imageRendering: 'pixelated' as const,
+    borderRadius: 6,
+    border: '2px solid #5D4037',
+    background: '#F5EDE3',
+    flexShrink: 0,
+  },
+  portraitInfo: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'flex-start',
+    gap: 2,
   },
   characterName: {
     fontSize: 11,
     fontWeight: 700,
     color: '#8D6E63',
-    marginBottom: 2,
     textTransform: 'uppercase' as const,
     letterSpacing: 1,
   },
@@ -1363,12 +1433,9 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#A0845C',
     fontStyle: 'italic',
   },
-  patienceContainer: {
-    position: 'absolute',
-    bottom: '36%',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: 100,
+  patienceContainerInline: {
+    width: '100%',
+    marginBottom: 6,
     height: 6,
     background: 'rgba(0,0,0,0.4)',
     borderRadius: 3,

@@ -223,6 +223,48 @@ export function spawnCharacter(
 // Keep old name as alias
 export const spawnCustomer = spawnCharacter
 
+/**
+ * Debug: place a character directly inside the cafe at a POI, already in exclamation phase.
+ */
+export function spawnCharacterInside(
+  state: WorldState,
+  conversation: CustomerConversation,
+  characterId: string,
+  roundsTarget: number = 1,
+): void {
+  const character = getCharacter(characterId)
+  const blocked = getInteriorBlocked(state, -1)
+  const poi = pickNextPOI(null, state.interiorPOIOccupancy, blocked, state.patioUnlocked, state.patioPOIs)
+  if (!poi) return
+
+  const customer: CustomerState = {
+    id: state.nextId++,
+    characterId,
+    spriteVariant: character?.spriteVariant ?? 0,
+    phase: 'exclamation',
+    location: 'interior',
+    worldPos: gridToWorld(poi.pos),
+    outsideWorldPos: outsideGridToWorld(OUTSIDE_SPAWN_TOP),
+    path: [],
+    pathIndex: 0,
+    currentPOI: poi.id,
+    targetPOI: null,
+    facingDir: poi.facingDir,
+    conversation,
+    nextExchangeIndex: 0,
+    exclamationTimer: Date.now(),
+    idleTimer: null,
+    stopsRemaining: 0,
+    outsideStopsRemaining: 0,
+    hasActiveRequest: true,
+    roundsTarget,
+  }
+
+  occupyInteriorPOI(state, poi.id, customer.id)
+  state.characters.push(customer)
+  state.totalSpawned++
+}
+
 // --- Outside character tick ---
 
 function tickOutsideCharacter(customer: CustomerState, state: WorldState, deltaMs: number): void {
