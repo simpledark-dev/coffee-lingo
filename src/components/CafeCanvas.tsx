@@ -54,6 +54,8 @@ interface CafeCanvasProps {
   hideBottomButtons?: boolean
   hasReadyUpgrades?: boolean
   lockInteraction?: boolean
+  onLevelsTap?: () => void
+  sessionActive?: boolean
 }
 
 const TILE_PX = TILE_SIZE * SCALE
@@ -196,6 +198,8 @@ export default function CafeCanvas({
   hideBottomButtons,
   hasReadyUpgrades,
   lockInteraction,
+  onLevelsTap,
+  sessionActive,
 }: CafeCanvasProps) {
   // Build dynamic tile→sprite map based on upgrade tiers (infrastructure only)
   const resolvedTileSprite: Record<string, string> = useMemo(() => ({
@@ -1482,6 +1486,14 @@ export default function CafeCanvas({
           ✕ Cancel
         </button>
       )}
+      {!hideBottomButtons && !placingItem && !sessionActive && (
+        <button
+          style={styles.playButton}
+          onClick={() => onLevelsTap?.()}
+        >
+          ▶ Start Day
+        </button>
+      )}
       {/* Full map popup */}
       {showMap && (
         <div style={styles.mapOverlay} onClick={() => setShowMap(false)}>
@@ -1666,6 +1678,25 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     zIndex: 5,
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+  },
+  playButton: {
+    position: 'absolute',
+    bottom: 10,
+    left: 12,
+    height: 40,
+    padding: '0 18px',
+    background: 'linear-gradient(180deg, #FFD54F 0%, #FBC02D 100%)',
+    color: '#3E2723',
+    border: '2px solid rgba(255, 255, 255, 0.5)',
+    borderRadius: 20,
+    fontSize: 15,
+    fontWeight: 800,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+    boxShadow: '0 3px 10px rgba(0, 0, 0, 0.4)',
   },
   upgradeBadge: {
     position: 'absolute' as const,

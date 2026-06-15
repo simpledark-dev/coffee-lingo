@@ -34,6 +34,7 @@ export function createInitialState(expressions: Expression[]): PlayerState {
       cafe_accent_plant: { row: 9, col: 24 },
     },
     furnishingUpgrades: {},
+    levelProgress: {},
   }
 }
 
@@ -91,6 +92,7 @@ export function loadState(): { state: PlayerState; readyToInstall: string[] } | 
     state.placedFurnishings = state.placedFurnishings ?? {}
     state.furnishingUpgrades = state.furnishingUpgrades ?? {}
     state.wrongQueue = state.wrongQueue ?? []
+    state.levelProgress = state.levelProgress ?? {}
 
     // One-time migration: patio changed from auto-unlock to purchasable
     if (!localStorage.getItem('coffee-lingo-m1')) {

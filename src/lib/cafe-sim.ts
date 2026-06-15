@@ -265,6 +265,56 @@ export function spawnCharacterInside(
   state.totalSpawned++
 }
 
+/**
+ * Spawn a scripted session actor outside, heading straight for the cafe door.
+ * The actor follows its requestPlan (fixed sequence of request stops) once inside.
+ */
+export function spawnScriptedActor(
+  state: WorldState,
+  characterId: string,
+  requestPlan: number[],
+  requestConversations: CustomerConversation[],
+): void {
+  const character = getCharacter(characterId)
+  const fromTop = state.totalSpawned % 2 === 0
+  const spawnPos = fromTop ? OUTSIDE_SPAWN_TOP : OUTSIDE_SPAWN_BOTTOM
+
+  const customer: CustomerState = {
+    id: state.nextId++,
+    characterId,
+    spriteVariant: character?.spriteVariant ?? 0,
+    phase: 'walking',
+    location: 'outside',
+    worldPos: gridToWorld(DOOR_ENTRY),
+    outsideWorldPos: outsideGridToWorld(spawnPos),
+    path: [],
+    pathIndex: 0,
+    currentPOI: null,
+    targetPOI: '__cafe_door__',
+    facingDir: fromTop ? 'down' : 'up',
+    conversation: { exchanges: [] },
+    nextExchangeIndex: 0,
+    exclamationTimer: null,
+    idleTimer: null,
+    stopsRemaining: 0,
+    outsideStopsRemaining: 0,
+    hasActiveRequest: false,
+    roundsTarget: requestPlan[0] ?? 1,
+    requestPlan,
+    requestIndex: 0,
+    requestConversations,
+  }
+
+  // Walk straight to the cafe door
+  const blocked = getOutsideBlocked(state, customer.id)
+  const path = findOutsidePath(spawnPos, CAFE_DOOR_SIDEWALK, blocked)
+  customer.path = path.length > 0 ? path : [CAFE_DOOR_SIDEWALK]
+  customer.pathIndex = 0
+
+  state.characters.push(customer)
+  state.totalSpawned++
+}
+
 // --- Outside character tick ---
 
 function tickOutsideCharacter(customer: CustomerState, state: WorldState, deltaMs: number): void {
@@ -386,7 +436,11 @@ function transitionToInterior(customer: CustomerState, state: WorldState): void 
   customer.phase = 'entering'
   customer.facingDir = 'left'
   customer.targetPOI = null
-  customer.stopsRemaining = Math.floor(randomBetween(INTERIOR_STOPS_MIN, INTERIOR_STOPS_MAX + 1))
+  if (customer.requestPlan) {
+    customer.requestIndex = 0
+  } else {
+    customer.stopsRemaining = Math.floor(randomBetween(INTERIOR_STOPS_MIN, INTERIOR_STOPS_MAX + 1))
+  }
 
   // Find first interior destination
   const blocked = getInteriorBlocked(state, customer.id)
@@ -412,6 +466,12 @@ function transitionToOutside(customer: CustomerState, state: WorldState): void {
   customer.location = 'outside'
   customer.outsideWorldPos = outsideGridToWorld(CAFE_DOOR_SIDEWALK)
   customer.facingDir = 'right'
+
+  // Scripted session actors always leave once their sequence is done.
+  if (customer.requestPlan) {
+    startLeavingWorld(customer, state)
+    return
+  }
 
   // Either wander outside more or leave
   if (Math.random() < 0.3) {
@@ -576,6 +636,115 @@ function startInteriorExiting(customer: CustomerState, state: WorldState): void 
   customer.facingDir = 'right'
 }
 
+// --- Scripted interior tick (session actors following a fixed requestPlan) ---
+
+function findPOIFacing(poiId: string | null, state: WorldState): CustomerState['facingDir'] | null {
+  if (!poiId) return null
+  const poi = POINTS_OF_INTEREST.find(p => p.id === poiId) ?? state.patioPOIs.find(p => p.id === poiId)
+  return poi ? poi.facingDir : null
+}
+
+function arriveAtScriptedStop(customer: CustomerState, state: WorldState): void {
+  const plan = customer.requestPlan ?? []
+  const idx = customer.requestIndex ?? 0
+  if (idx >= plan.length) {
+    startInteriorExiting(customer, state)
+    return
+  }
+  // Every scripted stop is a persistent request — stays until the player taps it.
+  customer.phase = 'exclamation'
+  customer.exclamationTimer = null
+  customer.hasActiveRequest = true
+  customer.conversation = customer.requestConversations?.[idx] ?? { exchanges: [] }
+  customer.nextExchangeIndex = 0
+  customer.roundsTarget = plan[idx]   // number of questions at this stop
+}
+
+function goToNextScriptedStop(customer: CustomerState, state: WorldState): void {
+  const prevPOI = customer.currentPOI
+  vacateInteriorPOI(state, customer.currentPOI, customer.id)
+  customer.currentPOI = null
+
+  if ((customer.requestIndex ?? 0) >= (customer.requestPlan?.length ?? 0)) {
+    startInteriorExiting(customer, state)
+    return
+  }
+
+  const blocked = getInteriorBlocked(state, customer.id)
+  const poi = pickNextPOI(prevPOI, state.interiorPOIOccupancy, blocked, state.patioUnlocked, state.patioPOIs)
+  if (!poi) {
+    startInteriorExiting(customer, state)
+    return
+  }
+
+  const currentGrid = worldToGrid(customer.worldPos)
+  const path = findPath(currentGrid, poi.pos, blocked, state.patioUnlocked, state.tileOverrides)
+  if (path.length === 0) {
+    startInteriorExiting(customer, state)
+    return
+  }
+
+  customer.targetPOI = poi.id
+  occupyInteriorPOI(state, poi.id, customer.id)
+  customer.path = path
+  customer.pathIndex = 0
+  customer.phase = 'walking'
+}
+
+function tickScriptedInterior(customer: CustomerState, state: WorldState, deltaMs: number): void {
+  switch (customer.phase) {
+    case 'entering':
+    case 'walking': {
+      const result = advanceAlongPath(customer.worldPos, customer.path, customer.pathIndex, gridToWorld, deltaMs, customer.facingDir)
+      customer.pathIndex = result.newIndex
+      customer.facingDir = result.newFacing as CustomerState['facingDir']
+      if (result.arrived) {
+        if (customer.targetPOI) {
+          customer.currentPOI = customer.targetPOI
+          customer.targetPOI = null
+          const facing = findPOIFacing(customer.currentPOI, state)
+          if (facing) customer.facingDir = facing
+        }
+        arriveAtScriptedStop(customer, state)
+      }
+      break
+    }
+
+    case 'idle':
+      break
+
+    case 'exclamation':
+      // Persistent — no timeout. Waits for the player to tap.
+      break
+
+    case 'conversing':
+      break
+
+    case 'post-convo': {
+      customer.idleTimer = (customer.idleTimer ?? 0) - deltaMs
+      if (customer.idleTimer! <= 0) {
+        // Advance to the next request stop, or leave after the last one.
+        customer.requestIndex = (customer.requestIndex ?? 0) + 1
+        goToNextScriptedStop(customer, state)
+      }
+      break
+    }
+
+    case 'exiting': {
+      const result = advanceAlongPath(customer.worldPos, customer.path, customer.pathIndex, gridToWorld, deltaMs, customer.facingDir)
+      customer.pathIndex = result.newIndex
+      customer.facingDir = result.newFacing as CustomerState['facingDir']
+      if (result.arrived) {
+        customer.worldPos.x += WALK_SPEED * (deltaMs / 16.67)
+        if (customer.worldPos.x > (DOOR_ENTRY.col + 3) * TILE_PX) {
+          transitionToOutside(customer, state)
+        }
+      }
+      break
+    }
+  }
+}
+
 // --- Main tick ---
 
 export function tickWorld(state: WorldState, deltaMs: number): WorldTickResult {
@@ -596,6 +765,8 @@ export function tickWorld(state: WorldState, deltaMs: number): WorldTickResult {
     if (!customer) continue
     if (customer.location === 'outside') {
       tickOutsideCharacter(customer, state, deltaMs)
+    } else if (customer.requestPlan) {
+      tickScriptedInterior(customer, state, deltaMs)
     } else {
       tickInteriorCharacter(customer, state, deltaMs)
     }

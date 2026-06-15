@@ -10,10 +10,11 @@ import { evaluateChoice, generateSingleConversation, generateWordQuiz, QuizMode 
 import { updateMastery } from '../lib/state'
 import type { UpgradeBonuses } from '../lib/upgrades'
 import { TILE_TO_UPGRADE_ID, getUpgradeCatalogEntry, getUpgradeTimeRemaining, formatTimeRemaining } from '../lib/upgrades'
-import { createWorldState, tickWorld, startConversation, endConversation, spawnCharacter, spawnCharacterInside } from '../lib/cafe-sim'
+import { createWorldState, tickWorld, startConversation, endConversation, spawnScriptedActor } from '../lib/cafe-sim'
+import { getLevel, starsForCoins, isLevelUnlocked, customerCount, type Level } from '../lib/levels'
 import { PATIO_UNLOCK_REP, PATIO_UNLOCK_COST } from '../lib/tilemap'
 import { buildPlacedTileMap, buildFurnishingPOIs, getAvailableSlots, ALL_FURNISHINGS } from '../lib/furnishing'
-import { getCharacter, getFriendshipLevel, FRIENDSHIP_GAIN, pickNextCharacter, VoiceProfile } from '../lib/characters'
+import { getCharacter, getFriendshipLevel, FRIENDSHIP_GAIN, VoiceProfile } from '../lib/characters'
 import { CUSTOMER_SPRITES, CUSTOMER_FACES, PALETTE, type FaceEmotion } from '../lib/sprites'
 import { updateQuestProgress, updateConversationEndProgress, hasClaimableQuest as checkClaimableQuest, QuestEvent } from '../lib/quests'
 import HUD from './HUD'
@@ -22,6 +23,8 @@ import ContactsView from './ContactsView'
 import UpgradeShop from './UpgradeShop'
 import DictionaryView from './DictionaryView'
 import QuestsView from './QuestsView'
+import LevelSelectView from './LevelSelectView'
+import SessionSummary, { type SessionResult } from './SessionSummary'
 
 interface GameplayViewProps {
   expressions: Expression[]
@@ -326,7 +329,6 @@ export default function GameplayView({
   const lastFrameRef = useRef(0)
 
   // Refs for on-demand spawning
-  const recentCharacterIdsRef = useRef<string[]>([])
   const playerStateRef = useRef(playerState)
   playerStateRef.current = playerState
 
@@ -340,6 +342,19 @@ export default function GameplayView({
   const [patiencePercent, setPatiencePercent] = useState(100)
   const [activeCharacterName, setActiveCharacterName] = useState<string | null>(null)
   const [activeSpriteVariant, setActiveSpriteVariant] = useState<number>(0)
+
+  // Session / level state
+  const [activeLevel, setActiveLevel] = useState<Level | null>(null)
+  const [showLevelSelect, setShowLevelSelect] = useState(false)
+  const [sessionResult, setSessionResult] = useState<SessionResult | null>(null)
+  const [sessionProgress, setSessionProgress] = useState<{ served: number; coins: number }>({ served: 0, coins: 0 })
+  const sessionRef = useRef<{
+    level: Level
+    target: number          // number of NPCs in this session
+    actorsSpawned: number   // how many have been spawned so far
+    actorsServed: number    // how many have finished their last request (and are leaving)
+    coinsEarned: number     // net coins this session
+  } | null>(null)
   const activeGenderRef = useRef<'male' | 'female'>('male')
   const activeVoiceRef = useRef<VoiceProfile | undefined>(undefined)
   const [friendshipGain, setFriendshipGain] = useState<number | null>(null)
@@ -432,18 +447,86 @@ export default function GameplayView({
     setPlacingItem(null)
   }, [placingItem, placedFurnishings, playerState.coins, onStateUpdate])
 
+  // --- Session lifecycle ---
+
+  function clearWorld(state: WorldState) {
+    state.characters = []
+    state.interiorPOIOccupancy.clear()
+    state.outsidePOIOccupancy.clear()
+    state.activeConvo = null
+  }
+
+  const startSession = useCallback((level: Level) => {
+    const state = cafeStateRef.current
+    if (!state) return
+    clearWorld(state)
+    state.spawnTimer = 600 // first customer arrives quickly
+    sessionRef.current = {
+      level,
+      target: customerCount(level),
+      actorsSpawned: 0,
+      actorsServed: 0,
+      coinsEarned: 0,
+    }
+    setSessionProgress({ served: 0, coins: 0 })
+    setSessionResult(null)
+    setShowLevelSelect(false)
+    setActiveLevel(level)
+  }, [])
+
+  const endSession = useCallback(() => {
+    const session = sessionRef.current
+    if (!session) return
+    const { level } = session
+    const netCoins = Math.round(session.coinsEarned)
+    const stars = starsForCoins(level, netCoins)
+
+    const ps = playerStateRef.current
+    const prevProgress = ps.levelProgress ?? {}
+    const wasNextUnlocked = isLevelUnlocked(level.id + 1, prevProgress)
+    const prev = prevProgress[level.id]
+    const bestStars = Math.max(prev?.stars ?? 0, stars)
+    const bestCoins = Math.max(prev?.bestCoins ?? 0, netCoins)
+    const updatedProgress = {
+      ...prevProgress,
+      [level.id]: { stars: bestStars, bestCoins },
+    }
+    onStateUpdate({ levelProgress: updatedProgress })
+
+    const nextLevel = getLevel(level.id + 1) ?? null
+    const nextUnlocked = isLevelUnlocked(level.id + 1, updatedProgress)
+    const newlyUnlocked = !wasNextUnlocked && nextUnlocked ? nextLevel : null
+
+    // Stop the session and clear the floor
+    sessionRef.current = null
+    setActiveLevel(null)
+    const state = cafeStateRef.current
+    if (state) clearWorld(state)
+
+    setSessionResult({ level, coins: netCoins, stars, newlyUnlocked, nextLevel, nextUnlocked, bestCoins, bestStars })
+  }, [onStateUpdate])
+
+  // Called when a scripted NPC finishes (or abandons) a request. If it was their
+  // last request, they're done being served and about to leave the shop, so the
+  // "customers left" counter drops; when all are served, the session ends.
+  const markRequestComplete = useCallback((customer: import('../lib/types').CustomerState) => {
+    const plan = customer.requestPlan
+    const session = sessionRef.current
+    if (!plan || !session) return
+    const isLastRequest = (customer.requestIndex ?? 0) + 1 >= plan.length
+    if (!isLastRequest) return
+    session.actorsServed += 1
+    setSessionProgress({ served: session.actorsServed, coins: Math.round(session.coinsEarned) })
+    if (session.actorsServed >= session.target) {
+      endSession()
+    }
+  }, [endSession])
+
   // Initialize simulation once on mount
   useEffect(() => {
     const state = createWorldState(0, patioUnlocked, tileOverrides, patioPOIs)
     cafeStateRef.current = state
     lastFrameRef.current = performance.now()
-
-    // Debug: spawn one character inside immediately
-    const { conversation, roundsTarget } = generateSingleConversation(
-      expressions, playerState.vocabulary, playerState.recencyBuffer, playerState.wrongQueue ?? [], quizMode
-    )
-    const charId = pickNextCharacter(playerState.reputation, playerState.relationships ?? {}, playerState.totalCustomersServed, [], [])
-    if (charId) spawnCharacterInside(state, conversation, charId, roundsTarget)
 
     // Initialize audio
     const audio = new Audio('/coffee_track.mp3')
@@ -500,29 +583,34 @@ export default function GameplayView({
 
       const result = tickWorld(state, deltaMs)
 
-      if (result.shouldSpawn) {
-        const ps = playerStateRef.current
-        // Collect characters currently in the world to avoid duplicates
-        const presentCharIds = state.characters.map(c => c.characterId)
-        const characterId = pickNextCharacter(
-          ps.reputation,
-          ps.relationships ?? {},
-          ps.totalCustomersServed,
-          recentCharacterIdsRef.current,
-          presentCharIds
-        )
-        // Empty string means all unlocked characters are already in the world
-        if (!characterId) { requestAnimationFrame(loop); return }
-        const { conversation, usedWordId, roundsTarget } = generateSingleConversation(
-          expressions, ps.vocabulary, ps.recencyBuffer, ps.wrongQueue ?? [], quizMode
-        )
-        spawnCharacter(state, conversation, characterId, roundsTarget)
+      const session = sessionRef.current
+      if (session) {
+        // Spawn the next scripted actor — a few can be in the shop at once.
+        const MAX_CONCURRENT = 3
+        if (
+          result.shouldSpawn &&
+          session.actorsSpawned < session.target &&
+          state.characters.length < MAX_CONCURRENT
+        ) {
+          const ps = playerStateRef.current
+          const actor = session.level.actors[session.actorsSpawned]
 
-        // Update recency buffers
-        recentCharacterIdsRef.current = [...recentCharacterIdsRef.current, characterId].slice(-5)
-        const newRecency = [...ps.recencyBuffer, usedWordId].slice(-10)
-        if (newRecency.join() !== ps.recencyBuffer.join()) {
-          onStateUpdate({ recencyBuffer: newRecency })
+          // Pre-generate the first question for each request stop (content varies each run).
+          const convos = []
+          let recency = ps.recencyBuffer
+          for (let k = 0; k < actor.requests.length; k++) {
+            const { conversation, usedWordId } = generateSingleConversation(
+              expressions, ps.vocabulary, recency, ps.wrongQueue ?? [], quizMode
+            )
+            convos.push(conversation)
+            recency = [...recency, usedWordId].slice(-10)
+          }
+
+          spawnScriptedActor(state, actor.characterId, actor.requests, convos)
+          session.actorsSpawned++
+          if (recency.join() !== ps.recencyBuffer.join()) {
+            onStateUpdate({ recencyBuffer: recency })
+          }
         }
       }
 
@@ -678,6 +766,15 @@ export default function GameplayView({
       setLastPenalty(null)
     }
 
+    // Accumulate net session earnings (tips minus penalties)
+    if (sessionRef.current) {
+      sessionRef.current.coinsEarned += result.tipAmount - coinPenalty
+      setSessionProgress({
+        served: sessionRef.current.actorsServed,
+        coins: Math.round(sessionRef.current.coinsEarned),
+      })
+    }
+
     // Update quest progress
     let updatedQuests = ps.quests
     if (updatedQuests) {
@@ -748,6 +845,9 @@ export default function GameplayView({
       if (ps.quests) {
         onStateUpdate({ quests: updateConversationEndProgress(ps.quests) })
       }
+
+      // If that was this NPC's last request, they're served and leaving.
+      markRequestComplete(customer)
     }
   }
 
@@ -789,6 +889,47 @@ export default function GameplayView({
         hasClaimableQuest={checkClaimableQuest(playerState.quests, playerState.coins, playerState.reputation)}
       />
 
+      {activeLevel && (() => {
+        const thresholds = activeLevel.starThresholds
+        const maxThreshold = thresholds[thresholds.length - 1]
+        const fillPct = Math.min(100, Math.max(0, (sessionProgress.coins / maxThreshold) * 100))
+        const remaining = Math.max(0, activeLevel.actors.length - sessionProgress.served)
+        return (
+          <div style={styles.sessionBar}>
+            <div style={styles.sessionCoins}>
+              <span style={{ fontSize: 13 }}>💰</span>
+              <span style={styles.sessionCoinsValue}>{sessionProgress.coins}</span>
+            </div>
+            <div style={styles.sessionTrack}>
+              <div style={{ ...styles.sessionFill, width: `${fillPct}%` }} />
+              {thresholds.map((th, i) => {
+                const earned = sessionProgress.coins >= th
+                const leftPct = Math.min(100, (th / maxThreshold) * 100)
+                return (
+                  <span
+                    key={i}
+                    style={{
+                      ...styles.sessionStar,
+                      left: `${leftPct}%`,
+                      color: earned ? '#FFD54F' : '#6D5750',
+                      textShadow: earned
+                        ? '0 0 4px rgba(255,213,79,0.9), 0 1px 2px rgba(0,0,0,0.8)'
+                        : '0 1px 2px rgba(0,0,0,0.8)',
+                    }}
+                  >
+                    ★
+                  </span>
+                )
+              })}
+            </div>
+            <div style={styles.sessionLeftBox}>
+              <span style={styles.sessionLeftNum}>{remaining}</span>
+              <span style={{ fontSize: 13 }}>👤</span>
+            </div>
+          </div>
+        )
+      })()}
+
       <CafeCanvas
         cafeStateRef={cafeStateRef}
         onCustomerTap={handleCustomerTap}
@@ -810,7 +951,9 @@ export default function GameplayView({
         onFurnishingTap={(itemId) => { playTapSound(); setInspectedFurnishingId(itemId) }}
         hideBottomButtons={!!activeExchange}
         hasReadyUpgrades={readyToInstallIds.length > 0}
-        lockInteraction={showContacts || showDictionary || showUpgradeShop || showQuests || showSettings || showPatioPrompt}
+        lockInteraction={showContacts || showDictionary || showUpgradeShop || showQuests || showSettings || showPatioPrompt || showLevelSelect || !!sessionResult}
+        onLevelsTap={() => setShowLevelSelect(true)}
+        sessionActive={!!activeLevel}
       />
 
       {/* Upgrade install toasts removed — red badge on upgrade button instead */}
@@ -1145,9 +1288,14 @@ export default function GameplayView({
                 wrongQueue: wq,
               })
             }
+            const customer = state?.activeConvo
+              ? state.characters.find(c => c.id === state.activeConvo!.customerId)
+              : undefined
             if (state) {
               endConversation(state)
             }
+            // Abandoning the request still completes it for session tracking.
+            if (customer) markRequestComplete(customer)
             setActiveExchange(null)
             setLastResult(null)
             setSelectedChoiceId(null)
@@ -1313,6 +1461,25 @@ export default function GameplayView({
           </div>
         </div>
       )}
+
+      {/* Level select */}
+      {showLevelSelect && (
+        <LevelSelectView
+          levelProgress={playerState.levelProgress ?? {}}
+          onStartLevel={startSession}
+          onClose={() => setShowLevelSelect(false)}
+        />
+      )}
+
+      {/* End-of-session summary */}
+      {sessionResult && (
+        <SessionSummary
+          result={sessionResult}
+          onReplay={() => startSession(sessionResult.level)}
+          onNextLevel={() => sessionResult.nextLevel && startSession(sessionResult.nextLevel)}
+          onBackToCafe={() => setSessionResult(null)}
+        />
+      )}
     </>
   )
 }
@@ -1325,6 +1492,72 @@ const SCORE_COLORS: Record<Score, string> = {
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  sessionBar: {
+    position: 'absolute',
+    top: 'calc(env(safe-area-inset-top) + 52px)',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '6px 12px',
+    width: 'calc(100% - 24px)',
+    maxWidth: 360,
+    boxSizing: 'border-box' as const,
+    background: 'rgba(62, 39, 35, 0.94)',
+    border: '1px solid #6D4C41',
+    borderRadius: 16,
+    zIndex: 16,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+  },
+  sessionCoins: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 3,
+    flexShrink: 0,
+  },
+  sessionCoinsValue: {
+    color: '#FFD54F',
+    fontSize: 13,
+    fontWeight: 800,
+    fontFamily: 'monospace',
+    minWidth: 22,
+  },
+  sessionTrack: {
+    position: 'relative' as const,
+    flex: 1,
+    height: 12,
+    background: '#2C1A12',
+    borderRadius: 6,
+    border: '1px solid #5D4037',
+    overflow: 'visible' as const,
+  },
+  sessionFill: {
+    height: '100%',
+    borderRadius: 6,
+    background: 'linear-gradient(90deg, #42A5F5 0%, #64B5F6 100%)',
+    transition: 'width 0.4s ease',
+  },
+  sessionStar: {
+    position: 'absolute' as const,
+    top: '50%',
+    transform: 'translate(-50%, -50%)',
+    fontSize: 18,
+    lineHeight: 1,
+    pointerEvents: 'none' as const,
+  },
+  sessionLeftBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 3,
+    flexShrink: 0,
+    color: '#FFEFD5',
+  },
+  sessionLeftNum: {
+    fontSize: 13,
+    fontWeight: 800,
+    fontFamily: 'monospace',
+  },
   toastContainer: {
     position: 'absolute',
     top: 40,

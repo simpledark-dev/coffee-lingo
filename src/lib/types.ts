@@ -87,6 +87,12 @@ export interface PlayerState {
   furnishingUpgrades?: Record<string, UpgradeLevel>
   wrongQueue?: WrongQueueEntry[]
   quests?: QuestsState
+  levelProgress?: Record<number, LevelProgress>
+}
+
+export interface LevelProgress {
+  stars: number       // best stars earned (0-3)
+  bestCoins: number   // best net coins earned in a session
 }
 
 export interface FurnishingBonus {
@@ -203,6 +209,12 @@ export interface CustomerState {
   outsideStopsRemaining: number   // outside POI stops before deciding next action
   hasActiveRequest: boolean
   roundsTarget: number
+  // Scripted session actors: an ordered list of request stops. Each entry is the
+  // number of questions asked at that stop. The NPC visits each, shows a persistent
+  // request, and leaves after the last one.
+  requestPlan?: number[]
+  requestIndex?: number                            // current request stop being executed
+  requestConversations?: CustomerConversation[]    // one pre-generated convo (first question) per stop
 }
 
 export interface ActiveConvo {
