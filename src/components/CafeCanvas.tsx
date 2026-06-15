@@ -282,8 +282,8 @@ export default function CafeCanvas({
   // Exclamation pulse animation
   const tickRef = useRef(0)
 
-  // Check if other room has exclamation customers
-  const [otherRoomAlert, setOtherRoomAlert] = useState(false)
+  // Pending requests (exclamations) in rooms left/right of the current one
+  const [roomAlerts, setRoomAlerts] = useState<{ left: boolean; right: boolean }>({ left: false, right: false })
 
   // Scene: interior (cafe + reading room) or outside
   const [scene, setScene] = useState<'interior' | 'outside'>('interior')
@@ -862,12 +862,15 @@ export default function CafeCanvas({
         if (alertCheckCounter >= 30) {
           alertCheckCounter = 0
           const room = currentRoomRef.current
-          const hasAlert = state.characters.some(c => {
-            if (c.location !== 'interior' || c.phase !== 'exclamation') return false
+          let left = false
+          let right = false
+          for (const c of state.characters) {
+            if (c.location !== 'interior' || c.phase !== 'exclamation') continue
             const customerRoom = Math.floor(c.worldPos.x / ROOM_W)
-            return customerRoom !== room
-          })
-          setOtherRoomAlert(hasAlert)
+            if (customerRoom < room) left = true
+            else if (customerRoom > room) right = true
+          }
+          setRoomAlerts(prev => (prev.left === left && prev.right === right ? prev : { left, right }))
         }
       }
 
@@ -1408,6 +1411,7 @@ export default function CafeCanvas({
               onClick={() => switchToRoom(currentRoom - 1)}
             >
               {'◀'}
+              {roomAlerts.left && <span style={styles.alertDot} />}
             </button>
           )}
           {currentRoom < 2 && (
@@ -1416,7 +1420,7 @@ export default function CafeCanvas({
               onClick={() => switchToRoom(currentRoom + 1)}
             >
               {'▶'}
-              {otherRoomAlert && <span style={styles.alertDot} />}
+              {roomAlerts.right && <span style={styles.alertDot} />}
             </button>
           )}
           {/* Room label */}
