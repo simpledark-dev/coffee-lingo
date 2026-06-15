@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { getRepLevel } from '../lib/upgrades'
 
 interface HUDProps {
@@ -16,13 +17,25 @@ export default function HUD({
   hasClaimableQuest,
 }: HUDProps) {
   const rep = getRepLevel(reputation)
+  const coinRef = useRef<HTMLSpanElement>(null)
+  const prevCoins = useRef(coins)
+
+  useEffect(() => {
+    if (coins > prevCoins.current && coinRef.current) {
+      coinRef.current.style.animation = 'none'
+      // Force reflow to restart animation
+      void coinRef.current.offsetHeight
+      coinRef.current.style.animation = 'coinPop 0.35s ease-out'
+    }
+    prevCoins.current = coins
+  }, [coins])
 
   return (
     <div style={styles.hud}>
       {/* Coins */}
       <div style={styles.stat}>
         <span style={styles.statIcon}>💰</span>
-        <span style={styles.coinValue}>{Math.round(coins)}</span>
+        <span ref={coinRef} style={styles.coinValue}>{Math.round(coins)}</span>
       </div>
 
       {/* Rep */}

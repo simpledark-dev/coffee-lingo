@@ -267,6 +267,44 @@ function speakFrench(text: string, gender: 'male' | 'female' = 'male', profile?:
   })
 }
 
+function spawnFlyingCoins(count: number) {
+  const container = document.getElementById('game-container')
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+  const cx = rect.left + rect.width / 2
+  const cy = rect.top + rect.height * 0.5
+  const tx = rect.left + 30
+  const ty = rect.top + 10
+
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div')
+    el.textContent = '🟡'
+    const sx = cx + (Math.random() - 0.5) * 60
+    const sy = cy + (Math.random() - 0.5) * 30
+    Object.assign(el.style, {
+      position: 'fixed',
+      left: `${sx}px`,
+      top: `${sy}px`,
+      zIndex: '9999',
+      pointerEvents: 'none',
+      fontSize: '24px',
+      transition: `transform 0.7s ease-in, opacity 0.5s ease-in 0.2s`,
+      transform: 'scale(1)',
+      opacity: '1',
+    })
+    document.body.appendChild(el)
+
+    // Trigger animation on next frame
+    requestAnimationFrame(() => {
+      el.style.transform = `translate(${tx - sx}px, ${ty - sy}px) scale(0.3)`
+      el.style.opacity = '0'
+    })
+
+    // Remove from DOM after animation
+    setTimeout(() => el.remove(), 900)
+  }
+}
+
 export default function GameplayView({
   expressions,
   playerState,
@@ -574,6 +612,11 @@ export default function GameplayView({
       : { score: 'MISSED' as Score, coveredRequired: [], coveredBonus: [], tipAmount: 0 }
 
     setLastResult(result)
+
+    // Spawn flying coins animation
+    if (result.tipAmount > 0) {
+      spawnFlyingCoins(Math.min(result.tipAmount, 8))
+    }
 
     if (result.score === 'PERFECT' || result.score === 'GOOD') playCoinSound()
     if (result.score === 'MISSED') playAwwSound()
@@ -1482,7 +1525,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   scoreContainer: {
     position: 'absolute',
-    bottom: '42%',
+    bottom: '50%',
     left: '50%',
     transform: 'translateX(-50%)',
     display: 'flex',
