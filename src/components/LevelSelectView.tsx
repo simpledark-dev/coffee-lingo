@@ -11,9 +11,9 @@ interface LevelSelectViewProps {
 
 function Stars({ count }: { count: number }) {
   return (
-    <div style={{ display: 'flex', gap: 2 }}>
+    <div style={{ display: 'flex', gap: 1 }}>
       {[1, 2, 3].map(i => (
-        <span key={i} style={{ fontSize: 14, color: i <= count ? '#FFD54F' : '#5D4037' }}>
+        <span key={i} style={{ fontSize: 13, color: i <= count ? '#FFD54F' : '#5D4037' }}>
           {i <= count ? '★' : '☆'}
         </span>
       ))}
@@ -30,33 +30,21 @@ export default function LevelSelectView({ levelProgress, onStartLevel, onClose }
           <button style={styles.close} onClick={onClose}>✕</button>
         </div>
 
-        <div style={styles.list}>
+        <div style={styles.grid}>
           {LEVELS.map(level => {
             const progress = levelProgress[level.id]
             const unlocked = isLevelUnlocked(level.id, levelProgress)
             return (
               <button
                 key={level.id}
-                style={{ ...styles.levelRow, opacity: unlocked ? 1 : 0.55, cursor: unlocked ? 'pointer' : 'default' }}
+                style={{ ...styles.cell, opacity: unlocked ? 1 : 0.5, cursor: unlocked ? 'pointer' : 'default' }}
                 disabled={!unlocked}
                 onClick={() => unlocked && onStartLevel(level)}
               >
-                <div style={styles.levelLeft}>
-                  <div style={styles.levelName}>
-                    {unlocked ? `Level ${level.id}` : '🔒 Locked'}
-                  </div>
-                  <div style={styles.levelSub}>
-                    {unlocked ? level.name : `Earn 1★ on Level ${level.id - 1}`}
-                  </div>
-                </div>
-                <div style={styles.levelRight}>
-                  <Stars count={progress?.stars ?? 0} />
-                  {unlocked && (
-                    <div style={styles.levelGoal}>
-                      {level.actors.length} guests · ★{level.starThresholds[0]} / ★★{level.starThresholds[1]} / ★★★{level.starThresholds[2]}
-                    </div>
-                  )}
-                </div>
+                {!unlocked && <span style={styles.lock}>🔒</span>}
+                <div style={styles.cellLevel}>Level {level.id}</div>
+                <div style={styles.cellTitle}>{level.name}</div>
+                <Stars count={progress?.stars ?? 0} />
               </button>
             )
           })}
@@ -84,7 +72,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '2px solid #5D4037',
     boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 400,
     maxHeight: '80vh',
     display: 'flex',
     flexDirection: 'column' as const,
@@ -110,47 +98,43 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     cursor: 'pointer',
   },
-  list: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 10,
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: 8,
     overflowY: 'auto' as const,
   },
-  levelRow: {
+  cell: {
+    position: 'relative' as const,
     display: 'flex',
+    flexDirection: 'column' as const,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    textAlign: 'left' as const,
+    justifyContent: 'center',
+    gap: 4,
+    minHeight: 78,
+    padding: '10px 6px',
     backgroundColor: '#4E342E',
     border: '2px solid #5D4037',
     borderRadius: 10,
-    padding: '12px 14px',
   },
-  levelLeft: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 3,
+  lock: {
+    position: 'absolute' as const,
+    top: 4,
+    right: 6,
+    fontSize: 11,
   },
-  levelName: {
-    fontSize: 15,
+  cellLevel: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: '#8D6E63',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+  },
+  cellTitle: {
+    fontSize: 12,
     fontWeight: 700,
     color: '#FFEFD5',
-  },
-  levelSub: {
-    fontSize: 11,
-    color: '#BCAAA4',
-  },
-  levelRight: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  levelGoal: {
-    fontSize: 9,
-    color: '#8D6E63',
-    fontFamily: 'monospace',
-    textAlign: 'right' as const,
+    textAlign: 'center' as const,
+    lineHeight: 1.15,
   },
 }
