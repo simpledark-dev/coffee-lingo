@@ -11,9 +11,17 @@ interface LevelSelectViewProps {
 
 function Stars({ count }: { count: number }) {
   return (
-    <div style={{ display: 'flex', gap: 1 }}>
+    <div style={{ display: 'flex', gap: 2 }}>
       {[1, 2, 3].map(i => (
-        <span key={i} style={{ fontSize: 13, color: i <= count ? '#FFD54F' : '#5D4037' }}>
+        <span
+          key={i}
+          style={{
+            fontSize: 14,
+            lineHeight: 1,
+            color: i <= count ? '#FFD54F' : '#9E8579',
+            textShadow: '0 1px 1px rgba(0,0,0,0.5)',
+          }}
+        >
           {i <= count ? '★' : '☆'}
         </span>
       ))}
@@ -37,7 +45,7 @@ export default function LevelSelectView({ levelProgress, onStartLevel, onClose }
             return (
               <button
                 key={level.id}
-                style={{ ...styles.cell, opacity: unlocked ? 1 : 0.5, cursor: unlocked ? 'pointer' : 'default' }}
+                style={{ ...styles.cell, opacity: unlocked ? 1 : 0.7, cursor: unlocked ? 'pointer' : 'default' }}
                 disabled={!unlocked}
                 onClick={() => unlocked && onStartLevel(level)}
               >
