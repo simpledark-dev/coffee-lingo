@@ -260,6 +260,7 @@ export function pickNextPOI(
   occupiedPositions?: Set<string>,
   patioUnlocked: boolean = true,
   extraPOIs?: PointOfInterest[],
+  nearTo?: { row: number; col: number },  // bias toward POIs close to this grid position
 ): PointOfInterest | null {
   const allPOIs = extraPOIs ? [...POINTS_OF_INTEREST, ...extraPOIs] : POINTS_OF_INTEREST
   const available = allPOIs.filter(poi => {
@@ -272,6 +273,16 @@ export function pickNextPOI(
   })
 
   if (available.length === 0) return null
+
+  // When biased, pick randomly among the 3 nearest (short walk + a little variety).
+  if (nearTo) {
+    const dist = (p: PointOfInterest) =>
+      Math.abs(p.pos.row - nearTo.row) + Math.abs(p.pos.col - nearTo.col)
+    const sorted = [...available].sort((a, b) => dist(a) - dist(b))
+    const k = Math.min(3, sorted.length)
+    return sorted[Math.floor(Math.random() * k)]
+  }
+
   return available[Math.floor(Math.random() * available.length)]
 }
 

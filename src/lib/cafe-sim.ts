@@ -442,9 +442,16 @@ function transitionToInterior(customer: CustomerState, state: WorldState): void 
     customer.stopsRemaining = Math.floor(randomBetween(INTERIOR_STOPS_MIN, INTERIOR_STOPS_MAX + 1))
   }
 
-  // Find first interior destination
+  // Find first interior destination. A scripted actor heads for a seat near the
+  // door (café area) only when nobody else has a pending request — i.e. when the
+  // player would otherwise be left waiting. If someone's already waiting to be
+  // served, this newcomer is free to roam to far seats (reading room, patio).
   const blocked = getInteriorBlocked(state, customer.id)
-  const poi = pickNextPOI(null, state.interiorPOIOccupancy, blocked, state.patioUnlocked, state.patioPOIs)
+  const someoneToServe = state.characters.some(c =>
+    c.id !== customer.id && c.location === 'interior' && c.hasActiveRequest
+  )
+  const entryNear = customer.requestPlan && !someoneToServe ? DOOR_ENTRY : undefined
+  const poi = pickNextPOI(null, state.interiorPOIOccupancy, blocked, state.patioUnlocked, state.patioPOIs, entryNear)
   if (poi) {
     customer.path = findPath(DOOR_ENTRY, poi.pos, blocked, state.patioUnlocked, state.tileOverrides)
     customer.targetPOI = poi.id
@@ -671,13 +678,15 @@ function goToNextScriptedStop(customer: CustomerState, state: WorldState): void 
   }
 
   const blocked = getInteriorBlocked(state, customer.id)
-  const poi = pickNextPOI(prevPOI, state.interiorPOIOccupancy, blocked, state.patioUnlocked, state.patioPOIs)
+  const currentGrid = worldToGrid(customer.worldPos)
+  // Next request stop should be close by, so the wait between this NPC's
+  // back-to-back conversations stays short.
+  const poi = pickNextPOI(prevPOI, state.interiorPOIOccupancy, blocked, state.patioUnlocked, state.patioPOIs, currentGrid)
   if (!poi) {
     startInteriorExiting(customer, state)
     return
   }
 
-  const currentGrid = worldToGrid(customer.worldPos)
   const path = findPath(currentGrid, poi.pos, blocked, state.patioUnlocked, state.tileOverrides)
   if (path.length === 0) {
     startInteriorExiting(customer, state)

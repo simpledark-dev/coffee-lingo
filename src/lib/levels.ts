@@ -24,12 +24,12 @@ export const LEVELS: Level[] = [
     name: 'Morning Rush',
     starThresholds: [20, 30, 40], // 6 questions total
     actors: [
-      { characterId: 'marie', requests: [2] },     // 1 stop, 2 questions
-      { characterId: 'jean', requests: [1] },      // 1 stop, 1 question
-      { characterId: 'lucas', requests: [1, 1] },  // 2 stops, 1 each
-      { characterId: 'sophie', requests: [1] },
-      { characterId: 'camille', requests: [1] },
-      { characterId: 'lucas', requests: [2] },
+      { characterId: 'marie', requests: [3] },     // 1 stop, 2 questions
+      { characterId: 'jean', requests: [3] },      // 1 stop, 1 question
+      { characterId: 'lucas', requests: [3, 3] },  // 2 stops, 1 each
+      { characterId: 'sophie', requests: [3] },
+      { characterId: 'camille', requests: [3] },
+      { characterId: 'lucas', requests: [3] },
     ],
   },
   {
